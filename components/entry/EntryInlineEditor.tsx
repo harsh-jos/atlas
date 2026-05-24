@@ -3,7 +3,7 @@
 import * as React from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
-import { Check, Eye } from 'lucide-react';
+import { AlertCircle, Check, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { EntryStatus } from '@prisma/client';
 import type { EntryArtifactData, EntryEditorCollection } from '@/lib/entry-data';
@@ -30,33 +30,70 @@ export function EntryInlineEditor({ entry, collections }: EntryInlineEditorProps
   const [status, setStatus] = React.useState<EntryStatus>(entry.status);
   const [collectionId, setCollectionId] = React.useState(entry.collectionId);
   const [isSaving, setIsSaving] = React.useState(false);
+  const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+
+  const draft = React.useMemo(
+    () => ({
+      title,
+      summary,
+      body,
+      tags: parseTags(tags),
+      status,
+      collectionId,
+    }),
+    [body, collectionId, status, summary, tags, title]
+  );
+
+  const initialDraft = React.useMemo(
+    () => ({
+      title: entry.title,
+      summary: entry.summary ?? '',
+      body: entry.body ?? '',
+      tags: entry.tags,
+      status: entry.status,
+      collectionId: entry.collectionId,
+    }),
+    [entry.body, entry.collectionId, entry.status, entry.summary, entry.tags, entry.title]
+  );
+
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(initialDraft);
+
+  React.useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        void saveEntry('editor');
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
 
   async function saveEntry(destination: 'editor' | 'reader') {
     if (isSaving) return;
 
     setIsSaving(true);
+    setErrorMessage(null);
     const response = await fetch(`/api/entries/${entry.slug}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        title,
-        summary,
-        body,
-        tags: parseTags(tags),
-        status,
-        collectionId,
-      }),
+      body: JSON.stringify(draft),
     });
 
     setIsSaving(false);
 
     if (!response.ok) {
+      setErrorMessage('Could not save this entry. Try again.');
       return;
     }
 
     const savedEntry = (await response.json()) as SavedEntryResponse;
+    setLastSavedAt(new Date());
     const nextPath =
       destination === 'editor'
         ? `/entries/${savedEntry.slug}?edit=true`
@@ -77,6 +114,16 @@ export function EntryInlineEditor({ entry, collections }: EntryInlineEditorProps
             <span className="text-xs text-zinc-400">{entry.collection.name}</span>
           </div>
           <h1 className="text-lg font-medium text-zinc-900">Edit entry</h1>
+          <p className="mt-1 text-xs text-zinc-400">
+            {isDirty
+              ? 'Unsaved changes'
+              : lastSavedAt
+                ? `Saved ${lastSavedAt.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`
+                : 'No changes yet'}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -90,6 +137,13 @@ export function EntryInlineEditor({ entry, collections }: EntryInlineEditorProps
           </Button>
         </div>
       </div>
+
+      {errorMessage && (
+        <div className="mb-5 flex items-center gap-2 rounded-lg border-thin border-red-200/70 bg-red-50/60 px-3 py-2 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {errorMessage}
+        </div>
+      )}
 
       <div className="grid gap-5">
         <label className="grid gap-2">
