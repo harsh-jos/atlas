@@ -48,3 +48,28 @@ export async function getEntryEditorCollections() {
 }
 
 export type EntryEditorCollection = Awaited<ReturnType<typeof getEntryEditorCollections>>[number];
+
+export async function getEntryRelationCandidates(entryId: string) {
+  return db.entry.findMany({
+    where: {
+      id: {
+        not: entryId,
+      },
+    },
+    orderBy: {
+      title: 'asc',
+    },
+    select: {
+      id: true,
+      title: true,
+      collection: {
+        select: {
+          name: true,
+          color: true,
+        },
+      },
+    },
+  });
+}
+
+export type EntryRelationCandidate = Awaited<ReturnType<typeof getEntryRelationCandidates>>[number];

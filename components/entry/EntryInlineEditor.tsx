@@ -6,22 +6,39 @@ import { markdown } from '@codemirror/lang-markdown';
 import { AlertCircle, Check, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { EntryStatus } from '@prisma/client';
-import type { EntryArtifactData, EntryEditorCollection } from '@/lib/entry-data';
+import type {
+  EntryArtifactData,
+  EntryEditorCollection,
+  EntryRelationCandidate,
+} from '@/lib/entry-data';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Badge } from '@/components/ui/Badge';
+import {
+  EditableSource,
+  EntrySourceEditor,
+} from '@/components/entry/EntrySourceEditor';
+import {
+  EditableRelation,
+  EntryRelationEditor,
+} from '@/components/entry/EntryRelationEditor';
 
 export interface EntryInlineEditorProps {
   entry: EntryArtifactData;
   collections: EntryEditorCollection[];
+  relationCandidates: EntryRelationCandidate[];
 }
 
 interface SavedEntryResponse {
   slug: string;
 }
 
-export function EntryInlineEditor({ entry, collections }: EntryInlineEditorProps) {
+export function EntryInlineEditor({
+  entry,
+  collections,
+  relationCandidates,
+}: EntryInlineEditorProps) {
   const router = useRouter();
   const [title, setTitle] = React.useState(entry.title);
   const [summary, setSummary] = React.useState(entry.summary ?? '');
@@ -29,6 +46,24 @@ export function EntryInlineEditor({ entry, collections }: EntryInlineEditorProps
   const [tags, setTags] = React.useState(entry.tags.join(', '));
   const [status, setStatus] = React.useState<EntryStatus>(entry.status);
   const [collectionId, setCollectionId] = React.useState(entry.collectionId);
+  const [sources, setSources] = React.useState<EditableSource[]>(() =>
+    entry.sources.map((source) => ({
+      id: source.id,
+      sourceType: source.sourceType,
+      title: source.title,
+      author: source.author ?? '',
+      url: source.url ?? '',
+      ref: source.ref ?? '',
+    }))
+  );
+  const [relations, setRelations] = React.useState<EditableRelation[]>(() =>
+    entry.relationsFrom.map((relation) => ({
+      id: relation.id,
+      toId: relation.toId,
+      relationType: relation.relationType,
+      note: relation.note ?? '',
+    }))
+  );
   const [isSaving, setIsSaving] = React.useState(false);
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
@@ -41,8 +76,10 @@ export function EntryInlineEditor({ entry, collections }: EntryInlineEditorProps
       tags: parseTags(tags),
       status,
       collectionId,
+      sources,
+      relations,
     }),
-    [body, collectionId, status, summary, tags, title]
+    [body, collectionId, relations, sources, status, summary, tags, title]
   );
 
   const initialDraft = React.useMemo(
@@ -53,8 +90,31 @@ export function EntryInlineEditor({ entry, collections }: EntryInlineEditorProps
       tags: entry.tags,
       status: entry.status,
       collectionId: entry.collectionId,
+      sources: entry.sources.map((source) => ({
+        id: source.id,
+        sourceType: source.sourceType,
+        title: source.title,
+        author: source.author ?? '',
+        url: source.url ?? '',
+        ref: source.ref ?? '',
+      })),
+      relations: entry.relationsFrom.map((relation) => ({
+        id: relation.id,
+        toId: relation.toId,
+        relationType: relation.relationType,
+        note: relation.note ?? '',
+      })),
     }),
-    [entry.body, entry.collectionId, entry.status, entry.summary, entry.tags, entry.title]
+    [
+      entry.body,
+      entry.collectionId,
+      entry.relationsFrom,
+      entry.sources,
+      entry.status,
+      entry.summary,
+      entry.tags,
+      entry.title,
+    ]
   );
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initialDraft);
@@ -215,6 +275,14 @@ export function EntryInlineEditor({ entry, collections }: EntryInlineEditorProps
             />
           </div>
         </label>
+
+        <EntrySourceEditor sources={sources} onChange={setSources} />
+
+        <EntryRelationEditor
+          relations={relations}
+          candidates={relationCandidates}
+          onChange={setRelations}
+        />
       </div>
     </div>
   );
