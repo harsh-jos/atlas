@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { createUniqueEntrySlug } from '@/lib/entry-slugs';
 
 export async function POST() {
   try {
@@ -20,25 +21,8 @@ export async function POST() {
     }
 
     // 2. Determine a unique title and slug for the new entry
-    let title = 'Untitled';
-    let slug = 'untitled';
-    let count = 0;
-
-    while (true) {
-      const currentSlug = count === 0 ? slug : `${slug}-${count}`;
-      const currentTitle = count === 0 ? title : `${title} ${count}`;
-
-      const existingEntry = await db.entry.findUnique({
-        where: { slug: currentSlug },
-      });
-
-      if (!existingEntry) {
-        slug = currentSlug;
-        title = currentTitle;
-        break;
-      }
-      count++;
-    }
+    const title = 'Untitled';
+    const slug = await createUniqueEntrySlug(title);
 
     // 3. Create the blank entry
     const entry = await db.entry.create({

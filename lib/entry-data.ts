@@ -33,3 +33,18 @@ export async function getEntryArtifact(slug: string) {
 }
 
 export type EntryArtifactData = NonNullable<Awaited<ReturnType<typeof getEntryArtifact>>>;
+
+export async function getEntryEditorCollections() {
+  return db.collection.findMany({
+    orderBy: {
+      name: 'asc',
+    },
+    select: {
+      id: true,
+      name: true,
+      color: true,
+    },
+  });
+}
+
+export type EntryEditorCollection = Awaited<ReturnType<typeof getEntryEditorCollections>>[number];
