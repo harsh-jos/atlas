@@ -5,6 +5,8 @@ import { timeAgo } from '@/lib/utils';
 import Link from 'next/link';
 import { FileText, Send, PenLine } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 async function getHomeData() {
   const [collections, totalEntries, publishedEntries, draftEntries, recentEntries] =
     await Promise.all([
