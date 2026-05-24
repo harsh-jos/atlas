@@ -2,7 +2,7 @@ import type * as React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
-import { CollectionHeader } from '@/components/collection/CollectionHeader';
+import { CollectionDetailHeader } from '@/components/collection/CollectionDetailHeader';
 import { EntryCard } from '@/components/entry/EntryCard';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -70,7 +70,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
         ]}
       />
 
-      <CollectionHeader
+      <CollectionDetailHeader
+        slug={collection.slug}
         name={collection.name}
         description={collection.description}
         color={collection.color}

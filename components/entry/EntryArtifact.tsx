@@ -8,6 +8,7 @@ import { EntrySummary } from '@/components/entry/EntrySummary';
 import { MarkdownBody } from '@/components/entry/MarkdownBody';
 import { EntrySources } from '@/components/entry/EntrySources';
 import { EntryRelations } from '@/components/entry/EntryRelations';
+import { EntryMetadata } from '@/components/entry/EntryMetadata';
 import { formatDate } from '@/lib/utils';
 
 export interface EntryArtifactProps {
@@ -87,7 +88,10 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
           </div>
         </article>
 
-        <EntryRelations outgoing={entry.relationsFrom} incoming={entry.relationsTo} />
+        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          <EntryMetadata metadata={entry.metadata} />
+          <EntryRelations outgoing={entry.relationsFrom} incoming={entry.relationsTo} />
+        </div>
       </div>
     </div>
   );

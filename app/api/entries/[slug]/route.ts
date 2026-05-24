@@ -153,6 +153,24 @@ export async function PATCH(request: Request, context: EntryRouteContext) {
   return NextResponse.json(entry);
 }
 
+export async function DELETE(_request: Request, context: EntryRouteContext) {
+  const { slug } = await context.params;
+
+  const existing = await db.entry.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
+  }
+
+  // Sources and relations cascade on delete (see schema).
+  await db.entry.delete({ where: { id: existing.id } });
+
+  return NextResponse.json({ ok: true });
+}
+
 function readString(value: unknown) {
   return typeof value === 'string' ? value : undefined;
 }

@@ -68,7 +68,7 @@ export function EntryRelations({ outgoing, incoming }: EntryRelationsProps) {
   const groups = buildGroups(outgoing, incoming);
 
   return (
-    <aside className="rounded-2xl border-thin bg-surface p-5 lg:sticky lg:top-20">
+    <aside className="rounded-2xl border-thin bg-surface p-5">
       <h2 className="mb-4 text-[15px] font-semibold text-ink">Relations</h2>
       {groups.length > 0 ? (
         <div className="space-y-5">

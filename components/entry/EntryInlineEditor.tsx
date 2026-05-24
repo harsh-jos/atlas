@@ -3,7 +3,7 @@
 import * as React from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
-import { AlertCircle, Check, Eye } from 'lucide-react';
+import { AlertCircle, Check, Eye, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { EntryStatus } from '@prisma/client';
 import type {
@@ -65,6 +65,7 @@ export function EntryInlineEditor({
     }))
   );
   const [isSaving, setIsSaving] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
@@ -163,8 +164,29 @@ export function EntryInlineEditor({
     router.refresh();
   }
 
+  async function deleteEntry() {
+    if (isDeleting) return;
+    const confirmed = window.confirm(
+      `Delete “${entry.title}”? This also removes its sources and relations. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setErrorMessage(null);
+    const response = await fetch(`/api/entries/${entry.slug}`, { method: 'DELETE' });
+
+    if (!response.ok) {
+      setIsDeleting(false);
+      setErrorMessage('Could not delete this entry. Try again.');
+      return;
+    }
+
+    router.push(`/collections/${entry.collection.slug}`);
+    router.refresh();
+  }
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="mb-2 flex items-center gap-2">
@@ -187,6 +209,16 @@ export function EntryInlineEditor({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700"
+            disabled={isDeleting}
+            onClick={deleteEntry}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {isDeleting ? 'Deleting' : 'Delete'}
+          </Button>
           <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => saveEntry('reader')}>
             <Eye className="h-3.5 w-3.5" />
             Done
