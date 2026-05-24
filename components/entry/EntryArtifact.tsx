@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Pencil } from 'lucide-react';
+import { Pencil, PencilLine } from 'lucide-react';
 import type { EntryArtifactData } from '@/lib/entry-data';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -15,6 +15,11 @@ export interface EntryArtifactProps {
 }
 
 export function EntryArtifact({ entry }: EntryArtifactProps) {
+  // Match what the Relations panel shows: all outgoing + incoming except
+  // SEE_ALSO (which is always stored in both directions).
+  const incomingShown = entry.relationsTo.filter((r) => r.relationType !== 'SEE_ALSO');
+  const relationCount = entry.relationsFrom.length + incomingShown.length;
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <Breadcrumb
@@ -62,13 +67,18 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
               </span>
               <span aria-hidden="true">·</span>
               <span>
-                {entry._count.relationsFrom}{' '}
-                {entry._count.relationsFrom === 1 ? 'relation' : 'relations'}
+                {relationCount} {relationCount === 1 ? 'relation' : 'relations'}
               </span>
             </div>
           </header>
 
           <div className="max-w-[72ch]">
+            {entry.status === 'DRAFT' && (
+              <div className="mb-4 flex items-center gap-2 rounded-lg border-thin border-zinc-200/80 bg-zinc-50/60 px-3 py-2 text-xs text-zinc-500">
+                <PencilLine className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                <span>This entry is a draft — it’s hidden from the graph and default lists.</span>
+              </div>
+            )}
             <EntrySummary summary={entry.summary} />
             <div className="mt-8">
               <MarkdownBody body={entry.body} />
@@ -77,7 +87,7 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
           </div>
         </article>
 
-        <EntryRelations relations={entry.relationsFrom} />
+        <EntryRelations outgoing={entry.relationsFrom} incoming={entry.relationsTo} />
       </div>
     </div>
   );

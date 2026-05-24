@@ -2,7 +2,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import { timeAgo } from '@/lib/utils';
+import { cn, timeAgo } from '@/lib/utils';
 
 export interface EntryCardProps {
   title: string;
@@ -23,23 +23,31 @@ export function EntryCard({
   sourceCount,
   updatedAt,
 }: EntryCardProps) {
+  const isDraft = status === 'DRAFT';
+
   return (
     <Link
       href={`/entries/${slug}`}
-      className="group flex items-start gap-4 px-4 py-3.5 hover:bg-zinc-50/50 transition-colors"
+      className={cn(
+        'group flex items-start gap-4 px-4 py-3.5 transition-colors',
+        // Drafts sit on a faint tinted surface to read as in-progress.
+        isDraft ? 'bg-zinc-50/60 hover:bg-zinc-100/50' : 'hover:bg-zinc-50/50'
+      )}
     >
       {/* Main content */}
       <div className="flex-1 min-w-0">
         {/* Title row */}
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-medium text-zinc-800 group-hover:text-zinc-950 transition-colors truncate">
+          <span
+            className={cn(
+              'text-sm font-medium transition-colors truncate',
+              isDraft ? 'text-zinc-500 group-hover:text-zinc-700' : 'text-zinc-800 group-hover:text-zinc-950'
+            )}
+          >
             {title}
           </span>
-          {status === 'DRAFT' && (
+          {isDraft && (
             <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
-          )}
-          {status === 'PUBLISHED' && (
-            <Badge variant="success" className="text-[10px] shrink-0">Published</Badge>
           )}
         </div>
 

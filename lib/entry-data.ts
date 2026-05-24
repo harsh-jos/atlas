@@ -22,10 +22,25 @@ export async function getEntryArtifact(slug: string) {
           },
         },
       },
+      // Incoming relations — rendered with inverse labels (e.g. "Used by").
+      // SEE_ALSO is filtered out in the UI since both directions are stored.
+      relationsTo: {
+        orderBy: {
+          createdAt: 'asc',
+        },
+        include: {
+          from: {
+            include: {
+              collection: true,
+            },
+          },
+        },
+      },
       _count: {
         select: {
           sources: true,
           relationsFrom: true,
+          relationsTo: true,
         },
       },
     },

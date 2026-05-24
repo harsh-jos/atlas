@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { searchEntries, searchResultExcerpt } from '@/lib/search';
 import { timeAgo } from '@/lib/utils';
 
@@ -77,9 +78,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border-thin border-zinc-200/80 bg-white p-8">
-          <p className="text-sm text-zinc-500">No entries matched this search.</p>
-        </div>
+        <EmptyState
+          icon={<Search className="h-4 w-4" />}
+          title="No entries matched"
+          description={`Nothing found for “${query}”. Try a different term or broaden the search.`}
+        />
       )}
     </div>
   );

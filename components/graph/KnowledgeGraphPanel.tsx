@@ -1,6 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { Share2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import type { KnowledgeGraphData } from '@/lib/graph-data';
 
 const KnowledgeGraphCanvas = dynamic(
@@ -22,9 +24,11 @@ export interface KnowledgeGraphPanelProps {
 export function KnowledgeGraphPanel({ data }: KnowledgeGraphPanelProps) {
   if (data.nodes.length === 0) {
     return (
-      <div className="rounded-lg border-thin border-zinc-200/80 bg-white p-8">
-        <p className="text-sm text-zinc-500">Publish entries to populate the graph.</p>
-      </div>
+      <EmptyState
+        icon={<Share2 className="h-4 w-4" />}
+        title="The graph is empty"
+        description="Publish entries and connect them with relations to see them here."
+      />
     );
   }
 

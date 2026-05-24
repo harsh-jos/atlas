@@ -5,6 +5,8 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { CollectionHeader } from '@/components/collection/CollectionHeader';
 import { EntryCard } from '@/components/entry/EntryCard';
 import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { FileText } from 'lucide-react';
 import {
   CollectionSort,
   CollectionStatusFilter,
@@ -148,10 +150,19 @@ export default async function CollectionPage({ params, searchParams }: Collectio
             />
           ))}
         </div>
+      ) : collection._count.entries > 0 ? (
+        <EmptyState
+          icon={<FileText className="h-4 w-4" />}
+          title="No entries match this filter"
+          description="Nothing here for the current status or tag selection."
+          action={{ label: 'View all entries', href: `/collections/${collection.slug}?status=all` }}
+        />
       ) : (
-        <div className="rounded-lg border-thin border-zinc-200/80 bg-white p-8 text-center">
-          <p className="text-sm text-zinc-500">No entries match this view.</p>
-        </div>
+        <EmptyState
+          icon={<FileText className="h-4 w-4" />}
+          title="No entries in this collection yet"
+          description="Use “New entry” in the top navigation to add the first one."
+        />
       )}
     </div>
   );

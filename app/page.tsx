@@ -1,5 +1,6 @@
 import db from '@/lib/db';
 import { CollectionCard } from '@/components/collection/CollectionCard';
+import { NewCollectionCard } from '@/components/collection/NewCollectionCard';
 import { Badge } from '@/components/ui/Badge';
 import { timeAgo } from '@/lib/utils';
 import Link from 'next/link';
@@ -46,25 +47,20 @@ export default async function HomePage() {
       </div>
 
       {/* Collections grid */}
-      {collections.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-12">
-          {collections.map((collection) => (
-            <CollectionCard
-              key={collection.id}
-              name={collection.name}
-              slug={collection.slug}
-              description={collection.description}
-              color={collection.color}
-              entryCount={collection._count.entries}
-              updatedAt={collection.updatedAt}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-lg border-thin border-zinc-200/80 bg-white p-8 text-center mb-12">
-          <p className="text-sm text-zinc-400">No collections yet.</p>
-        </div>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-12">
+        {collections.map((collection) => (
+          <CollectionCard
+            key={collection.id}
+            name={collection.name}
+            slug={collection.slug}
+            description={collection.description}
+            color={collection.color}
+            entryCount={collection._count.entries}
+            updatedAt={collection.updatedAt}
+          />
+        ))}
+        <NewCollectionCard />
+      </div>
 
       {/* Recently updated */}
       {recentEntries.length > 0 && (

@@ -60,9 +60,28 @@ export function KnowledgeGraphCanvas({ data }: KnowledgeGraphCanvasProps) {
     return () => resizeObserver.disconnect();
   }, []);
 
+  // Spread nodes out so labels don't collide; defaults pack them too tightly.
   React.useEffect(() => {
-    graphRef.current?.zoomToFit(400, 64);
+    const graph = graphRef.current;
+    if (!graph) return;
+    graph.d3Force('charge')?.strength(-220);
+    graph.d3Force('link')?.distance(90);
+    graph.d3ReheatSimulation();
   }, [graphData]);
+
+  const handleEngineStop = React.useCallback(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    graph.zoomToFit(400, 80);
+    // zoomToFit fills the viewport, which over-zooms small graphs (giant
+    // nodes, overlapping labels). Clamp to a sane max once the fit lands.
+    window.setTimeout(() => {
+      const g = graphRef.current;
+      if (g && g.zoom() > 2.5) {
+        g.zoom(2.5, 400);
+      }
+    }, 450);
+  }, []);
 
   return (
     <div className="overflow-hidden rounded-lg border-thin border-zinc-200/80 bg-white">
@@ -90,6 +109,8 @@ export function KnowledgeGraphCanvas({ data }: KnowledgeGraphCanvasProps) {
           linkDirectionalArrowRelPos={1}
           linkWidth={1}
           cooldownTicks={80}
+          warmupTicks={40}
+          onEngineStop={handleEngineStop}
           onNodeClick={(node) => router.push(`/entries/${node.slug}`)}
           nodeCanvasObject={paintNode}
           nodePointerAreaPaint={paintNodePointerArea}
@@ -101,7 +122,8 @@ export function KnowledgeGraphCanvas({ data }: KnowledgeGraphCanvasProps) {
 
 function paintNode(node: GraphNode, context: CanvasRenderingContext2D, globalScale: number) {
   const label = node.title;
-  const fontSize = Math.max(9, 12 / globalScale);
+  // Keep label ~12px on screen at any zoom (divide by scale; no graph-unit floor).
+  const fontSize = 12 / globalScale;
   const radius = 4.5;
   const x = node.x ?? 0;
   const y = node.y ?? 0;
