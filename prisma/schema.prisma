@@ -1,0 +1,89 @@
+// schema.prisma
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+model Collection {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  color       String?  // hex or named token — drives card accent and graph cluster color
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  entries     Entry[]
+}
+
+model Entry {
+  id           String       @id @default(uuid())
+  title        String
+  slug         String       @unique
+  summary      String?      // 2–3 sentence distillation — this is the RAG chunk when embeddings are added
+  body         String?      // full markdown content
+  tags         String[]     // optional, multi-value, user-defined. NOT an enum. e.g. ["paper", "concept", "foundational"]
+  status       EntryStatus  @default(DRAFT)
+  collectionId String
+  collection   Collection   @relation(fields: [collectionId], references: [id])
+  metadata     Json?        // jsonb escape hatch — store arbitrary structured data (e.g. arxiv_id, year, venue)
+  embedding    Unsupported("vector(1536)")?  // null in v1. populated when AI layer is added.
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  sources      Source[]
+  relationsFrom Relation[]  @relation("RelationFrom")
+  relationsTo   Relation[]  @relation("RelationTo")
+}
+
+enum EntryStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Source {
+  id          String     @id @default(uuid())
+  entryId     String
+  entry       Entry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  sourceType  SourceType
+  title       String
+  author      String?
+  url         String?
+  ref         String?    // chapter, page number, section — e.g. "Chapter 3, p.47" or "Section 3.2"
+  createdAt   DateTime   @default(now())
+}
+
+enum SourceType {
+  BOOK
+  PAPER
+  DOCS
+  TUTORIAL
+  COURSE
+  WEBSITE
+}
+
+model Relation {
+  id           String       @id @default(uuid())
+  fromId       String
+  toId         String
+  from         Entry        @relation("RelationFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to           Entry        @relation("RelationTo", fields: [toId], references: [id], onDelete: Cascade)
+  relationType RelationType
+  note         String?      // optional annotation on the edge — e.g. "used in the context of fine-tuning"
+  createdAt    DateTime     @default(now())
+
+  @@unique([fromId, toId, relationType])
+}
+
+enum RelationType {
+  PART_OF       // this entry is a component of the target
+  USES          // this entry depends on / applies the target
+  PREREQUISITE  // you should understand the target before this entry
+  CONTRASTS     // this entry is an alternative to or differs from the target
+  SEE_ALSO      // loosely related, no strong directional meaning
+}

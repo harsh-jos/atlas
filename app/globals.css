@@ -1,0 +1,95 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --card-background: #ffffff;
+  --card-border: rgba(23, 23, 23, 0.08);
+  --accent-blue: #0066cc;
+  --accent-muted: #888888;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom 0.5px border utility */
+.border-thin {
+  border-width: 0.5px;
+  border-style: solid;
+  border-color: var(--card-border);
+}
+
+.border-t-thin {
+  border-top-width: 0.5px;
+  border-style: solid;
+  border-color: var(--card-border);
+}
+
+.border-b-thin {
+  border-bottom-width: 0.5px;
+  border-style: solid;
+  border-color: var(--card-border);
+}
+
+.border-l-thin {
+  border-left-width: 0.5px;
+  border-style: solid;
+  border-color: var(--card-border);
+}
+
+.border-r-thin {
+  border-right-width: 0.5px;
+  border-style: solid;
+  border-color: var(--card-border);
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+/* Prose improvements to enforce 400/500 weights */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 500 !important;
+  color: var(--foreground);
+  letter-spacing: -0.02em;
+}
+
+strong, b {
+  font-weight: 500 !important;
+}
+
+/* Math blocks styling */
+.katex-display {
+  padding: 12px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
