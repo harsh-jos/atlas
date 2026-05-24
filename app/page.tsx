@@ -4,7 +4,6 @@ import { NewCollectionCard } from '@/components/collection/NewCollectionCard';
 import { Badge } from '@/components/ui/Badge';
 import { timeAgo } from '@/lib/utils';
 import Link from 'next/link';
-import { FileText, Send, PenLine } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,21 +32,26 @@ export default async function HomePage() {
     await getHomeData();
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
-      {/* Page title */}
-      <h1 className="text-lg font-medium tracking-tight text-zinc-900 mb-6">
-        Collections
-      </h1>
+    <div className="mx-auto max-w-6xl px-5 py-12 sm:px-8">
+      {/* Page header */}
+      <header className="mb-10">
+        <h1 className="text-[40px] font-semibold leading-none tracking-[-0.025em] text-ink">
+          Collections
+        </h1>
+        <p className="mt-3 text-[17px] leading-snug text-muted">
+          Your knowledge base, organised by topic.
+        </p>
+      </header>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
-        <StatCard icon={<FileText className="h-3.5 w-3.5" />} label="Total entries" value={totalEntries} />
-        <StatCard icon={<Send className="h-3.5 w-3.5" />} label="Published" value={publishedEntries} />
-        <StatCard icon={<PenLine className="h-3.5 w-3.5" />} label="Drafts" value={draftEntries} />
+      {/* Stats strip */}
+      <div className="mb-12 grid grid-cols-3 divide-x divide-[var(--hairline)] overflow-hidden rounded-2xl border-thin bg-surface">
+        <Stat label="Total entries" value={totalEntries} />
+        <Stat label="Published" value={publishedEntries} />
+        <Stat label="Drafts" value={draftEntries} />
       </div>
 
-      {/* Collections grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-12">
+      {/* Collections */}
+      <div className="mb-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {collections.map((collection) => (
           <CollectionCard
             key={collection.id}
@@ -65,33 +69,32 @@ export default async function HomePage() {
       {/* Recently updated */}
       {recentEntries.length > 0 && (
         <section>
-          <h2 className="text-sm font-medium text-zinc-900 mb-4">Recently updated</h2>
-          <div className="rounded-lg border-thin border-zinc-200/80 bg-white divide-y divide-zinc-100/60">
-            {recentEntries.map((entry) => (
+          <h2 className="mb-5 text-[22px] font-semibold tracking-[-0.02em] text-ink">
+            Recently updated
+          </h2>
+          <div className="overflow-hidden rounded-2xl border-thin bg-surface">
+            {recentEntries.map((entry, index) => (
               <Link
                 key={entry.id}
                 href={`/entries/${entry.slug}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50/50 transition-colors group"
+                className={`group flex items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-canvas ${
+                  index > 0 ? 'border-t-thin' : ''
+                }`}
               >
-                {/* Collection color dot */}
                 <span
-                  className="h-1.5 w-1.5 rounded-full shrink-0"
-                  style={{ backgroundColor: entry.collection.color || '#888' }}
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: entry.collection.color || 'var(--faint)' }}
                 />
-                {/* Entry title */}
-                <span className="text-sm font-medium text-zinc-700 group-hover:text-zinc-900 transition-colors flex-1 truncate">
+                <span className="flex-1 truncate text-sm font-medium text-body transition-colors group-hover:text-ink">
                   {entry.title}
                 </span>
-                {/* Collection name */}
-                <span className="text-[11px] text-zinc-400 hidden sm:block">
-                  {entry.collection.name}
-                </span>
-                {/* Status badge */}
                 {entry.status === 'DRAFT' && (
-                  <Badge variant="secondary" className="text-[10px]">Draft</Badge>
+                  <Badge variant="secondary" className="text-[10px]">
+                    Draft
+                  </Badge>
                 )}
-                {/* Time ago */}
-                <span className="text-[11px] text-zinc-400 font-mono tabular-nums shrink-0">
+                <span className="hidden text-xs text-muted sm:block">{entry.collection.name}</span>
+                <span className="w-16 shrink-0 text-right font-mono text-[11px] tabular-nums text-faint">
                   {timeAgo(entry.updatedAt)}
                 </span>
               </Link>
@@ -103,16 +106,13 @@ export default async function HomePage() {
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border-thin border-zinc-200/80 bg-white p-4 flex flex-col gap-1">
-      <div className="flex items-center gap-1.5 text-zinc-400">
-        {icon}
-        <span className="text-[11px] font-medium">{label}</span>
-      </div>
-      <span className="text-xl font-medium text-zinc-900 tracking-tight font-mono tabular-nums">
+    <div className="px-6 py-5">
+      <div className="text-[12px] font-medium text-muted">{label}</div>
+      <div className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.02em] text-ink">
         {value}
-      </span>
+      </div>
     </div>
   );
 }

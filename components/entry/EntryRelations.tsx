@@ -68,19 +68,21 @@ export function EntryRelations({ outgoing, incoming }: EntryRelationsProps) {
   const groups = buildGroups(outgoing, incoming);
 
   return (
-    <aside className="rounded-lg border-thin border-zinc-200/80 bg-white p-4 lg:sticky lg:top-20">
-      <h2 className="mb-4 text-sm font-medium text-zinc-900">Relations</h2>
+    <aside className="rounded-2xl border-thin bg-surface p-5 lg:sticky lg:top-20">
+      <h2 className="mb-4 text-[15px] font-semibold text-ink">Relations</h2>
       {groups.length > 0 ? (
         <div className="space-y-5">
           {groups.map((group) => (
             <div key={group.label}>
-              <h3 className="mb-2 text-[11px] font-medium text-zinc-400">{group.label}</h3>
+              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-faint">
+                {group.label}
+              </h3>
               <div className="flex flex-wrap gap-2">
                 {group.items.map((chip) => (
                   <Link
                     key={chip.id}
                     href={`/entries/${chip.slug}`}
-                    className="rounded-full border-thin border-zinc-200/80 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:bg-white hover:text-zinc-900"
+                    className="rounded-full border-thin bg-canvas px-3 py-1 text-[13px] font-medium text-body transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
                   >
                     {chip.title}
                   </Link>
@@ -90,7 +92,7 @@ export function EntryRelations({ outgoing, incoming }: EntryRelationsProps) {
           ))}
         </div>
       ) : (
-        <p className="text-sm leading-6 text-zinc-500">No relations have been added yet.</p>
+        <p className="text-sm leading-6 text-muted">No relations have been added yet.</p>
       )}
     </aside>
   );

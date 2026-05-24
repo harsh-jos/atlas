@@ -4,11 +4,11 @@ export interface EntrySummaryProps {
 
 export function EntrySummary({ summary }: EntrySummaryProps) {
   return (
-    <section className="rounded-lg border-thin border-zinc-200/70 bg-zinc-50/70 p-4">
-      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-normal text-zinc-400">
+    <section className="rounded-2xl border-thin bg-surface p-5">
+      <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-faint">
         Summary
       </h2>
-      <p className="text-sm leading-7 text-zinc-700">
+      <p className="text-[17px] leading-[1.6] text-ink">
         {summary?.trim() || 'No summary has been written yet.'}
       </p>
     </section>

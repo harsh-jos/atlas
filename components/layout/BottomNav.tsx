@@ -34,46 +34,46 @@ export function BottomNav() {
   };
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t-thin border-zinc-200/80 px-4 py-2 flex items-center justify-around h-14 pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/90 backdrop-blur-md border-t-thin px-4 py-2 flex items-center justify-around h-14 pb-safe">
       <Link
         href="/"
         className={cn(
-          'flex flex-col items-center gap-0.5 text-zinc-400 hover:text-zinc-900 transition-colors',
-          pathname === '/' && 'text-zinc-900'
+          'flex flex-col items-center gap-0.5 transition-colors',
+          pathname === '/' ? 'text-accent' : 'text-faint hover:text-ink'
         )}
       >
-        <Home className="h-4.5 w-4.5" />
+        <Home className="h-[18px] w-[18px]" />
         <span className="text-[10px] font-medium">Home</span>
       </Link>
 
       <Link
         href="/graph"
         className={cn(
-          'flex flex-col items-center gap-0.5 text-zinc-400 hover:text-zinc-900 transition-colors',
-          pathname === '/graph' && 'text-zinc-900'
+          'flex flex-col items-center gap-0.5 transition-colors',
+          pathname === '/graph' ? 'text-accent' : 'text-faint hover:text-ink'
         )}
       >
-        <Network className="h-4.5 w-4.5" />
+        <Network className="h-[18px] w-[18px]" />
         <span className="text-[10px] font-medium">Graph</span>
       </Link>
 
       <Link
         href="/search"
         className={cn(
-          'flex flex-col items-center gap-0.5 text-zinc-400 hover:text-zinc-900 transition-colors',
-          pathname.startsWith('/search') && 'text-zinc-900'
+          'flex flex-col items-center gap-0.5 transition-colors',
+          pathname.startsWith('/search') ? 'text-accent' : 'text-faint hover:text-ink'
         )}
       >
-        <Search className="h-4.5 w-4.5" />
+        <Search className="h-[18px] w-[18px]" />
         <span className="text-[10px] font-medium">Search</span>
       </Link>
 
       <button
         onClick={handleCreateNewEntry}
         disabled={isCreating}
-        className="flex flex-col items-center gap-0.5 text-zinc-400 hover:text-zinc-900 transition-colors disabled:opacity-50 cursor-pointer"
+        className="flex flex-col items-center gap-0.5 text-faint hover:text-ink transition-colors disabled:opacity-50 cursor-pointer"
       >
-        <Plus className="h-4.5 w-4.5" />
+        <Plus className="h-[18px] w-[18px]" />
         <span className="text-[10px] font-medium">New</span>
       </button>
     </nav>

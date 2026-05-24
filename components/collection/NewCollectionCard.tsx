@@ -71,22 +71,22 @@ export function NewCollectionCard() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="group flex h-full min-h-[7.5rem] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-zinc-200 bg-transparent text-zinc-400 transition-colors hover:border-zinc-300 hover:text-zinc-600"
+        className="group flex h-full min-h-[8.5rem] w-full flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--hairline)] bg-transparent text-faint transition-colors hover:border-accent/50 hover:bg-accent-soft/50 hover:text-accent"
       >
         <Plus className="h-4 w-4" />
-        <span className="text-xs font-medium">New collection</span>
+        <span className="text-[13px] font-medium">New collection</span>
       </button>
     );
   }
 
   return (
-    <div className="h-full rounded-lg border-thin border-zinc-200/80 bg-white p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-zinc-900">New collection</h3>
+    <div className="h-full rounded-2xl border-thin bg-surface p-5">
+      <div className="mb-3.5 flex items-center justify-between">
+        <h3 className="text-[15px] font-semibold text-ink">New collection</h3>
         <button
           type="button"
           onClick={close}
-          className="text-zinc-400 transition-colors hover:text-zinc-700"
+          className="text-faint transition-colors hover:text-ink"
           aria-label="Cancel"
         >
           <X className="h-3.5 w-3.5" />

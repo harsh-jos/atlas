@@ -61,7 +61,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   const { collection, tags } = data;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <Breadcrumb
         className="mb-6"
         items={[
@@ -77,8 +77,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
         entryCount={collection._count.entries}
       />
 
-      <div className="mb-4 flex flex-col gap-3 border-t-thin border-b-thin border-zinc-200/80 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex flex-col gap-3 border-b-thin py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5">
           {statusFilters.map((filter) => (
             <FilterLink
               key={filter.value}
@@ -94,8 +94,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-zinc-400">Sort by</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[13px] text-faint">Sort by</span>
           {sortOptions.map((option) => (
             <FilterLink
               key={option.value}
@@ -113,8 +113,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       </div>
 
       {tags.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-zinc-400">Tags</span>
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <span className="text-[13px] text-faint">Tags</span>
           {tag && (
             <Link href={collectionFilterHref(collection.slug, { status, sort })}>
               <Badge variant="secondary">Clear tag</Badge>
@@ -136,7 +136,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       )}
 
       {collection.entries.length > 0 ? (
-        <div className="overflow-hidden rounded-lg border-thin border-zinc-200/80 bg-white divide-y divide-zinc-100/60">
+        <div className="overflow-hidden rounded-2xl border-thin bg-surface divide-y divide-[var(--hairline)]">
           {collection.entries.map((entry) => (
             <EntryCard
               key={entry.id}
@@ -181,8 +181,8 @@ function FilterLink({
     <Link
       href={href}
       className={cn(
-        'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-        active ? 'bg-zinc-900 text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
+        'rounded-full px-3 py-1 text-[13px] font-medium transition-colors',
+        active ? 'bg-ink text-white' : 'text-muted hover:bg-black/[0.05] hover:text-ink'
       )}
     >
       {children}

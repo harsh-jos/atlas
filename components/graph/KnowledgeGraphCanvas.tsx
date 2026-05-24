@@ -84,10 +84,10 @@ export function KnowledgeGraphCanvas({ data }: KnowledgeGraphCanvasProps) {
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-lg border-thin border-zinc-200/80 bg-white">
-      <div className="border-b-thin border-zinc-200/80 px-4 py-3">
-        <h2 className="text-sm font-medium text-zinc-900">Knowledge graph</h2>
-        <p className="mt-1 text-xs text-zinc-500">
+    <div className="overflow-hidden rounded-2xl border-thin bg-surface">
+      <div className="border-b-thin px-5 py-3.5">
+        <h2 className="text-[15px] font-semibold text-ink">Knowledge graph</h2>
+        <p className="mt-0.5 text-[13px] text-muted">
           {data.nodes.length} {data.nodes.length === 1 ? 'entry' : 'entries'}{' '}
           <span aria-hidden="true">/</span> {data.links.length}{' '}
           {data.links.length === 1 ? 'relation' : 'relations'}

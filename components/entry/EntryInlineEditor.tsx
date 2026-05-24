@@ -171,10 +171,10 @@ export function EntryInlineEditor({
             <Badge variant={status === 'PUBLISHED' ? 'success' : 'secondary'}>
               {status === 'PUBLISHED' ? 'Published' : 'Draft'}
             </Badge>
-            <span className="text-xs text-zinc-400">{entry.collection.name}</span>
+            <span className="text-xs text-faint">{entry.collection.name}</span>
           </div>
-          <h1 className="text-lg font-medium text-zinc-900">Edit entry</h1>
-          <p className="mt-1 text-xs text-zinc-400">
+          <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Edit entry</h1>
+          <p className="mt-1 text-xs text-faint">
             {isDirty
               ? 'Unsaved changes'
               : lastSavedAt
@@ -207,13 +207,13 @@ export function EntryInlineEditor({
 
       <div className="grid gap-5">
         <label className="grid gap-2">
-          <span className="text-xs font-medium text-zinc-500">Title</span>
+          <span className="text-[13px] font-medium text-muted">Title</span>
           <Input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
 
         <div className="grid gap-5 sm:grid-cols-[1fr_180px_180px]">
           <label className="grid gap-2">
-            <span className="text-xs font-medium text-zinc-500">Tags</span>
+            <span className="text-[13px] font-medium text-muted">Tags</span>
             <Input
               value={tags}
               onChange={(event) => setTags(event.target.value)}
@@ -222,11 +222,11 @@ export function EntryInlineEditor({
           </label>
 
           <label className="grid gap-2">
-            <span className="text-xs font-medium text-zinc-500">Status</span>
+            <span className="text-[13px] font-medium text-muted">Status</span>
             <select
               value={status}
               onChange={(event) => setStatus(event.target.value as EntryStatus)}
-              className="h-9 rounded-md border-thin border-zinc-200 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950"
+              className="h-9 rounded-lg border-thin bg-surface px-3 text-sm text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
             >
               <option value="DRAFT">Draft</option>
               <option value="PUBLISHED">Published</option>
@@ -234,11 +234,11 @@ export function EntryInlineEditor({
           </label>
 
           <label className="grid gap-2">
-            <span className="text-xs font-medium text-zinc-500">Collection</span>
+            <span className="text-[13px] font-medium text-muted">Collection</span>
             <select
               value={collectionId}
               onChange={(event) => setCollectionId(event.target.value)}
-              className="h-9 rounded-md border-thin border-zinc-200 bg-white px-3 text-sm text-zinc-800 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950"
+              className="h-9 rounded-lg border-thin bg-surface px-3 text-sm text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
             >
               {collections.map((collection) => (
                 <option key={collection.id} value={collection.id}>
@@ -250,7 +250,7 @@ export function EntryInlineEditor({
         </div>
 
         <label className="grid gap-2">
-          <span className="text-xs font-medium text-zinc-500">Summary</span>
+          <span className="text-[13px] font-medium text-muted">Summary</span>
           <Textarea
             value={summary}
             onChange={(event) => setSummary(event.target.value)}
@@ -259,8 +259,8 @@ export function EntryInlineEditor({
         </label>
 
         <label className="grid gap-2">
-          <span className="text-xs font-medium text-zinc-500">Body</span>
-          <div className="overflow-hidden rounded-lg border-thin border-zinc-200/80 bg-white">
+          <span className="text-[13px] font-medium text-muted">Body</span>
+          <div className="overflow-hidden rounded-xl border-thin bg-surface">
             <CodeMirror
               value={body}
               minHeight="520px"

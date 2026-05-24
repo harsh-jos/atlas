@@ -15,19 +15,19 @@ export interface BreadcrumbProps {
 
 export function Breadcrumb({ items, className }: BreadcrumbProps) {
   return (
-    <nav aria-label="Breadcrumb" className={cn('flex items-center space-x-1.5 text-xs text-zinc-400 font-medium select-none', className)}>
+    <nav aria-label="Breadcrumb" className={cn('flex items-center space-x-1.5 text-[13px] text-muted select-none', className)}>
       {items.map((item, index) => {
         const isLast = index === items.length - 1;
 
         return (
           <React.Fragment key={index}>
-            {index > 0 && <ChevronRight className="h-3 w-3 text-zinc-300" />}
+            {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-faint" />}
             {isLast ? (
-              <span className="text-zinc-600 truncate max-w-[200px] sm:max-w-xs">{item.label}</span>
+              <span className="text-ink truncate max-w-[200px] sm:max-w-xs">{item.label}</span>
             ) : item.href ? (
               <Link
                 href={item.href}
-                className="hover:text-zinc-900 transition-colors truncate max-w-[120px] sm:max-w-xs"
+                className="hover:text-ink transition-colors truncate max-w-[120px] sm:max-w-xs"
               >
                 {item.label}
               </Link>

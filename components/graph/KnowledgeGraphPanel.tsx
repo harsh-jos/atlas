@@ -10,8 +10,8 @@ const KnowledgeGraphCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[560px] items-center justify-center rounded-lg border-thin border-zinc-200/80 bg-white">
-        <p className="text-sm text-zinc-500">Loading graph</p>
+      <div className="flex h-[560px] items-center justify-center rounded-2xl border-thin bg-surface">
+        <p className="text-sm text-muted">Loading graph</p>
       </div>
     ),
   }

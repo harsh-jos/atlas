@@ -7,6 +7,12 @@ import { Search, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
+const NAV_LINKS = [
+  { href: '/', label: 'Home', match: (p: string) => p === '/' },
+  { href: '/graph', label: 'Graph', match: (p: string) => p.startsWith('/graph') },
+  { href: '/search', label: 'Search', match: (p: string) => p.startsWith('/search') },
+];
+
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -24,74 +30,57 @@ export function TopNav() {
     if (isCreating) return;
     setIsCreating(true);
     try {
-      const response = await fetch('/api/entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await fetch('/api/entries', { method: 'POST' });
       if (response.ok) {
         const data = await response.json();
-        // Redirect to the newly created entry in edit mode
         router.push(`/entries/${data.slug}?edit=true`);
         router.refresh();
-      } else {
-        console.error('Failed to create new entry');
       }
-    } catch (error) {
-      console.error('Error creating entry:', error);
     } finally {
       setIsCreating(false);
     }
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white border-b-thin border-zinc-200/80">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-        {/* Left Section: Brand & Nav Links */}
-        <div className="flex items-center gap-8">
-          <Link href="/" className="text-sm font-medium tracking-tight text-zinc-900 select-none">
+    <header className="sticky top-0 z-40 w-full border-b-thin bg-canvas/80 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 sm:px-8">
+        {/* Brand + nav */}
+        <div className="flex items-center gap-9">
+          <Link
+            href="/"
+            className="select-none text-[18px] font-semibold tracking-[-0.02em] text-ink"
+          >
             Atlas
           </Link>
-          <nav className="hidden md:flex items-center gap-6">
-            <Link
-              href="/"
-              className={cn(
-                'text-xs font-medium transition-colors hover:text-zinc-900',
-                pathname === '/' ? 'text-zinc-900' : 'text-zinc-400'
-              )}
-            >
-              Home
-            </Link>
-            <Link
-              href="/graph"
-              className={cn(
-                'text-xs font-medium transition-colors hover:text-zinc-900',
-                pathname === '/graph' ? 'text-zinc-900' : 'text-zinc-400'
-              )}
-            >
-              Graph
-            </Link>
-            <Link
-              href="/search"
-              className={cn(
-                'text-xs font-medium transition-colors hover:text-zinc-900',
-                pathname.startsWith('/search') ? 'text-zinc-900' : 'text-zinc-400'
-              )}
-            >
-              Search
-            </Link>
+          <nav className="hidden items-center gap-7 md:flex">
+            {NAV_LINKS.map((link) => {
+              const active = link.match(pathname);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    'text-[13px] transition-colors',
+                    active ? 'font-medium text-ink' : 'text-muted hover:text-ink'
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
 
-        {/* Right Section: Search Bar & New Button */}
-        <div className="flex items-center gap-4">
+        {/* Search + create */}
+        <div className="flex items-center gap-3">
           <form onSubmit={handleSearchSubmit} className="relative hidden sm:block">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
             <input
               type="search"
-              placeholder="Search..."
+              placeholder="Search entries"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 w-48 lg:w-64 rounded-md border-thin border-zinc-200 pl-8 pr-3 text-xs bg-zinc-50/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 focus-visible:border-zinc-950 transition-colors"
+              className="h-9 w-52 rounded-lg border-thin bg-surface pl-9 pr-3 text-[13px] text-ink placeholder:text-faint transition-colors focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15 lg:w-64"
             />
           </form>
 
@@ -99,7 +88,7 @@ export function TopNav() {
             size="sm"
             onClick={handleCreateNewEntry}
             disabled={isCreating}
-            className="gap-1 h-8 text-xs font-medium"
+            className="h-9 gap-1.5 rounded-lg px-3.5 text-[13px]"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>New entry</span>

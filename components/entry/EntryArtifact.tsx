@@ -21,7 +21,7 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
   const relationCount = entry.relationsFrom.length + incomingShown.length;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <Breadcrumb
         className="mb-6"
         items={[
@@ -53,11 +53,11 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
               </Link>
             </div>
 
-            <h1 className="max-w-[72ch] text-2xl font-medium leading-8 text-zinc-950">
+            <h1 className="max-w-[72ch] text-[34px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink">
               {entry.title}
             </h1>
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-400">
+            <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
               <span>{entry.collection.name}</span>
               <span aria-hidden="true">·</span>
               <span>{formatDate(entry.createdAt)}</span>
@@ -74,8 +74,8 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
 
           <div className="max-w-[72ch]">
             {entry.status === 'DRAFT' && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg border-thin border-zinc-200/80 bg-zinc-50/60 px-3 py-2 text-xs text-zinc-500">
-                <PencilLine className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
+              <div className="mb-4 flex items-center gap-2 rounded-lg border-l-2 border-l-amber-300 border-thin bg-amber-50/40 px-3.5 py-2.5 text-xs text-amber-800/90">
+                <PencilLine className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                 <span>This entry is a draft — it’s hidden from the graph and default lists.</span>
               </div>
             )}

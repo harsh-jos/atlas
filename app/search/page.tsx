@@ -17,48 +17,48 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const results = await searchEntries(query);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <h1 className="text-lg font-medium text-zinc-900">Search</h1>
+    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+      <div className="mb-7">
+        <h1 className="text-[32px] font-semibold leading-none tracking-[-0.025em] text-ink">Search</h1>
         {query && (
-          <p className="mt-2 text-sm text-zinc-500">
+          <p className="mt-3 text-[15px] text-muted">
             {results.length} {results.length === 1 ? 'result' : 'results'} for{' '}
-            <span className="text-zinc-700">{query}</span>
+            <span className="text-ink">{query}</span>
           </p>
         )}
       </div>
 
       {!query ? (
-        <div className="rounded-lg border-thin border-zinc-200/80 bg-white p-8">
-          <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-md border-thin border-zinc-200/80 text-zinc-400">
+        <div className="flex items-center gap-4 rounded-2xl border-thin bg-surface p-6">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-canvas text-faint">
             <Search className="h-4 w-4" />
           </div>
-          <p className="max-w-xl text-sm leading-6 text-zinc-500">
+          <p className="max-w-xl text-[15px] leading-6 text-muted">
             Search across entry titles, summaries, body content, and tags.
           </p>
         </div>
       ) : results.length > 0 ? (
-        <div className="overflow-hidden rounded-lg border-thin border-zinc-200/80 bg-white divide-y divide-zinc-100/70">
+        <div className="overflow-hidden rounded-2xl border-thin bg-surface divide-y divide-[var(--hairline)]">
           {results.map((result) => (
             <Link
               key={result.id}
               href={`/entries/${result.slug}`}
-              className="group block p-4 transition-colors hover:bg-zinc-50/60"
+              className="group block p-5 transition-colors hover:bg-canvas"
             >
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: result.collectionColor || '#888888' }}
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: result.collectionColor || 'var(--faint)' }}
                 />
-                <span className="text-xs text-zinc-400">{result.collectionName}</span>
-                <Badge variant={result.status === 'PUBLISHED' ? 'success' : 'secondary'}>
-                  {result.status === 'PUBLISHED' ? 'Published' : 'Draft'}
-                </Badge>
+                <span className="text-[12px] text-muted">{result.collectionName}</span>
+                {result.status === 'DRAFT' && (
+                  <Badge variant="secondary" className="text-[10px]">Draft</Badge>
+                )}
               </div>
-              <h2 className="text-sm font-medium text-zinc-800 transition-colors group-hover:text-zinc-950">
+              <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">
                 {result.title}
               </h2>
-              <p className="mt-1 max-w-3xl text-xs leading-6 text-zinc-500">
+              <p className="mt-1 max-w-3xl text-[13px] leading-6 text-muted">
                 {searchResultExcerpt(result, query)}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -67,10 +67,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     {tag}
                   </Badge>
                 ))}
-                <span className="text-[10px] text-zinc-400">
+                <span className="text-[11px] text-faint">
                   {result.sourceCount} {result.sourceCount === 1 ? 'source' : 'sources'}
                 </span>
-                <span className="text-[10px] font-mono text-zinc-300">
+                <span className="font-mono text-[11px] text-faint">
                   {timeAgo(result.updatedAt)}
                 </span>
               </div>

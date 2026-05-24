@@ -29,9 +29,9 @@ export function EntryCard({
     <Link
       href={`/entries/${slug}`}
       className={cn(
-        'group flex items-start gap-4 px-4 py-3.5 transition-colors',
+        'group flex items-start gap-4 px-5 py-4 transition-colors',
         // Drafts sit on a faint tinted surface to read as in-progress.
-        isDraft ? 'bg-zinc-50/60 hover:bg-zinc-100/50' : 'hover:bg-zinc-50/50'
+        isDraft ? 'bg-canvas hover:bg-black/[0.03]' : 'hover:bg-canvas'
       )}
     >
       {/* Main content */}
@@ -40,8 +40,8 @@ export function EntryCard({
         <div className="flex items-center gap-2 mb-1">
           <span
             className={cn(
-              'text-sm font-medium transition-colors truncate',
-              isDraft ? 'text-zinc-500 group-hover:text-zinc-700' : 'text-zinc-800 group-hover:text-zinc-950'
+              'text-[15px] font-semibold tracking-[-0.01em] transition-colors truncate',
+              isDraft ? 'text-muted group-hover:text-ink' : 'text-ink'
             )}
           >
             {title}
@@ -53,7 +53,7 @@ export function EntryCard({
 
         {/* Summary preview */}
         {summary && (
-          <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mb-1.5">
+          <p className="text-[13px] text-muted line-clamp-2 leading-relaxed mb-2">
             {summary}
           </p>
         )}
@@ -66,18 +66,18 @@ export function EntryCard({
             </Badge>
           ))}
           {sourceCount > 0 && (
-            <span className="text-[10px] text-zinc-400 font-medium">
+            <span className="text-[11px] text-faint">
               {sourceCount} {sourceCount === 1 ? 'source' : 'sources'}
             </span>
           )}
-          <span className="text-[10px] text-zinc-300 font-mono tabular-nums">
+          <span className="text-[11px] text-faint font-mono tabular-nums">
             {timeAgo(updatedAt)}
           </span>
         </div>
       </div>
 
       {/* Chevron */}
-      <ChevronRight className="h-4 w-4 text-zinc-300 group-hover:text-zinc-500 transition-colors mt-0.5 shrink-0" />
+      <ChevronRight className="h-4 w-4 text-faint group-hover:text-muted transition-colors mt-0.5 shrink-0" />
     </Link>
   );
 }

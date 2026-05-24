@@ -39,7 +39,7 @@ export function EntryRelationEditor({
   return (
     <section className="grid gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-zinc-900">Relations</h2>
+        <h2 className="text-[15px] font-semibold text-ink">Relations</h2>
         <Button
           type="button"
           variant="secondary"
@@ -56,12 +56,12 @@ export function EntryRelationEditor({
       {relations.length > 0 ? (
         <div className="grid gap-3">
           {relations.map((relation, index) => (
-            <div key={relation.id} className="rounded-lg border-thin border-zinc-200/80 bg-white p-3">
+            <div key={relation.id} className="rounded-xl border-thin bg-surface p-3">
               <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto]">
                 <select
                   value={relation.relationType}
                   onChange={(event) => updateRelation(index, 'relationType', event.target.value)}
-                  className="h-9 rounded-md border-thin border-zinc-200 bg-white px-2 text-xs text-zinc-800 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950"
+                  className="h-9 rounded-lg border-thin bg-surface px-2 text-xs text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
                 >
                   {relationTypes.map((relationType) => (
                     <option key={relationType} value={relationType}>
@@ -73,7 +73,7 @@ export function EntryRelationEditor({
                 <select
                   value={relation.toId}
                   onChange={(event) => updateRelation(index, 'toId', event.target.value)}
-                  className="h-9 rounded-md border-thin border-zinc-200 bg-white px-2 text-xs text-zinc-800 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950"
+                  className="h-9 rounded-lg border-thin bg-surface px-2 text-xs text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
                 >
                   {candidates.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
@@ -85,7 +85,7 @@ export function EntryRelationEditor({
                 <button
                   type="button"
                   onClick={() => removeRelation(index)}
-                  className="rounded-md p-2 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+                  className="rounded-md p-2 text-faint transition-colors hover:bg-black/[0.04] hover:text-ink"
                   aria-label="Remove relation"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -101,8 +101,8 @@ export function EntryRelationEditor({
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border-thin border-zinc-200/80 bg-white p-4">
-          <p className="text-sm text-zinc-500">No outgoing relations yet.</p>
+        <div className="rounded-xl border-thin bg-surface p-4">
+          <p className="text-sm text-muted">No outgoing relations yet.</p>
         </div>
       )}
     </section>

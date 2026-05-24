@@ -19,39 +19,29 @@ export function CollectionCard({
   entryCount,
   updatedAt,
 }: CollectionCardProps) {
-  const accentColor = color || '#888888';
+  const accentColor = color || 'var(--faint)';
 
   return (
     <Link href={`/collections/${slug}`} className="group block">
-      <div className="h-full rounded-lg bg-white border-thin border-zinc-200/80 p-4 transition-all duration-150 hover:border-zinc-300 active:scale-[0.98] flex flex-col justify-between">
+      <div className="flex h-full flex-col justify-between rounded-2xl border-thin bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)]">
         <div>
-          {/* Header row with color accent */}
-          <div className="flex items-center gap-2 mb-2.5">
+          <div className="mb-2.5 flex items-center gap-2.5">
             <span
-              className="h-2 w-2 rounded-full inline-block shrink-0"
+              className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
               style={{ backgroundColor: accentColor }}
             />
-            <h3 className="text-sm font-medium text-zinc-900 group-hover:text-zinc-950 transition-colors sentence-case">
-              {name}
-            </h3>
+            <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ink">{name}</h3>
           </div>
-
-          {/* Description */}
           {description && (
-            <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed mb-4 font-normal">
-              {description}
-            </p>
+            <p className="mb-5 line-clamp-2 text-[13px] leading-relaxed text-muted">{description}</p>
           )}
         </div>
 
-        {/* Footer info */}
-        <div className="flex items-center justify-between border-t-thin border-zinc-100/50 pt-3 mt-auto">
-          <span className="text-[11px] text-zinc-400 font-medium font-mono">
+        <div className="mt-auto flex items-center justify-between border-t-thin pt-3.5">
+          <span className="text-[12px] tabular-nums text-muted">
             {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
           </span>
-          <span className="text-[10px] text-zinc-400 font-medium">
-            {formatDate(updatedAt)}
-          </span>
+          <span className="text-[12px] text-faint">{formatDate(updatedAt)}</span>
         </div>
       </div>
     </Link>

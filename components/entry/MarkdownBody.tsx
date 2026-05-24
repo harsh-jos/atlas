@@ -10,8 +10,8 @@ export interface MarkdownBodyProps {
 export function MarkdownBody({ body }: MarkdownBodyProps) {
   if (!body?.trim()) {
     return (
-      <div className="rounded-lg border-thin border-zinc-200/70 bg-white p-6">
-        <p className="text-sm text-zinc-500">No body content has been written yet.</p>
+      <div className="rounded-2xl border-thin bg-surface p-6">
+        <p className="text-sm text-muted">No body content has been written yet.</p>
       </div>
     );
   }
@@ -22,26 +22,26 @@ export function MarkdownBody({ body }: MarkdownBodyProps) {
       rehypePlugins={[rehypeKatex]}
       components={{
         h1: ({ children }) => (
-          <h1 className="mt-10 border-b-thin border-zinc-200/70 pb-3 text-2xl font-medium leading-8 text-zinc-900 first:mt-0">
+          <h1 className="mt-12 border-b-thin pb-3 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-ink first:mt-0">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="mt-10 text-xl font-medium leading-8 text-zinc-900 first:mt-0">
+          <h2 className="mt-11 text-[21px] font-semibold leading-snug tracking-[-0.015em] text-ink first:mt-0">
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className="mt-8 text-base font-medium leading-7 text-zinc-900">{children}</h3>
+          <h3 className="mt-8 text-[17px] font-semibold leading-snug text-ink">{children}</h3>
         ),
-        p: ({ children }) => <p className="my-5 text-[15px] leading-8 text-zinc-700">{children}</p>,
+        p: ({ children }) => <p className="my-5 text-[17px] leading-[1.6] text-body">{children}</p>,
         ul: ({ children }) => (
-          <ul className="my-5 list-disc space-y-2 pl-5 text-[15px] leading-8 text-zinc-700">
+          <ul className="my-5 list-disc space-y-2 pl-5 text-[17px] leading-[1.6] text-body marker:text-faint">
             {children}
           </ul>
         ),
         ol: ({ children }) => (
-          <ol className="my-5 list-decimal space-y-2 pl-5 text-[15px] leading-8 text-zinc-700">
+          <ol className="my-5 list-decimal space-y-2 pl-5 text-[17px] leading-[1.6] text-body marker:text-faint">
             {children}
           </ol>
         ),
@@ -49,7 +49,7 @@ export function MarkdownBody({ body }: MarkdownBodyProps) {
         a: ({ children, href }) => (
           <a
             href={href}
-            className="text-blue-700 underline decoration-blue-200 underline-offset-4 transition-colors hover:text-blue-800"
+            className="text-accent underline decoration-accent/30 underline-offset-[3px] transition-colors hover:decoration-accent"
           >
             {children}
           </a>
@@ -59,21 +59,21 @@ export function MarkdownBody({ body }: MarkdownBodyProps) {
 
           if (isBlock) {
             return (
-              <code className="block overflow-x-auto rounded-md border-thin border-zinc-200/70 bg-zinc-950 p-4 font-mono text-[13px] leading-6 text-zinc-100">
+              <code className="block overflow-x-auto rounded-xl bg-[#1d1d1f] p-4 font-mono text-[13px] leading-6 text-zinc-100">
                 {children}
               </code>
             );
           }
 
           return (
-            <code className="rounded border-thin border-zinc-200/70 bg-zinc-100 px-1.5 py-0.5 font-mono text-[13px] text-zinc-800">
+            <code className="rounded-md border-thin bg-surface-soft px-1.5 py-0.5 font-mono text-[14px] text-ink">
               {children}
             </code>
           );
         },
         pre: ({ children }) => <pre className="my-6 overflow-x-auto">{children}</pre>,
         blockquote: ({ children }) => (
-          <blockquote className="my-6 border-l-thin border-zinc-300 pl-4 text-zinc-600">
+          <blockquote className="my-6 border-l-2 border-[var(--hairline-strong,#d2d2d7)] pl-4 text-muted">
             {children}
           </blockquote>
         ),

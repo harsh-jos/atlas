@@ -16,22 +16,20 @@ export function CollectionHeader({
   const accentColor = color || '#888888';
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center gap-2.5 mb-1.5">
+    <div className="mb-8">
+      <div className="mb-2 flex items-center gap-3">
         <span
-          className="h-2.5 w-2.5 rounded-full inline-block shrink-0"
+          className="inline-block h-3 w-3 shrink-0 rounded-full"
           style={{ backgroundColor: accentColor }}
         />
-        <h1 className="text-lg font-medium tracking-tight text-zinc-900">
+        <h1 className="text-[32px] font-semibold leading-none tracking-[-0.025em] text-ink">
           {name}
         </h1>
       </div>
       {description && (
-        <p className="text-sm text-zinc-400 leading-relaxed ml-5 mb-2">
-          {description}
-        </p>
+        <p className="ml-6 mb-2 max-w-2xl text-[15px] leading-relaxed text-muted">{description}</p>
       )}
-      <p className="text-xs text-zinc-400 font-mono ml-5">
+      <p className="ml-6 text-[13px] text-faint">
         {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
       </p>
     </div>
