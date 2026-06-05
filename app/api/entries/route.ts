@@ -1,10 +1,29 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { createUniqueEntrySlug } from '@/lib/entry-slugs';
+import {
+  buildRelationRows,
+  dedupeRelations,
+  isRecord,
+  readEntryStatus,
+  readMetadata,
+  readRelations,
+  readSources,
+  readString,
+  readStringArray,
+  type EntryWritePayload,
+} from '@/lib/entry-input';
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    // 1. Get or create a default collection if none exists
+    const payloadResult = await readOptionalPayload(request);
+    if (payloadResult.error) {
+      return NextResponse.json({ error: payloadResult.error }, { status: 400 });
+    }
+
+    const payload = payloadResult.payload;
+    const hasPayload = isRecord(payload);
+
     let defaultCollection = await db.collection.findFirst({
       orderBy: { createdAt: 'asc' },
     });
@@ -20,21 +39,62 @@ export async function POST() {
       });
     }
 
-    // 2. Determine a unique title and slug for the new entry
-    const title = 'Untitled';
-    const slug = await createUniqueEntrySlug(title);
+    const collectionId = hasPayload
+      ? readString(payload.collectionId) || defaultCollection.id
+      : defaultCollection.id;
 
-    // 3. Create the blank entry
-    const entry = await db.entry.create({
-      data: {
-        title,
-        slug,
-        summary: '',
-        body: '',
-        tags: [],
-        status: 'DRAFT',
-        collectionId: defaultCollection.id,
-      },
+    if (collectionId !== defaultCollection.id) {
+      const collection = await db.collection.findUnique({
+        where: { id: collectionId },
+        select: { id: true },
+      });
+
+      if (!collection) {
+        return NextResponse.json({ error: 'Collection not found' }, { status: 400 });
+      }
+    }
+
+    const title = hasPayload ? readString(payload.title)?.trim() || 'Untitled' : 'Untitled';
+    const slug = await createUniqueEntrySlug(title);
+    const sources = hasPayload ? readSources(payload.sources) : [];
+    const metadata = hasPayload ? readMetadata(payload.metadata) : undefined;
+
+    const entry = await db.$transaction(async (tx) => {
+      const createdEntry = await tx.entry.create({
+        data: {
+          title,
+          slug,
+          summary: hasPayload ? readString(payload.summary) : '',
+          body: hasPayload ? readString(payload.body) : '',
+          tags: hasPayload ? readStringArray(payload.tags) : [],
+          status: hasPayload ? readEntryStatus(payload.status) : 'DRAFT',
+          collectionId,
+          ...(metadata !== undefined ? { metadata } : {}),
+        },
+      });
+
+      if (sources.length > 0) {
+        await tx.source.createMany({
+          data: sources.map((source) => ({
+            entryId: createdEntry.id,
+            ...source,
+          })),
+        });
+      }
+
+      if (hasPayload) {
+        const relations = dedupeRelations(readRelations(payload.relations, createdEntry.id));
+        const relationRows = buildRelationRows(createdEntry.id, relations);
+
+        if (relationRows.length > 0) {
+          await tx.relation.createMany({
+            data: relationRows,
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      return createdEntry;
     });
 
     return NextResponse.json(entry);
@@ -56,5 +116,23 @@ export async function GET() {
     return NextResponse.json(entries);
   } catch {
     return NextResponse.json({ error: 'Failed to fetch entries' }, { status: 500 });
+  }
+}
+
+async function readOptionalPayload(request: Request): Promise<{
+  payload?: EntryWritePayload;
+  error?: string;
+}> {
+  const contentType = request.headers.get('content-type') ?? '';
+
+  if (!contentType.includes('application/json')) {
+    return {};
+  }
+
+  try {
+    const payload = (await request.json()) as unknown;
+    return isRecord(payload) ? { payload } : { error: 'Request body must be a JSON object.' };
+  } catch {
+    return { error: 'Request body must be valid JSON.' };
   }
 }

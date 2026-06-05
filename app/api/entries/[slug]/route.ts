@@ -1,7 +1,18 @@
-import { EntryStatus, RelationType, SourceType } from '@prisma/client';
+import { RelationType } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { createUniqueEntrySlug } from '@/lib/entry-slugs';
+import {
+  buildRelationRows,
+  dedupeRelations,
+  readEntryStatus,
+  readMetadata,
+  readRelations,
+  readSources,
+  readString,
+  readStringArray,
+  type EntryWritePayload,
+} from '@/lib/entry-input';
 
 interface EntryRouteContext {
   params: Promise<{
@@ -9,34 +20,9 @@ interface EntryRouteContext {
   }>;
 }
 
-interface UpdateEntryPayload {
-  title?: unknown;
-  summary?: unknown;
-  body?: unknown;
-  tags?: unknown;
-  status?: unknown;
-  collectionId?: unknown;
-  sources?: unknown;
-  relations?: unknown;
-}
-
-interface SourceInput {
-  sourceType: SourceType;
-  title: string;
-  author?: string;
-  url?: string;
-  ref?: string;
-}
-
-interface RelationInput {
-  toId: string;
-  relationType: RelationType;
-  note?: string;
-}
-
 export async function PATCH(request: Request, context: EntryRouteContext) {
   const { slug } = await context.params;
-  const payload = (await request.json()) as UpdateEntryPayload;
+  const payload = (await request.json()) as EntryWritePayload;
 
   const existingEntry = await db.entry.findUnique({
     where: { slug },
@@ -72,6 +58,7 @@ export async function PATCH(request: Request, context: EntryRouteContext) {
 
   const sources = readSources(payload.sources);
   const relations = dedupeRelations(readRelations(payload.relations, existingEntry.id));
+  const metadata = readMetadata(payload.metadata);
 
   const entry = await db.$transaction(async (tx) => {
     const updatedEntry = await tx.entry.update({
@@ -83,6 +70,7 @@ export async function PATCH(request: Request, context: EntryRouteContext) {
         body: readString(payload.body),
         tags: readStringArray(payload.tags),
         status: readEntryStatus(payload.status),
+        ...(metadata !== undefined ? { metadata } : {}),
         ...(collectionId ? { collectionId } : {}),
       },
       include: {
@@ -117,28 +105,7 @@ export async function PATCH(request: Request, context: EntryRouteContext) {
       },
     });
 
-    const relationRows = relations.flatMap((relation) => {
-      const outgoingRelation = {
-        fromId: existingEntry.id,
-        toId: relation.toId,
-        relationType: relation.relationType,
-        note: relation.note,
-      };
-
-      if (relation.relationType !== RelationType.SEE_ALSO) {
-        return [outgoingRelation];
-      }
-
-      return [
-        outgoingRelation,
-        {
-          fromId: relation.toId,
-          toId: existingEntry.id,
-          relationType: relation.relationType,
-          note: relation.note,
-        },
-      ];
-    });
+    const relationRows = buildRelationRows(existingEntry.id, relations);
 
     if (relationRows.length > 0) {
       await tx.relation.createMany({
@@ -169,110 +136,4 @@ export async function DELETE(_request: Request, context: EntryRouteContext) {
   await db.entry.delete({ where: { id: existing.id } });
 
   return NextResponse.json({ ok: true });
-}
-
-function readString(value: unknown) {
-  return typeof value === 'string' ? value : undefined;
-}
-
-function readStringArray(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return Array.from(new Set(value.filter((item): item is string => typeof item === 'string')))
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function readEntryStatus(value: unknown) {
-  return value === EntryStatus.PUBLISHED ? EntryStatus.PUBLISHED : EntryStatus.DRAFT;
-}
-
-function readSources(value: unknown): SourceInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item): SourceInput | null => {
-      if (!isRecord(item)) {
-        return null;
-      }
-
-      const title = readString(item.title)?.trim();
-      const sourceType = readSourceType(item.sourceType);
-
-      if (!title || !sourceType) {
-        return null;
-      }
-
-      return {
-        sourceType,
-        title,
-        author: blankToUndefined(readString(item.author)),
-        url: blankToUndefined(readString(item.url)),
-        ref: blankToUndefined(readString(item.ref)),
-      };
-    })
-    .filter((source): source is SourceInput => source !== null);
-}
-
-function readRelations(value: unknown, entryId: string): RelationInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item): RelationInput | null => {
-      if (!isRecord(item)) {
-        return null;
-      }
-
-      const toId = readString(item.toId)?.trim();
-      const relationType = readRelationType(item.relationType);
-
-      if (!toId || toId === entryId || !relationType) {
-        return null;
-      }
-
-      return {
-        toId,
-        relationType,
-        note: blankToUndefined(readString(item.note)),
-      };
-    })
-    .filter((relation): relation is RelationInput => relation !== null);
-}
-
-function readSourceType(value: unknown) {
-  return Object.values(SourceType).find((sourceType) => sourceType === value);
-}
-
-function readRelationType(value: unknown) {
-  return Object.values(RelationType).find((relationType) => relationType === value);
-}
-
-function dedupeRelations(relations: RelationInput[]) {
-  const seen = new Set<string>();
-
-  return relations.filter((relation) => {
-    const key = `${relation.toId}:${relation.relationType}`;
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
-}
-
-function blankToUndefined(value: string | undefined) {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
