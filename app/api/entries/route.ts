@@ -31,6 +31,7 @@ export async function POST() {
         slug,
         summary: '',
         body: '',
+        originalBody: '',
         tags: [],
         status: 'DRAFT',
         collectionId: defaultCollection.id,

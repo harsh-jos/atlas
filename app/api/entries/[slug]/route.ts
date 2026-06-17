@@ -13,6 +13,7 @@ interface UpdateEntryPayload {
   title?: unknown;
   summary?: unknown;
   body?: unknown;
+  originalBody?: unknown;
   tags?: unknown;
   status?: unknown;
   collectionId?: unknown;
@@ -81,6 +82,7 @@ export async function PATCH(request: Request, context: EntryRouteContext) {
         slug: nextSlug,
         summary: readString(payload.summary),
         body: readString(payload.body),
+        originalBody: readString(payload.originalBody),
         tags: readStringArray(payload.tags),
         status: readEntryStatus(payload.status),
         ...(collectionId ? { collectionId } : {}),

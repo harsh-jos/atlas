@@ -48,6 +48,33 @@ async function main() {
     },
   });
 
+  const pythonCollection = await prisma.collection.create({
+    data: {
+      name: 'Python',
+      slug: 'python',
+      description: 'Language fundamentals, standard library references, and practical patterns.',
+      color: '#2563eb',
+    },
+  });
+
+  const adkCollection = await prisma.collection.create({
+    data: {
+      name: 'Google ADK',
+      slug: 'google-adk',
+      description: 'Agent Development Kit concepts, workflows, and implementation notes.',
+      color: '#16a34a',
+    },
+  });
+
+  const philosophyCollection = await prisma.collection.create({
+    data: {
+      name: 'Marcus Aurelius',
+      slug: 'marcus-aurelius',
+      description: 'Meditations and Stoic reflections captured for slow, repeated reading.',
+      color: '#a16207',
+    },
+  });
+
   console.log('✔ Created collections.');
 
   // 3. Create Entries
@@ -73,6 +100,7 @@ Where $d_k$ is the dimensionality of the key vectors. The scaling factor $1/\\sq
 - **Self-Attention:** Relates different positions of a single sequence to compute a representation of the same sequence.
 - **Cross-Attention:** Connects an encoder output (keys/values) to a decoder input (queries).
 - **Causal Attention:** Masks subsequent tokens to prevent looking ahead during autoregressive generation.`,
+      originalBody: `Introduced by Bahdanau et al. and later refined in the Transformer work, attention lets a model focus on relevant input positions while producing each output token. The scaled dot-product form computes softmax((QK^T)/sqrt(d_k))V and powers self-attention, cross-attention, and causal attention variants used in modern language models.`,
       tags: ['deep-learning', 'concept', 'foundational'],
       status: 'PUBLISHED',
       collectionId: dlCollection.id,
@@ -96,6 +124,7 @@ The **Transformer** architecture replaces recurrent neural networks (RNNs) and c
 3. **Positional Encoding:** Adds sinusoidal coordinates to input embeddings to preserve token order information.
 
 $$\\text{PE}_{(pos, 2i)} = \\sin\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right)$$`,
+      originalBody: `The Transformer architecture replaces recurrence and convolutions with stacked self-attention and feed-forward blocks. Multi-head attention lets the model attend from multiple representation subspaces, while positional encoding injects sequence order information.`,
       tags: ['deep-learning', 'concept', 'architecture'],
       status: 'PUBLISHED',
       collectionId: dlCollection.id,
@@ -116,10 +145,96 @@ $$\\text{PE}_{(pos, 2i)} = \\sin\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right)
 
 - **Emergent Few-Shot Learning:** Without fine-tuning parameters, GPT-3 can perform diverse text-based tasks when prompted with just a few demonstrations (few-shot context learning).
 - **Scaling Laws:** General validation loss scales as a power-law with the number of parameters, dataset size, and compute budget.`,
+      originalBody: `GPT-3 is a 175B-parameter autoregressive Transformer that demonstrated strong in-context few-shot behavior and revived interest in scaling laws for language model performance.`,
       tags: ['language-models', 'paper', 'scale'],
       status: 'PUBLISHED',
       collectionId: llmCollection.id,
       metadata: { parameters: '175B', year: 2020 },
+    },
+  });
+
+  const entryPythonFunctions = await prisma.entry.create({
+    data: {
+      title: 'Python Functions and Scope',
+      slug: 'python-functions-and-scope',
+      summary: 'How function definitions, local/global scope, and closures work in Python, with practical habits for writing readable code.',
+      body: `### Why this matters
+
+Functions are the primary unit of structure in Python. Scope rules determine where names are resolved and can explain many bugs that look mysterious at first.
+
+### LEGB rule
+
+Python resolves names in this order:
+
+1. **Local**
+2. **Enclosing**
+3. **Global**
+4. **Built-in**
+
+### Practical habits
+
+- Keep function responsibilities narrow.
+- Prefer explicit parameters over hidden global state.
+- Use closures intentionally and document captured variables.`,
+      originalBody: `A function statement defines a function object and binds it to a name. Name resolution follows local, enclosing, global, built-in scopes. Closures capture references from enclosing scopes, which can surprise when variables mutate later.`,
+      tags: ['python', 'fundamentals', 'language'],
+      status: 'PUBLISHED',
+      collectionId: pythonCollection.id,
+      metadata: { sourceKind: 'docs', difficulty: 'beginner' },
+    },
+  });
+
+  const entryAdkOverview = await prisma.entry.create({
+    data: {
+      title: 'Google ADK: Core Concepts',
+      slug: 'google-adk-core-concepts',
+      summary: 'A compact overview of the ADK mental model: agents, tools, orchestration flow, and execution boundaries.',
+      body: `### ADK mental model
+
+Think in terms of:
+
+- **Agent**: the decision-making unit.
+- **Tools**: capabilities the agent can call.
+- **Runtime flow**: how input, tool calls, and output are orchestrated.
+
+### Early learning focus
+
+Before optimization, focus on correctness:
+
+1. Tool contract clarity
+2. Deterministic testing paths
+3. Observability of each step`,
+      originalBody: `ADK content is often scattered across docs, repositories, and examples. Preserve original snippets and references while keeping a cleaned, high-readability summary for repeated study.`,
+      tags: ['adk', 'agents', 'platform'],
+      status: 'PUBLISHED',
+      collectionId: adkCollection.id,
+      metadata: { sourceKind: 'docs+tutorials' },
+    },
+  });
+
+  const entryMeditationsBook1 = await prisma.entry.create({
+    data: {
+      title: 'Meditations: Book 1 Themes',
+      slug: 'meditations-book-1-themes',
+      summary: 'Book 1 can be read as gratitude-in-practice: naming who shaped your character and why that matters for daily conduct.',
+      body: `### Reading stance
+
+Book 1 is less argument and more remembrance.
+
+It models a reflective practice:
+
+- Name influences precisely
+- Extract one actionable trait
+- Rehearse it in ordinary life
+
+### Why keep this in Atlas
+
+This is philosophical prose, but it functions as a behavioral operating system when revisited slowly.`,
+      originalBody: `Marcus Aurelius opens with acknowledgements to teachers, family, and exemplars. The tone is practical gratitude rather than abstract philosophy.`,
+      tags: ['philosophy', 'stoicism', 'reflection'],
+      status: 'PUBLISHED',
+      collectionId: philosophyCollection.id,
+      metadata: { sourceKind: 'book', section: 'Book 1' },
     },
   });
 
@@ -130,6 +245,7 @@ $$\\text{PE}_{(pos, 2i)} = \\sin\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right)
       summary: 'An adaptation of the Transformer architecture to computer vision tasks, processing image patches as token sequences.',
       body: `### Draft Note
 This entry is currently under draft. We need to add detailed comparisons between CNNs and Transformers in vision tasks.`,
+      originalBody: `Vision Transformer adapts the Transformer design to image patches and often benefits from larger pretraining corpora compared with classic CNN regimes.`,
       tags: ['computer-vision', 'architecture', 'draft'],
       status: 'DRAFT',
       collectionId: cvCollection.id,
@@ -172,6 +288,38 @@ This entry is currently under draft. We need to add detailed comparisons between
     },
   });
 
+  await prisma.source.create({
+    data: {
+      entryId: entryPythonFunctions.id,
+      sourceType: 'DOCS',
+      title: 'Python Tutorial - Defining Functions',
+      author: 'Python Software Foundation',
+      url: 'https://docs.python.org/3/tutorial/controlflow.html#defining-functions',
+      ref: 'Tutorial section',
+    },
+  });
+
+  await prisma.source.create({
+    data: {
+      entryId: entryAdkOverview.id,
+      sourceType: 'DOCS',
+      title: 'Google ADK Documentation',
+      author: 'Google',
+      url: 'https://google.github.io/adk-docs/',
+      ref: 'Overview',
+    },
+  });
+
+  await prisma.source.create({
+    data: {
+      entryId: entryMeditationsBook1.id,
+      sourceType: 'BOOK',
+      title: 'Meditations',
+      author: 'Marcus Aurelius',
+      ref: 'Book 1',
+    },
+  });
+
   console.log('✔ Created sources.');
 
   // 5. Create Relations
@@ -204,6 +352,15 @@ This entry is currently under draft. We need to add detailed comparisons between
       note: 'Both are core attention innovations.',
     },
   });
+
+  await prisma.relation.create({
+    data: {
+      fromId: entryAdkOverview.id,
+      toId: entryPythonFunctions.id,
+      relationType: 'PREREQUISITE',
+      note: 'Python fundamentals make ADK implementation work easier.',
+    },
+  });
   await prisma.relation.create({
     data: {
       fromId: entryAttention.id,
@@ -214,6 +371,29 @@ This entry is currently under draft. We need to add detailed comparisons between
   });
 
   console.log('✔ Created relations.');
+
+  // 6. Create Personal Notes (separate module, link-only references to KB)
+  const noteAttention = await prisma.note.create({
+    data: {
+      title: 'Thinking aloud: why attention clicked for me',
+      slug: 'thinking-aloud-why-attention-clicked-for-me',
+      body: `Attention made sense once I stopped seeing it as magic and started seeing it as weighted retrieval.
+
+If each token can ask "who matters for me right now?", then the whole mechanism feels natural.
+I should revisit this after reading more implementation details.`,
+      knowledgeLinksEnabled: true,
+    },
+  });
+
+  await prisma.noteLink.create({
+    data: {
+      noteId: noteAttention.id,
+      entryId: entryAttention.id,
+      context: 'Personal reflection linked to foundational concept entry.',
+    },
+  });
+
+  console.log('✔ Created personal notes and KB note links.');
   console.log('🎉 Database seeding completed successfully!');
 }
 

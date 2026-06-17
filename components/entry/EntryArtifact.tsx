@@ -84,6 +84,19 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
             <div className="mt-8">
               <MarkdownBody body={entry.body} />
             </div>
+
+            {entry.originalBody?.trim() && (
+              <details className="mt-8 overflow-hidden rounded-2xl border-thin bg-surface">
+                <summary className="cursor-pointer select-none px-4 py-3 text-[13px] font-medium text-muted transition-colors hover:text-ink">
+                  View original imported source text
+                </summary>
+                <div className="border-t-thin bg-canvas px-4 py-4">
+                  <pre className="whitespace-pre-wrap text-[13px] leading-6 text-body">
+                    {entry.originalBody}
+                  </pre>
+                </div>
+              </details>
+            )}
             <EntrySources sources={entry.sources} />
           </div>
         </article>

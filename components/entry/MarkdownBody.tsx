@@ -22,26 +22,26 @@ export function MarkdownBody({ body }: MarkdownBodyProps) {
       rehypePlugins={[rehypeKatex]}
       components={{
         h1: ({ children }) => (
-          <h1 className="mt-12 border-b-thin pb-3 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-ink first:mt-0">
+          <h1 className="mt-12 border-b-thin pb-3 text-[26px] font-medium leading-tight tracking-[-0.02em] text-ink first:mt-0">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="mt-11 text-[21px] font-semibold leading-snug tracking-[-0.015em] text-ink first:mt-0">
+          <h2 className="mt-11 text-[21px] font-medium leading-snug tracking-[-0.015em] text-ink first:mt-0">
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className="mt-8 text-[17px] font-semibold leading-snug text-ink">{children}</h3>
+          <h3 className="mt-8 text-[17px] font-medium leading-snug text-ink">{children}</h3>
         ),
-        p: ({ children }) => <p className="my-5 text-[17px] leading-[1.6] text-body">{children}</p>,
+        p: ({ children }) => <p className="my-5 text-[17px] leading-[1.75] text-body">{children}</p>,
         ul: ({ children }) => (
-          <ul className="my-5 list-disc space-y-2 pl-5 text-[17px] leading-[1.6] text-body marker:text-faint">
+          <ul className="my-5 list-disc space-y-2 pl-5 text-[17px] leading-[1.72] text-body marker:text-faint">
             {children}
           </ul>
         ),
         ol: ({ children }) => (
-          <ol className="my-5 list-decimal space-y-2 pl-5 text-[17px] leading-[1.6] text-body marker:text-faint">
+          <ol className="my-5 list-decimal space-y-2 pl-5 text-[17px] leading-[1.72] text-body marker:text-faint">
             {children}
           </ol>
         ),

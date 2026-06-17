@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { searchEntries, searchResultExcerpt } from '@/lib/search';
+import { searchUnifiedContent, searchResultExcerpt } from '@/lib/search';
 import { timeAgo } from '@/lib/utils';
 
 interface SearchPageProps {
@@ -14,7 +14,7 @@ interface SearchPageProps {
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q } = await searchParams;
   const query = q?.trim() || '';
-  const results = await searchEntries(query);
+  const results = await searchUnifiedContent(query);
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
@@ -42,7 +42,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           {results.map((result) => (
             <Link
               key={result.id}
-              href={`/entries/${result.slug}`}
+              href={result.entityType === 'ENTRY' ? `/entries/${result.slug}` : `/notes/${result.slug}`}
               className="group block p-5 transition-colors hover:bg-canvas"
             >
               <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -51,7 +51,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                   style={{ backgroundColor: result.collectionColor || 'var(--faint)' }}
                 />
                 <span className="text-[12px] text-muted">{result.collectionName}</span>
-                {result.status === 'DRAFT' && (
+                <Badge variant="default" className="text-[10px]">
+                  {result.entityType === 'ENTRY' ? 'Knowledge base' : 'Personal notes'}
+                </Badge>
+                {result.entityType === 'ENTRY' && result.status === 'DRAFT' && (
                   <Badge variant="secondary" className="text-[10px]">Draft</Badge>
                 )}
               </div>
@@ -68,7 +71,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                   </Badge>
                 ))}
                 <span className="text-[11px] text-faint">
-                  {result.sourceCount} {result.sourceCount === 1 ? 'source' : 'sources'}
+                  {result.entityType === 'ENTRY'
+                    ? `${result.sourceCount} ${result.sourceCount === 1 ? 'source' : 'sources'}`
+                    : `${result.sourceCount} ${result.sourceCount === 1 ? 'KB link' : 'KB links'}`}
                 </span>
                 <span className="font-mono text-[11px] text-faint">
                   {timeAgo(result.updatedAt)}

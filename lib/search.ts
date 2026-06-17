@@ -15,7 +15,32 @@ export interface EntrySearchResult {
   rank: number;
 }
 
-export async function searchEntries(query: string) {
+export interface NoteSearchResult {
+  id: string;
+  title: string;
+  slug: string;
+  body: string | null;
+  updatedAt: Date;
+  linkCount: number;
+  rank: number;
+}
+
+export type UnifiedSearchResult =
+  | ({
+      entityType: 'ENTRY';
+    } & EntrySearchResult)
+  | ({
+      entityType: 'NOTE';
+      summary: string | null;
+      tags: string[];
+      status: 'DRAFT' | 'PUBLISHED';
+      collectionName: string;
+      collectionSlug: string;
+      collectionColor: string | null;
+      sourceCount: number;
+    } & NoteSearchResult);
+
+async function searchEntries(query: string) {
   const normalizedQuery = query.trim();
 
   if (!normalizedQuery) {
@@ -58,7 +83,76 @@ export async function searchEntries(query: string) {
   `;
 }
 
-export function searchResultExcerpt(result: EntrySearchResult, query: string) {
+async function searchNotes(query: string) {
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  return db.$queryRaw<NoteSearchResult[]>`
+    SELECT
+      n.id,
+      n.title,
+      n.slug,
+      n.body,
+      n."updatedAt",
+      COUNT(nl.id)::int AS "linkCount",
+      ts_rank_cd(
+        setweight(to_tsvector('english', coalesce(n.title, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(n.body, '')), 'B'),
+        plainto_tsquery('english', ${normalizedQuery})
+      ) AS rank
+    FROM "Note" n
+    LEFT JOIN "NoteLink" nl ON nl."noteId" = n.id
+    WHERE
+      (
+        setweight(to_tsvector('english', coalesce(n.title, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(n.body, '')), 'B')
+      ) @@ plainto_tsquery('english', ${normalizedQuery})
+    GROUP BY n.id
+    ORDER BY rank DESC, n."updatedAt" DESC
+    LIMIT 25;
+  `;
+}
+
+export async function searchUnifiedContent(query: string): Promise<UnifiedSearchResult[]> {
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const [entries, notes] = await Promise.all([searchEntries(normalizedQuery), searchNotes(normalizedQuery)]);
+
+  const entryResults: UnifiedSearchResult[] = entries.map((entry) => ({
+    ...entry,
+    entityType: 'ENTRY',
+  }));
+
+  const noteResults: UnifiedSearchResult[] = notes.map((note) => ({
+    ...note,
+    entityType: 'NOTE',
+    summary: note.body,
+    tags: [],
+    status: 'PUBLISHED',
+    collectionName: 'Personal notes',
+    collectionSlug: 'notes',
+    collectionColor: '#6e6e73',
+    sourceCount: note.linkCount,
+  }));
+
+  return [...entryResults, ...noteResults]
+    .sort((a, b) => {
+      if (b.rank !== a.rank) {
+        return b.rank - a.rank;
+      }
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    })
+    .slice(0, 40);
+}
+
+export function searchResultExcerpt(result: UnifiedSearchResult, query: string) {
   const sourceText = result.summary?.trim() || result.title;
   const terms = query
     .toLowerCase()

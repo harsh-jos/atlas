@@ -3,14 +3,15 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, NotebookPen } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home', match: (p: string) => p === '/' },
-  { href: '/graph', label: 'Graph', match: (p: string) => p.startsWith('/graph') },
+  { href: '/notes', label: 'Notes', match: (p: string) => p.startsWith('/notes') },
   { href: '/search', label: 'Search', match: (p: string) => p.startsWith('/search') },
+  { href: '/graph', label: 'Graph', match: (p: string) => p.startsWith('/graph') },
 ];
 
 export function TopNav() {
@@ -18,6 +19,7 @@ export function TopNav() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isCreating, setIsCreating] = React.useState(false);
+  const [isCreatingNote, setIsCreatingNote] = React.useState(false);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +40,21 @@ export function TopNav() {
       }
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleCreateNewNote = async () => {
+    if (isCreatingNote) return;
+    setIsCreatingNote(true);
+    try {
+      const response = await fetch('/api/notes', { method: 'POST' });
+      if (response.ok) {
+        const data = await response.json();
+        router.push(`/notes/${data.slug}?edit=true`);
+        router.refresh();
+      }
+    } finally {
+      setIsCreatingNote(false);
     }
   };
 
@@ -72,7 +89,7 @@ export function TopNav() {
         </div>
 
         {/* Search + create */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <form onSubmit={handleSearchSubmit} className="relative hidden sm:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
             <input
@@ -83,6 +100,17 @@ export function TopNav() {
               className="h-9 w-52 rounded-lg border-thin bg-surface pl-9 pr-3 text-[13px] text-ink placeholder:text-faint transition-colors focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15 lg:w-64"
             />
           </form>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleCreateNewNote}
+            disabled={isCreatingNote}
+            className="hidden h-9 gap-1.5 rounded-lg px-3 text-[13px] lg:inline-flex"
+          >
+            <NotebookPen className="h-3.5 w-3.5" />
+            <span>{isCreatingNote ? 'Creating' : 'New note'}</span>
+          </Button>
 
           <Button
             size="sm"

@@ -43,6 +43,7 @@ export function EntryInlineEditor({
   const [title, setTitle] = React.useState(entry.title);
   const [summary, setSummary] = React.useState(entry.summary ?? '');
   const [body, setBody] = React.useState(entry.body ?? '');
+  const [originalBody, setOriginalBody] = React.useState(entry.originalBody ?? '');
   const [tags, setTags] = React.useState(entry.tags.join(', '));
   const [status, setStatus] = React.useState<EntryStatus>(entry.status);
   const [collectionId, setCollectionId] = React.useState(entry.collectionId);
@@ -74,13 +75,14 @@ export function EntryInlineEditor({
       title,
       summary,
       body,
+      originalBody,
       tags: parseTags(tags),
       status,
       collectionId,
       sources,
       relations,
     }),
-    [body, collectionId, relations, sources, status, summary, tags, title]
+    [body, collectionId, originalBody, relations, sources, status, summary, tags, title]
   );
 
   const initialDraft = React.useMemo(
@@ -88,6 +90,7 @@ export function EntryInlineEditor({
       title: entry.title,
       summary: entry.summary ?? '',
       body: entry.body ?? '',
+      originalBody: entry.originalBody ?? '',
       tags: entry.tags,
       status: entry.status,
       collectionId: entry.collectionId,
@@ -109,6 +112,7 @@ export function EntryInlineEditor({
     [
       entry.body,
       entry.collectionId,
+      entry.originalBody,
       entry.relationsFrom,
       entry.sources,
       entry.status,
@@ -306,6 +310,16 @@ export function EntryInlineEditor({
               className="text-sm"
             />
           </div>
+        </label>
+
+        <label className="grid gap-2">
+          <span className="text-[13px] font-medium text-muted">Original imported text</span>
+          <Textarea
+            value={originalBody}
+            onChange={(event) => setOriginalBody(event.target.value)}
+            className="min-h-40 leading-7"
+            placeholder="Paste source-preserved text here (optional)."
+          />
         </label>
 
         <EntrySourceEditor sources={sources} onChange={setSources} />

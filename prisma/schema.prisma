@@ -28,6 +28,7 @@ model Entry {
   slug         String       @unique
   summary      String?      // 2–3 sentence distillation — this is the RAG chunk when embeddings are added
   body         String?      // full markdown content
+  originalBody String?      // source-preserved text for provenance and reader fallback
   tags         String[]     // optional, multi-value, user-defined. NOT an enum. e.g. ["paper", "concept", "foundational"]
   status       EntryStatus  @default(DRAFT)
   collectionId String
@@ -39,6 +40,7 @@ model Entry {
   sources      Source[]
   relationsFrom Relation[]  @relation("RelationFrom")
   relationsTo   Relation[]  @relation("RelationTo")
+  noteLinks    NoteLink[]
 }
 
 enum EntryStatus {
@@ -86,4 +88,27 @@ enum RelationType {
   PREREQUISITE  // you should understand the target before this entry
   CONTRASTS     // this entry is an alternative to or differs from the target
   SEE_ALSO      // loosely related, no strong directional meaning
+}
+
+model Note {
+  id                    String     @id @default(uuid())
+  title                 String
+  slug                  String     @unique
+  body                  String?
+  knowledgeLinksEnabled Boolean    @default(true)
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  links                 NoteLink[]
+}
+
+model NoteLink {
+  id        String   @id @default(uuid())
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  entryId   String
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  context   String?
+  createdAt DateTime @default(now())
+
+  @@unique([noteId, entryId])
 }

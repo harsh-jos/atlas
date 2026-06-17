@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Network, Search, Plus } from 'lucide-react';
+import { Home, Network, Search, Plus, NotebookPen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function BottomNav() {
@@ -34,7 +34,7 @@ export function BottomNav() {
   };
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/90 backdrop-blur-md border-t-thin px-4 py-2 flex items-center justify-around h-14 pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/90 backdrop-blur-md border-t-thin px-2 py-2 flex items-center justify-around h-14 pb-safe">
       <Link
         href="/"
         className={cn(
@@ -47,14 +47,14 @@ export function BottomNav() {
       </Link>
 
       <Link
-        href="/graph"
+        href="/notes"
         className={cn(
           'flex flex-col items-center gap-0.5 transition-colors',
-          pathname === '/graph' ? 'text-accent' : 'text-faint hover:text-ink'
+          pathname.startsWith('/notes') ? 'text-accent' : 'text-faint hover:text-ink'
         )}
       >
-        <Network className="h-[18px] w-[18px]" />
-        <span className="text-[10px] font-medium">Graph</span>
+        <NotebookPen className="h-[18px] w-[18px]" />
+        <span className="text-[10px] font-medium">Notes</span>
       </Link>
 
       <Link
@@ -66,6 +66,17 @@ export function BottomNav() {
       >
         <Search className="h-[18px] w-[18px]" />
         <span className="text-[10px] font-medium">Search</span>
+      </Link>
+
+      <Link
+        href="/graph"
+        className={cn(
+          'flex flex-col items-center gap-0.5 transition-colors',
+          pathname === '/graph' ? 'text-accent' : 'text-faint hover:text-ink'
+        )}
+      >
+        <Network className="h-[18px] w-[18px]" />
+        <span className="text-[10px] font-medium">Graph</span>
       </Link>
 
       <button

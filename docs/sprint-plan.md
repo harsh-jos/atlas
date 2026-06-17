@@ -31,10 +31,10 @@ Do this before deep pipeline or graph decisions.
 Goal: make opening and reading content feel calm and addictive.
 
 Tasks:
-- [ ] Simplify home as a true "library shelf" surface.
-- [ ] Refine entry reader for long-form reading comfort.
-- [ ] Keep metadata ambient (visible, not noisy).
-- [ ] Add clear "View source/original" access.
+- [x] Simplify home as a true "library shelf" surface.
+- [x] Refine entry reader for long-form reading comfort.
+- [x] Keep metadata ambient (visible, not noisy).
+- [x] Add clear "View source/original" access.
 
 Session prompt:
 > Use `docs/vision-handoff-2026-06-16.md` and `docs/sprint-plan.md` as source of truth. Work only on reader-first UI and shelf UX. Do not add new features.
@@ -45,10 +45,10 @@ Session prompt:
 Goal: make Knowledge Base and Personal Notes clearly separate.
 
 Tasks:
-- [ ] Ensure Personal Notes is a separate navigation/module.
-- [ ] Ensure notes cannot be promoted into KB entries.
-- [ ] Allow link-only references from notes to KB.
-- [ ] Keep note-to-KB behavior explicit in UI copy.
+- [x] Ensure Personal Notes is a separate navigation/module.
+- [x] Ensure notes cannot be promoted into KB entries.
+- [x] Allow link-only references from notes to KB.
+- [x] Keep note-to-KB behavior explicit in UI copy.
 
 Session prompt:
 > Continue sprint work with strict module boundaries: Personal Notes is separate, link-only to KB, never promoted. Keep implementation minimal.
@@ -59,10 +59,10 @@ Session prompt:
 Goal: one search entry point, zero confusion.
 
 Tasks:
-- [ ] Keep single search box across app.
-- [ ] Show results from both modules in one list.
-- [ ] Label each result clearly (`Knowledge Base` or `Personal Notes`).
-- [ ] Keep ranking/facets simple for now.
+- [x] Keep single search box across app.
+- [x] Show results from both modules in one list.
+- [x] Label each result clearly (`Knowledge Base` or `Personal Notes`).
+- [x] Keep ranking/facets simple for now.
 
 Session prompt:
 > Implement unified search defaults with clear module labeling only. Skip advanced filtering and complex ranking.
@@ -102,6 +102,15 @@ Keep notes here (append as you work):
   - Temporary workaround:
   - Future pipeline requirement:
 
+## Session log
+- 2026-06-17:
+  - Created branch `sprint/reader-first-pass`.
+  - Added `Note` + `NoteLink` models and Notes module routes/UI.
+  - Added unified search across KB and Personal Notes with clear labels.
+  - Updated home to library-shelf framing and surfaced Personal Notes.
+  - Added `Entry.originalBody` plus reader access to original imported text.
+  - Seeded starter topic content for Python, Google ADK, and Marcus Aurelius.
+
 ## Out of scope for this sprint
 - Graph edge automation policy
 - Advanced graph behaviors
@@ -120,4 +129,3 @@ This sprint is successful when:
 
 ## One-line resume prompt (quick copy)
 > Continue Atlas sprint using `docs/vision-handoff-2026-06-16.md` and `docs/sprint-plan.md`. Focus only on reader-first UX, module boundaries, unified search labels, and manual import of Python/Google ADK/Marcus Aurelius with friction logging.
-
