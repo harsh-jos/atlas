@@ -25,7 +25,7 @@ export function CollectionShelf({
 
   return (
     <Link href={`/collections/${slug}`} className="group block">
-      <div className="relative flex h-full min-h-[9rem] flex-col overflow-hidden rounded-2xl border-thin bg-surface py-5 pl-5 pr-5 transition-all duration-200 group-hover:-translate-y-px group-hover:shadow-[0_4px_16px_-6px_rgba(0,0,0,0.10),0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="relative flex h-full min-h-[9rem] flex-col overflow-hidden rounded-[12px] border-thin bg-surface py-5 pl-5 pr-5 shadow-card transition-all duration-200 group-hover:-translate-y-px group-hover:shadow-card-hover">
         {/* Spine — thins to a hairline, widens a touch on hover, like a book pulled out */}
         <span
           aria-hidden="true"
@@ -33,7 +33,7 @@ export function CollectionShelf({
           style={{ backgroundColor: accent }}
         />
 
-        <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ink">{name}</h3>
+        <h3 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink">{name}</h3>
         {description && (
           <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-muted">
             {description}

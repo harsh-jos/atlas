@@ -195,7 +195,7 @@ export function EntryInlineEditor({
             </Badge>
             <span className="text-xs text-faint">{entry.collection.name}</span>
           </div>
-          <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-ink">Edit entry</h1>
+          <h1 className="font-display text-[22px] font-bold tracking-[-0.025em] text-ink">Edit entry</h1>
           <p className="mt-1 text-xs text-faint">
             {isDirty
               ? 'Unsaved changes'

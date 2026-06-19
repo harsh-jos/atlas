@@ -1,16 +1,22 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans, Inter, Geist_Mono } from 'next/font/google';
 import { TopNav } from '@/components/layout/TopNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import './globals.css';
 
-// Geist is a fallback only; the SF system stack leads (see --font-sans).
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+// Plus Jakarta Sans carries display + UI chrome; Inter carries body and
+// long-form reading; Geist Mono for code and tabular numerals.
+const display = Plus_Jakarta_Sans({
+  variable: '--font-plus-jakarta',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({
+const sans = Inter({
+  variable: '--font-inter',
+  subsets: ['latin'],
+});
+
+const mono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
@@ -28,7 +34,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas text-body font-sans">
         {/* Global navigation */}
@@ -38,7 +44,7 @@ export default function RootLayout({
         <main className="flex-1 pb-16 md:pb-6">
           {children}
         </main>
-        
+
         {/* Mobile bottom navigation */}
         <BottomNav />
       </body>

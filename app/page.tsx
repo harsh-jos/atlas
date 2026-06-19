@@ -24,10 +24,10 @@ export default async function HomePage() {
   return (
     <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8">
       <header className="mb-10">
-        <h1 className="text-[40px] font-semibold leading-none tracking-[-0.025em] text-ink">
+        <h1 className="font-display text-[46px] font-extrabold leading-[1.05] tracking-[-0.035em] text-ink">
           Library
         </h1>
-        <p className="mt-3 text-[17px] leading-snug text-muted">
+        <p className="mt-3 text-[18px] leading-snug text-muted">
           Everything you’re learning, on one shelf.
         </p>
       </header>

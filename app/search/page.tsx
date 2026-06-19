@@ -19,7 +19,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <div className="mb-7">
-        <h1 className="text-[32px] font-semibold leading-none tracking-[-0.025em] text-ink">Search</h1>
+        <h1 className="font-display text-[32px] font-bold leading-none tracking-[-0.03em] text-ink">Search</h1>
         {query && (
           <p className="mt-3 text-[15px] text-muted">
             {results.length} {results.length === 1 ? 'result' : 'results'} for{' '}
@@ -29,8 +29,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       </div>
 
       {!query ? (
-        <div className="flex items-center gap-4 rounded-2xl border-thin bg-surface p-6">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-canvas text-faint">
+        <div className="flex items-center gap-4 rounded-[12px] border-thin bg-surface p-6 shadow-card">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-soft text-faint">
             <Search className="h-4 w-4" />
           </div>
           <p className="max-w-xl text-[15px] leading-6 text-muted">
@@ -38,12 +38,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </p>
         </div>
       ) : results.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border-thin bg-surface divide-y divide-[var(--hairline)]">
+        <div className="overflow-hidden rounded-[12px] border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
           {results.map((result) => (
             <Link
               key={result.id}
               href={`/entries/${result.slug}`}
-              className="group block p-5 transition-colors hover:bg-canvas"
+              className="group block p-5 transition-colors hover:bg-surface-soft"
             >
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span
@@ -55,7 +55,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                   <Badge variant="secondary" className="text-[10px]">Draft</Badge>
                 )}
               </div>
-              <h2 className="text-[16px] font-semibold tracking-[-0.01em] text-ink">
+              <h2 className="font-display text-[16px] font-semibold tracking-[-0.02em] text-ink">
                 {result.title}
               </h2>
               <p className="mt-1 max-w-3xl text-[13px] leading-6 text-muted">
