@@ -33,24 +33,27 @@ function toRows(metadata: unknown): MetaRow[] {
     .filter((row): row is MetaRow => row !== null);
 }
 
+/**
+ * Entry-specific structured data (the jsonb escape hatch) as a quiet detail
+ * list in the closing back-matter.
+ */
 export function EntryMetadata({ metadata }: EntryMetadataProps) {
   const rows = toRows(metadata);
-
-  if (rows.length === 0) {
-    return null;
-  }
+  if (rows.length === 0) return null;
 
   return (
-    <aside className="rounded-2xl border-thin bg-surface p-5">
-      <h2 className="mb-4 text-[15px] font-semibold text-ink">Details</h2>
-      <dl className="space-y-2.5">
+    <section>
+      <h2 className="mb-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-faint">
+        Details
+      </h2>
+      <dl className="space-y-2">
         {rows.map((row) => (
-          <div key={row.label} className="flex items-baseline justify-between gap-3">
-            <dt className="text-[12px] uppercase tracking-[0.04em] text-faint">{row.label}</dt>
-            <dd className="text-right text-[13px] font-medium text-ink">{row.value}</dd>
+          <div key={row.label} className="flex items-baseline gap-3 text-[14px] leading-6">
+            <dt className="w-[7.5rem] shrink-0 text-muted">{row.label}</dt>
+            <dd className="text-ink">{row.value}</dd>
           </div>
         ))}
       </dl>
-    </aside>
+    </section>
   );
 }

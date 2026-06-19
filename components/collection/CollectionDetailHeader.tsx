@@ -96,9 +96,9 @@ export function CollectionDetailHeader({
 
   if (isEditing) {
     return (
-      <div className="mb-8 rounded-2xl border-thin bg-surface p-5">
+      <div className="mb-8 rounded-[12px] border-thin bg-surface p-5 shadow-card">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-ink">Edit collection</h2>
+          <h2 className="font-display text-[15px] font-bold text-ink">Edit collection</h2>
           <button
             type="button"
             onClick={() => setIsEditing(false)}
@@ -161,7 +161,7 @@ export function CollectionDetailHeader({
             className="inline-block h-3 w-3 shrink-0 rounded-full"
             style={{ backgroundColor: accentColor }}
           />
-          <h1 className="text-[32px] font-semibold leading-none tracking-[-0.025em] text-ink">
+          <h1 className="font-display text-[32px] font-bold leading-[1.05] tracking-[-0.03em] text-ink">
             {name}
           </h1>
         </div>

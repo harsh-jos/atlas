@@ -10,7 +10,7 @@ export interface MarkdownBodyProps {
 export function MarkdownBody({ body }: MarkdownBodyProps) {
   if (!body?.trim()) {
     return (
-      <div className="rounded-2xl border-thin bg-surface p-6">
+      <div className="rounded-[12px] border-thin bg-surface-soft p-6">
         <p className="text-sm text-muted">No body content has been written yet.</p>
       </div>
     );
@@ -22,26 +22,26 @@ export function MarkdownBody({ body }: MarkdownBodyProps) {
       rehypePlugins={[rehypeKatex]}
       components={{
         h1: ({ children }) => (
-          <h1 className="mt-12 border-b-thin pb-3 text-[26px] font-semibold leading-tight tracking-[-0.02em] text-ink first:mt-0">
+          <h1 className="mt-12 border-b-thin pb-3 font-display text-[26px] font-bold leading-tight tracking-[-0.025em] text-ink first:mt-0">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="mt-11 text-[21px] font-semibold leading-snug tracking-[-0.015em] text-ink first:mt-0">
+          <h2 className="mt-11 font-display text-[21px] font-bold leading-snug tracking-[-0.02em] text-ink first:mt-0">
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className="mt-8 text-[17px] font-semibold leading-snug text-ink">{children}</h3>
+          <h3 className="mt-8 font-display text-[17px] font-bold leading-snug text-ink">{children}</h3>
         ),
-        p: ({ children }) => <p className="my-5 text-[17px] leading-[1.6] text-body">{children}</p>,
+        p: ({ children }) => <p className="my-5 text-[18px] leading-[1.75] text-body">{children}</p>,
         ul: ({ children }) => (
-          <ul className="my-5 list-disc space-y-2 pl-5 text-[17px] leading-[1.6] text-body marker:text-faint">
+          <ul className="my-5 list-disc space-y-2 pl-5 text-[18px] leading-[1.75] text-body marker:text-faint">
             {children}
           </ul>
         ),
         ol: ({ children }) => (
-          <ol className="my-5 list-decimal space-y-2 pl-5 text-[17px] leading-[1.6] text-body marker:text-faint">
+          <ol className="my-5 list-decimal space-y-2 pl-5 text-[18px] leading-[1.75] text-body marker:text-faint">
             {children}
           </ol>
         ),
@@ -59,7 +59,7 @@ export function MarkdownBody({ body }: MarkdownBodyProps) {
 
           if (isBlock) {
             return (
-              <code className="block overflow-x-auto rounded-xl bg-[#1d1d1f] p-4 font-mono text-[13px] leading-6 text-zinc-100">
+              <code className="block overflow-x-auto rounded-xl bg-[#16181d] p-4 font-mono text-[13px] leading-6 text-zinc-100">
                 {children}
               </code>
             );
