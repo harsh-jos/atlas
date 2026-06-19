@@ -29,7 +29,6 @@ model Entry {
   summary      String?      // 2–3 sentence distillation — this is the RAG chunk when embeddings are added
   body         String?      // full markdown content
   tags         String[]     // optional, multi-value, user-defined. NOT an enum. e.g. ["paper", "concept", "foundational"]
-  status       EntryStatus  @default(DRAFT)
   collectionId String
   collection   Collection   @relation(fields: [collectionId], references: [id])
   metadata     Json?        // jsonb escape hatch — store arbitrary structured data (e.g. arxiv_id, year, venue)
@@ -39,11 +38,6 @@ model Entry {
   sources      Source[]
   relationsFrom Relation[]  @relation("RelationFrom")
   relationsTo   Relation[]  @relation("RelationTo")
-}
-
-enum EntryStatus {
-  DRAFT
-  PUBLISHED
 }
 
 model Source {

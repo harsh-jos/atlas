@@ -32,7 +32,6 @@ export async function POST() {
         summary: '',
         body: '',
         tags: [],
-        status: 'DRAFT',
         collectionId: defaultCollection.id,
       },
     });

@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { PencilLine } from 'lucide-react';
 import type { EntryArtifactData } from '@/lib/entry-data';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ReadingProgressBar } from '@/components/entry/ReadingProgressBar';
@@ -28,7 +27,6 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
   // SEE_ALSO (which is always stored in both directions).
   const incomingShown = entry.relationsTo.filter((r) => r.relationType !== 'SEE_ALSO');
   const relationCount = entry.relationsFrom.length + incomingShown.length;
-  const isDraft = entry.status === 'DRAFT';
 
   const hasEndMatter =
     entry.sources.length > 0 ||
@@ -85,13 +83,6 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
               )}
             </div>
           </header>
-
-          {isDraft && (
-            <div className="mb-6 flex items-center gap-2 rounded-lg border-l-2 border-l-amber-300 border-thin bg-amber-50/40 px-3.5 py-2.5 text-xs text-amber-800/90">
-              <PencilLine className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-              <span>This entry is a draft — it’s hidden from the graph and default lists.</span>
-            </div>
-          )}
 
           <EntrySummary summary={entry.summary} />
 

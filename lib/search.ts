@@ -6,7 +6,6 @@ export interface EntrySearchResult {
   slug: string;
   summary: string | null;
   tags: string[];
-  status: 'DRAFT' | 'PUBLISHED';
   updatedAt: Date;
   collectionName: string;
   collectionSlug: string;
@@ -29,7 +28,6 @@ export async function searchEntries(query: string) {
       e.slug,
       e.summary,
       e.tags,
-      e.status,
       e."updatedAt",
       c.name AS "collectionName",
       c.slug AS "collectionSlug",

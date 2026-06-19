@@ -2,14 +2,13 @@ import * as React from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import { cn, timeAgo } from '@/lib/utils';
+import { timeAgo } from '@/lib/utils';
 
 export interface EntryCardProps {
   title: string;
   slug: string;
   summary: string | null;
   tags: string[];
-  status: 'DRAFT' | 'PUBLISHED';
   sourceCount: number;
   updatedAt: Date | string;
 }
@@ -19,36 +18,21 @@ export function EntryCard({
   slug,
   summary,
   tags,
-  status,
   sourceCount,
   updatedAt,
 }: EntryCardProps) {
-  const isDraft = status === 'DRAFT';
-
   return (
     <Link
       href={`/entries/${slug}`}
-      className={cn(
-        'group flex items-start gap-4 px-5 py-4 transition-colors',
-        // Drafts sit on a faint tinted surface to read as in-progress.
-        isDraft ? 'bg-surface-soft hover:bg-[#f1f2f4]' : 'hover:bg-surface-soft'
-      )}
+      className="group flex items-start gap-4 px-5 py-4 transition-colors hover:bg-surface-soft"
     >
       {/* Main content */}
       <div className="flex-1 min-w-0">
         {/* Title row */}
         <div className="flex items-center gap-2 mb-1">
-          <span
-            className={cn(
-              'font-display text-[15px] font-semibold tracking-[-0.02em] transition-colors truncate',
-              isDraft ? 'text-muted group-hover:text-ink' : 'text-ink'
-            )}
-          >
+          <span className="font-display text-[15px] font-semibold tracking-[-0.02em] text-ink truncate">
             {title}
           </span>
-          {isDraft && (
-            <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
-          )}
         </div>
 
         {/* Summary preview */}
