@@ -48,7 +48,7 @@ export function TopNav() {
         <div className="flex items-center gap-9">
           <Link
             href="/"
-            className="select-none text-[18px] font-semibold tracking-[-0.02em] text-ink"
+            className="select-none font-display text-[19px] font-extrabold tracking-[-0.03em] text-ink"
           >
             Atlas
           </Link>
@@ -60,8 +60,8 @@ export function TopNav() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    'text-[13px] transition-colors',
-                    active ? 'font-medium text-ink' : 'text-muted hover:text-ink'
+                    'font-display text-[14px] transition-colors',
+                    active ? 'font-[650] text-ink' : 'font-medium text-muted hover:text-ink'
                   )}
                 >
                   {link.label}

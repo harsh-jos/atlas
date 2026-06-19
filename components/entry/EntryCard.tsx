@@ -31,7 +31,7 @@ export function EntryCard({
       className={cn(
         'group flex items-start gap-4 px-5 py-4 transition-colors',
         // Drafts sit on a faint tinted surface to read as in-progress.
-        isDraft ? 'bg-canvas hover:bg-black/[0.03]' : 'hover:bg-canvas'
+        isDraft ? 'bg-surface-soft hover:bg-[#f1f2f4]' : 'hover:bg-surface-soft'
       )}
     >
       {/* Main content */}
@@ -40,7 +40,7 @@ export function EntryCard({
         <div className="flex items-center gap-2 mb-1">
           <span
             className={cn(
-              'text-[15px] font-semibold tracking-[-0.01em] transition-colors truncate',
+              'font-display text-[15px] font-semibold tracking-[-0.02em] transition-colors truncate',
               isDraft ? 'text-muted group-hover:text-ink' : 'text-ink'
             )}
           >

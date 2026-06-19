@@ -64,36 +64,37 @@ function buildGroups(
   return [...byLabel.entries()].map(([label, items]) => ({ label, items }));
 }
 
+/**
+ * Related entries as the entry's closing back-matter — grouped by relation
+ * type, each a chip that carries you onward. Inline, never a sidebar.
+ */
 export function EntryRelations({ outgoing, incoming }: EntryRelationsProps) {
   const groups = buildGroups(outgoing, incoming);
+  if (groups.length === 0) return null;
 
   return (
-    <aside className="rounded-2xl border-thin bg-surface p-5">
-      <h2 className="mb-4 text-[15px] font-semibold text-ink">Relations</h2>
-      {groups.length > 0 ? (
-        <div className="space-y-5">
-          {groups.map((group) => (
-            <div key={group.label}>
-              <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-faint">
-                {group.label}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {group.items.map((chip) => (
-                  <Link
-                    key={chip.id}
-                    href={`/entries/${chip.slug}`}
-                    className="rounded-full border-thin bg-canvas px-3 py-1 text-[13px] font-medium text-body transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
-                  >
-                    {chip.title}
-                  </Link>
-                ))}
-              </div>
+    <section>
+      <h2 className="mb-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-faint">
+        Related
+      </h2>
+      <div className="space-y-3">
+        {groups.map((group) => (
+          <div key={group.label} className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+            <span className="w-[7.5rem] shrink-0 text-[13px] text-muted">{group.label}</span>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {group.items.map((chip) => (
+                <Link
+                  key={chip.id}
+                  href={`/entries/${chip.slug}`}
+                  className="rounded-full border-thin bg-surface px-3 py-1 text-[13px] font-medium text-body transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
+                >
+                  {chip.title}
+                </Link>
+              ))}
             </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm leading-6 text-muted">No relations have been added yet.</p>
-      )}
-    </aside>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

@@ -65,7 +65,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       <Breadcrumb
         className="mb-6"
         items={[
-          { label: 'Home', href: '/' },
+          { label: 'Library', href: '/' },
           { label: collection.name },
         ]}
       />
@@ -137,7 +137,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       )}
 
       {collection.entries.length > 0 ? (
-        <div className="overflow-hidden rounded-2xl border-thin bg-surface divide-y divide-[var(--hairline)]">
+        <div className="overflow-hidden rounded-[12px] border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
           {collection.entries.map((entry) => (
             <EntryCard
               key={entry.id}

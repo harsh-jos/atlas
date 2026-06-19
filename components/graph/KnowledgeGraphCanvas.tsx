@@ -84,9 +84,9 @@ export function KnowledgeGraphCanvas({ data }: KnowledgeGraphCanvasProps) {
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-2xl border-thin bg-surface">
+    <div className="overflow-hidden rounded-[12px] border-thin bg-surface shadow-card">
       <div className="border-b-thin px-5 py-3.5">
-        <h2 className="text-[15px] font-semibold text-ink">Knowledge graph</h2>
+        <h2 className="font-display text-[15px] font-bold text-ink">Knowledge graph</h2>
         <p className="mt-0.5 text-[13px] text-muted">
           {data.nodes.length} {data.nodes.length === 1 ? 'entry' : 'entries'}{' '}
           <span aria-hidden="true">/</span> {data.links.length}{' '}
@@ -136,7 +136,7 @@ function paintNode(node: GraphNode, context: CanvasRenderingContext2D, globalSca
   context.lineWidth = 1.5 / globalScale;
   context.stroke();
 
-  context.font = `400 ${fontSize}px var(--font-geist-sans), system-ui, sans-serif`;
+  context.font = `400 ${fontSize}px var(--font-inter), system-ui, sans-serif`;
   context.fillStyle = '#3f3f46';
   context.textAlign = 'center';
   context.textBaseline = 'top';

@@ -2,38 +2,58 @@
 @import "katex/dist/katex.min.css";
 
 :root {
-  /* Apple-style palette — soft gray canvas, white surfaces, Action Blue. */
-  --canvas: #f5f5f7;
-  --surface: #ffffff;
-  --surface-soft: #fafafa;
-  --ink: #1d1d1f;        /* headings + primary text */
-  --body: #1d1d1f;
-  --muted: #6e6e73;      /* secondary text */
-  --faint: #86868b;      /* tertiary, timestamps */
-  --hairline: #d2d2d7;   /* dividers, borders */
-  --hairline-soft: #e3e3e6;
-  --accent: #0066cc;     /* Action Blue */
-  --accent-hover: #0071e3;
-  --accent-soft: #e8f1fd;
+  /* ClickUp-derived system, adapted for a calm reading home.
+     A single violet signature used sparingly; carbon for primary actions. */
+
+  /* Surfaces */
+  --canvas: #ffffff;        /* page */
+  --surface: #ffffff;       /* cards — separated by hairline + micro-shadow */
+  --surface-soft: #f8f9fa;  /* paper — inset panels, summary block, code */
+  --surface-band: #e9ebf0;  /* linen — alternating section bands */
+
+  /* Text */
+  --ink: #090c1d;     /* midnight ink — headings + primary text */
+  --body: #090c1d;    /* reading body */
+  --muted: #646464;   /* slate — secondary text */
+  --faint: #7c828d;   /* steel — tertiary, timestamps */
+
+  /* Lines */
+  --hairline: #e8e8e8;        /* cloud — card borders */
+  --hairline-soft: #f0f0f2;
+  --hairline-strong: #d9d9d9; /* mist — dividers */
+
+  /* Accent — brand violet (logo, links, active states, brand moments) */
+  --accent: #7b68ee;
+  --accent-hover: #6647f0;
+  --accent-soft: #efecfe;
+
+  /* Action — neutral carbon (primary buttons trust neutral over chromatic) */
+  --action: #202023;
+  --action-hover: #090909;
 }
 
 @theme inline {
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-surface-soft: var(--surface-soft);
+  --color-surface-band: var(--surface-band);
   --color-ink: var(--ink);
   --color-body: var(--body);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-hairline: var(--hairline);
   --color-hairline-soft: var(--hairline-soft);
+  --color-hairline-strong: var(--hairline-strong);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
-    var(--font-geist-sans), system-ui, "Helvetica Neue", sans-serif;
-  --font-mono: "SF Mono", var(--font-geist-mono), ui-monospace, monospace;
+  /* Plus Jakarta Sans = display / UI chrome. Inter = body + long-form reading. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-plus-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 body {
@@ -41,7 +61,7 @@ body {
   color: var(--body);
   font-family: var(--font-sans);
   font-weight: 400;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.011em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -78,6 +98,17 @@ body {
   border-color: var(--hairline);
 }
 
+/* Blue-tinted micro-shadows — lift, never drama. */
+.shadow-card {
+  box-shadow: rgba(13, 21, 48, 0.04) 0px 4px 4px 0px, rgba(0, 0, 0, 0.04) 0px 1px 3px 0px;
+}
+.shadow-card-hover {
+  box-shadow: rgba(18, 43, 165, 0.1) 0px 8px 22px -6px, rgba(0, 0, 0, 0.05) 0px 1px 3px 0px;
+}
+.shadow-btn {
+  box-shadow: rgba(13, 21, 48, 0.04) 0px 4px 4px 0px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -87,15 +118,16 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.16);
+  background: rgba(9, 12, 29, 0.16);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(9, 12, 29, 0.28);
 }
 
-strong, b {
-  font-weight: 600;
+strong,
+b {
+  font-weight: 700;
   color: var(--ink);
 }
 
