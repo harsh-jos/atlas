@@ -1,4 +1,3 @@
-import { BookOpen, FileText, Globe, GraduationCap, MonitorPlay } from 'lucide-react';
 import type { Source, SourceType } from '@prisma/client';
 
 export interface EntrySourcesProps {
@@ -14,55 +13,48 @@ const sourceLabels: Record<SourceType, string> = {
   WEBSITE: 'Website',
 };
 
-const sourceIcons = {
-  BOOK: BookOpen,
-  PAPER: FileText,
-  DOCS: FileText,
-  TUTORIAL: MonitorPlay,
-  COURSE: GraduationCap,
-  WEBSITE: Globe,
-} satisfies Record<SourceType, typeof FileText>;
-
+/**
+ * Sources rendered as a book's references — a quiet numbered list at the end
+ * of the entry, not a card competing with the body.
+ */
 export function EntrySources({ sources }: EntrySourcesProps) {
-  return (
-    <section className="mt-12">
-      <h2 className="mb-4 text-[19px] font-semibold tracking-[-0.01em] text-ink">Sources</h2>
-      {sources.length > 0 ? (
-        <div className="divide-y divide-[var(--hairline)] overflow-hidden rounded-2xl border-thin bg-surface">
-          {sources.map((source) => {
-            const Icon = sourceIcons[source.sourceType];
+  if (sources.length === 0) return null;
 
-            return (
-              <div key={source.id} className="flex gap-3 p-4">
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
-                <div className="min-w-0">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] uppercase tracking-[0.04em] text-faint">
-                      {sourceLabels[source.sourceType]}
-                    </span>
-                    {source.ref && <span className="text-[11px] text-faint">· {source.ref}</span>}
-                  </div>
-                  {source.url ? (
-                    <a
-                      href={source.url}
-                      className="text-[15px] font-medium text-ink underline decoration-[var(--hairline)] underline-offset-[3px] hover:decoration-accent"
-                    >
-                      {source.title}
-                    </a>
-                  ) : (
-                    <p className="text-[15px] font-medium text-ink">{source.title}</p>
-                  )}
-                  {source.author && <p className="mt-1 text-[13px] text-muted">{source.author}</p>}
-                </div>
+  return (
+    <section>
+      <h2 className="mb-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-faint">
+        Sources
+      </h2>
+      <ol className="space-y-3">
+        {sources.map((source, index) => {
+          const detail = [sourceLabels[source.sourceType], source.author, source.ref]
+            .filter(Boolean)
+            .join(' · ');
+
+          return (
+            <li key={source.id} className="flex gap-3 text-[14px] leading-6">
+              <span className="shrink-0 pt-px font-mono text-[12px] tabular-nums text-faint">
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                {source.url ? (
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-ink underline decoration-[var(--hairline)] underline-offset-[3px] transition-colors hover:decoration-accent"
+                  >
+                    {source.title}
+                  </a>
+                ) : (
+                  <span className="font-medium text-ink">{source.title}</span>
+                )}
+                {detail && <span className="text-muted"> — {detail}</span>}
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="rounded-2xl border-thin bg-surface p-4">
-          <p className="text-sm text-muted">No sources have been added yet.</p>
-        </div>
-      )}
+            </li>
+          );
+        })}
+      </ol>
     </section>
   );
 }
