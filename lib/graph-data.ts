@@ -23,9 +23,6 @@ export interface KnowledgeGraphData {
 
 export async function getKnowledgeGraphData(): Promise<KnowledgeGraphData> {
   const entries = await db.entry.findMany({
-    where: {
-      status: 'PUBLISHED',
-    },
     orderBy: {
       title: 'asc',
     },
@@ -40,11 +37,6 @@ export async function getKnowledgeGraphData(): Promise<KnowledgeGraphData> {
         },
       },
       relationsFrom: {
-        where: {
-          to: {
-            status: 'PUBLISHED',
-          },
-        },
         select: {
           toId: true,
           relationType: true,

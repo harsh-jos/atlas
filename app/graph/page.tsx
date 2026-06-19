@@ -11,7 +11,7 @@ export default async function GraphPage() {
       <div className="mb-7">
         <h1 className="font-display text-[32px] font-bold leading-none tracking-[-0.03em] text-ink">Graph</h1>
         <p className="mt-3 max-w-xl text-[15px] leading-6 text-muted">
-          Published entries and their typed relations.
+          Your entries and the typed relations between them.
         </p>
       </div>
 

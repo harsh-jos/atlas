@@ -1,27 +1,12 @@
-import { EntryStatus, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import db from '@/lib/db';
 
-export type CollectionStatusFilter = 'all' | 'published' | 'draft';
 export type CollectionSort = 'updated' | 'created' | 'title';
 
 export interface CollectionPageOptions {
   slug: string;
-  status: CollectionStatusFilter;
   tag?: string;
   sort: CollectionSort;
-}
-
-const statusMap: Record<Exclude<CollectionStatusFilter, 'all'>, EntryStatus> = {
-  published: EntryStatus.PUBLISHED,
-  draft: EntryStatus.DRAFT,
-};
-
-export function parseCollectionStatusFilter(value?: string): CollectionStatusFilter {
-  if (value === 'all' || value === 'draft' || value === 'published') {
-    return value;
-  }
-
-  return 'published';
 }
 
 export function parseCollectionSort(value?: string): CollectionSort {
@@ -34,12 +19,10 @@ export function parseCollectionSort(value?: string): CollectionSort {
 
 export async function getCollectionPageData({
   slug,
-  status,
   tag,
   sort,
 }: CollectionPageOptions) {
   const entryWhere: Prisma.EntryWhereInput = {
-    ...(status === 'all' ? {} : { status: statusMap[status] }),
     ...(tag ? { tags: { has: tag } } : {}),
   };
 

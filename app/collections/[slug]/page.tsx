@@ -9,10 +9,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { FileText } from 'lucide-react';
 import {
   CollectionSort,
-  CollectionStatusFilter,
   getCollectionPageData,
   parseCollectionSort,
-  parseCollectionStatusFilter,
 } from '@/lib/collection-data';
 import { cn } from '@/lib/utils';
 
@@ -23,17 +21,10 @@ interface CollectionPageProps {
     slug: string;
   }>;
   searchParams: Promise<{
-    status?: string;
     tag?: string;
     sort?: string;
   }>;
 }
-
-const statusFilters: Array<{ label: string; value: CollectionStatusFilter }> = [
-  { label: 'Published', value: 'published' },
-  { label: 'Drafts', value: 'draft' },
-  { label: 'All', value: 'all' },
-];
 
 const sortOptions: Array<{ label: string; value: CollectionSort }> = [
   { label: 'Updated', value: 'updated' },
@@ -43,13 +34,11 @@ const sortOptions: Array<{ label: string; value: CollectionSort }> = [
 
 export default async function CollectionPage({ params, searchParams }: CollectionPageProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const status = parseCollectionStatusFilter(query.status);
   const sort = parseCollectionSort(query.sort);
   const tag = query.tag?.trim() || undefined;
 
   const data = await getCollectionPageData({
     slug,
-    status,
     tag,
     sort,
   });
@@ -78,46 +67,27 @@ export default async function CollectionPage({ params, searchParams }: Collectio
         entryCount={collection._count.entries}
       />
 
-      <div className="mb-5 flex flex-col gap-3 border-b-thin py-3.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {statusFilters.map((filter) => (
-            <FilterLink
-              key={filter.value}
-              href={collectionFilterHref(collection.slug, {
-                status: filter.value,
-                sort,
-                tag,
-              })}
-              active={status === filter.value}
-            >
-              {filter.label}
-            </FilterLink>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[13px] text-faint">Sort by</span>
-          {sortOptions.map((option) => (
-            <FilterLink
-              key={option.value}
-              href={collectionFilterHref(collection.slug, {
-                status,
-                sort: option.value,
-                tag,
-              })}
-              active={sort === option.value}
-            >
-              {option.label}
-            </FilterLink>
-          ))}
-        </div>
+      <div className="mb-5 flex flex-wrap items-center gap-1.5 border-b-thin py-3.5">
+        <span className="text-[13px] text-faint">Sort by</span>
+        {sortOptions.map((option) => (
+          <FilterLink
+            key={option.value}
+            href={collectionFilterHref(collection.slug, {
+              sort: option.value,
+              tag,
+            })}
+            active={sort === option.value}
+          >
+            {option.label}
+          </FilterLink>
+        ))}
       </div>
 
       {tags.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-2">
           <span className="text-[13px] text-faint">Tags</span>
           {tag && (
-            <Link href={collectionFilterHref(collection.slug, { status, sort })}>
+            <Link href={collectionFilterHref(collection.slug, { sort })}>
               <Badge variant="secondary">Clear tag</Badge>
             </Link>
           )}
@@ -125,7 +95,6 @@ export default async function CollectionPage({ params, searchParams }: Collectio
             <Link
               key={entryTag}
               href={collectionFilterHref(collection.slug, {
-                status,
                 sort,
                 tag: entryTag,
               })}
@@ -145,7 +114,6 @@ export default async function CollectionPage({ params, searchParams }: Collectio
               slug={entry.slug}
               summary={entry.summary}
               tags={entry.tags}
-              status={entry.status}
               sourceCount={entry._count.sources}
               updatedAt={entry.updatedAt}
             />
@@ -154,9 +122,9 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       ) : collection._count.entries > 0 ? (
         <EmptyState
           icon={<FileText className="h-4 w-4" />}
-          title="No entries match this filter"
-          description="Nothing here for the current status or tag selection."
-          action={{ label: 'View all entries', href: `/collections/${collection.slug}?status=all` }}
+          title="No entries match this tag"
+          description="Nothing here for the current tag selection."
+          action={{ label: 'View all entries', href: `/collections/${collection.slug}` }}
         />
       ) : (
         <EmptyState
@@ -194,16 +162,11 @@ function FilterLink({
 function collectionFilterHref(
   slug: string,
   options: {
-    status: CollectionStatusFilter;
     sort: CollectionSort;
     tag?: string;
   }
 ) {
   const searchParams = new URLSearchParams();
-
-  if (options.status !== 'published') {
-    searchParams.set('status', options.status);
-  }
 
   if (options.sort !== 'updated') {
     searchParams.set('sort', options.sort);

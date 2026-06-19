@@ -51,9 +51,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                   style={{ backgroundColor: result.collectionColor || 'var(--faint)' }}
                 />
                 <span className="text-[12px] text-muted">{result.collectionName}</span>
-                {result.status === 'DRAFT' && (
-                  <Badge variant="secondary" className="text-[10px]">Draft</Badge>
-                )}
               </div>
               <h2 className="font-display text-[16px] font-semibold tracking-[-0.02em] text-ink">
                 {result.title}

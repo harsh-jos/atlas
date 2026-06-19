@@ -5,7 +5,6 @@ import CodeMirror from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
 import { AlertCircle, Check, Eye, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import type { EntryStatus } from '@prisma/client';
 import type {
   EntryArtifactData,
   EntryEditorCollection,
@@ -14,7 +13,6 @@ import type {
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
-import { Badge } from '@/components/ui/Badge';
 import {
   EditableSource,
   EntrySourceEditor,
@@ -44,7 +42,6 @@ export function EntryInlineEditor({
   const [summary, setSummary] = React.useState(entry.summary ?? '');
   const [body, setBody] = React.useState(entry.body ?? '');
   const [tags, setTags] = React.useState(entry.tags.join(', '));
-  const [status, setStatus] = React.useState<EntryStatus>(entry.status);
   const [collectionId, setCollectionId] = React.useState(entry.collectionId);
   const [sources, setSources] = React.useState<EditableSource[]>(() =>
     entry.sources.map((source) => ({
@@ -75,12 +72,11 @@ export function EntryInlineEditor({
       summary,
       body,
       tags: parseTags(tags),
-      status,
       collectionId,
       sources,
       relations,
     }),
-    [body, collectionId, relations, sources, status, summary, tags, title]
+    [body, collectionId, relations, sources, summary, tags, title]
   );
 
   const initialDraft = React.useMemo(
@@ -89,7 +85,6 @@ export function EntryInlineEditor({
       summary: entry.summary ?? '',
       body: entry.body ?? '',
       tags: entry.tags,
-      status: entry.status,
       collectionId: entry.collectionId,
       sources: entry.sources.map((source) => ({
         id: source.id,
@@ -111,7 +106,6 @@ export function EntryInlineEditor({
       entry.collectionId,
       entry.relationsFrom,
       entry.sources,
-      entry.status,
       entry.summary,
       entry.tags,
       entry.title,
@@ -189,10 +183,7 @@ export function EntryInlineEditor({
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="mb-2 flex items-center gap-2">
-            <Badge variant={status === 'PUBLISHED' ? 'success' : 'secondary'}>
-              {status === 'PUBLISHED' ? 'Published' : 'Draft'}
-            </Badge>
+          <div className="mb-2">
             <span className="text-xs text-faint">{entry.collection.name}</span>
           </div>
           <h1 className="font-display text-[22px] font-bold tracking-[-0.025em] text-ink">Edit entry</h1>
@@ -243,7 +234,7 @@ export function EntryInlineEditor({
           <Input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
 
-        <div className="grid gap-5 sm:grid-cols-[1fr_180px_180px]">
+        <div className="grid gap-5 sm:grid-cols-[1fr_180px]">
           <label className="grid gap-2">
             <span className="text-[13px] font-medium text-muted">Tags</span>
             <Input
@@ -251,18 +242,6 @@ export function EntryInlineEditor({
               onChange={(event) => setTags(event.target.value)}
               placeholder="paper, concept, foundational"
             />
-          </label>
-
-          <label className="grid gap-2">
-            <span className="text-[13px] font-medium text-muted">Status</span>
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value as EntryStatus)}
-              className="h-9 rounded-lg border-thin bg-surface px-3 text-sm text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
-            >
-              <option value="DRAFT">Draft</option>
-              <option value="PUBLISHED">Published</option>
-            </select>
           </label>
 
           <label className="grid gap-2">

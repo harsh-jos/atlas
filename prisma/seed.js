@@ -74,7 +74,6 @@ Where $d_k$ is the dimensionality of the key vectors. The scaling factor $1/\\sq
 - **Cross-Attention:** Connects an encoder output (keys/values) to a decoder input (queries).
 - **Causal Attention:** Masks subsequent tokens to prevent looking ahead during autoregressive generation.`,
       tags: ['deep-learning', 'concept', 'foundational'],
-      status: 'PUBLISHED',
       collectionId: dlCollection.id,
       metadata: { year: 2014, field: 'NLP' },
     },
@@ -97,7 +96,6 @@ The **Transformer** architecture replaces recurrent neural networks (RNNs) and c
 
 $$\\text{PE}_{(pos, 2i)} = \\sin\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right)$$`,
       tags: ['deep-learning', 'concept', 'architecture'],
-      status: 'PUBLISHED',
       collectionId: dlCollection.id,
       metadata: { year: 2017, venue: 'NeurIPS' },
     },
@@ -117,7 +115,6 @@ $$\\text{PE}_{(pos, 2i)} = \\sin\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right)
 - **Emergent Few-Shot Learning:** Without fine-tuning parameters, GPT-3 can perform diverse text-based tasks when prompted with just a few demonstrations (few-shot context learning).
 - **Scaling Laws:** General validation loss scales as a power-law with the number of parameters, dataset size, and compute budget.`,
       tags: ['language-models', 'paper', 'scale'],
-      status: 'PUBLISHED',
       collectionId: llmCollection.id,
       metadata: { parameters: '175B', year: 2020 },
     },
@@ -128,15 +125,15 @@ $$\\text{PE}_{(pos, 2i)} = \\sin\\left(\\frac{pos}{10000^{2i/d_{model}}}\\right)
       title: 'Vision Transformer (ViT)',
       slug: 'vision-transformer',
       summary: 'An adaptation of the Transformer architecture to computer vision tasks, processing image patches as token sequences.',
-      body: `### Draft Note
-This entry is currently under draft. We need to add detailed comparisons between CNNs and Transformers in vision tasks.`,
-      tags: ['computer-vision', 'architecture', 'draft'],
-      status: 'DRAFT',
+      body: `### Overview
+
+The **Vision Transformer (ViT)** applies the Transformer architecture directly to sequences of image patches, treating each patch as a token. It shows that a pure Transformer can match or exceed convolutional networks on image classification when trained on sufficient data.`,
+      tags: ['computer-vision', 'architecture'],
       collectionId: cvCollection.id,
     },
   });
 
-  console.log('✔ Created entries (including drafts).');
+  console.log('✔ Created entries.');
 
   // 4. Create Sources
   await prisma.source.create({

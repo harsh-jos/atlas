@@ -1,4 +1,4 @@
-import { EntryStatus, RelationType, SourceType } from '@prisma/client';
+import { RelationType, SourceType } from '@prisma/client';
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
 import { createUniqueEntrySlug } from '@/lib/entry-slugs';
@@ -14,7 +14,6 @@ interface UpdateEntryPayload {
   summary?: unknown;
   body?: unknown;
   tags?: unknown;
-  status?: unknown;
   collectionId?: unknown;
   sources?: unknown;
   relations?: unknown;
@@ -82,7 +81,6 @@ export async function PATCH(request: Request, context: EntryRouteContext) {
         summary: readString(payload.summary),
         body: readString(payload.body),
         tags: readStringArray(payload.tags),
-        status: readEntryStatus(payload.status),
         ...(collectionId ? { collectionId } : {}),
       },
       include: {
@@ -183,10 +181,6 @@ function readStringArray(value: unknown) {
   return Array.from(new Set(value.filter((item): item is string => typeof item === 'string')))
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function readEntryStatus(value: unknown) {
-  return value === EntryStatus.PUBLISHED ? EntryStatus.PUBLISHED : EntryStatus.DRAFT;
 }
 
 function readSources(value: unknown): SourceInput[] {
