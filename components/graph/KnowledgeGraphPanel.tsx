@@ -5,13 +5,13 @@ import { Share2 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import type { KnowledgeGraphData } from '@/lib/graph-data';
 
-const KnowledgeGraphCanvas = dynamic(
-  () => import('@/components/graph/KnowledgeGraphCanvas').then((mod) => mod.KnowledgeGraphCanvas),
+const GraphExplorer = dynamic(
+  () => import('@/components/graph/GraphExplorer').then((mod) => mod.GraphExplorer),
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[560px] items-center justify-center rounded-[12px] border-thin bg-surface shadow-card">
-        <p className="text-sm text-muted">Loading graph</p>
+      <div className="flex h-full w-full items-center justify-center bg-canvas">
+        <p className="animate-pulse text-sm text-muted">Loading graph…</p>
       </div>
     ),
   }
@@ -24,13 +24,15 @@ export interface KnowledgeGraphPanelProps {
 export function KnowledgeGraphPanel({ data }: KnowledgeGraphPanelProps) {
   if (data.nodes.length === 0) {
     return (
-      <EmptyState
-        icon={<Share2 className="h-4 w-4" />}
-        title="The graph is empty"
-        description="Publish entries and connect them with relations to see them here."
-      />
+      <div className="flex h-full w-full items-center justify-center px-6">
+        <EmptyState
+          icon={<Share2 className="h-4 w-4" />}
+          title="The graph is empty"
+          description="Add entries and connect them with relations to see them here."
+        />
+      </div>
     );
   }
 
-  return <KnowledgeGraphCanvas data={data} />;
+  return <GraphExplorer data={data} />;
 }

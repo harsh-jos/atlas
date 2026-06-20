@@ -6,15 +6,9 @@ export const dynamic = 'force-dynamic';
 export default async function GraphPage() {
   const graphData = await getKnowledgeGraphData();
 
+  // Full-bleed: fill the viewport below the top nav (and above the mobile bottom nav).
   return (
-    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
-      <div className="mb-7">
-        <h1 className="font-display text-[32px] font-bold leading-none tracking-[-0.03em] text-ink">Graph</h1>
-        <p className="mt-3 max-w-xl text-[15px] leading-6 text-muted">
-          Your entries and the typed relations between them.
-        </p>
-      </div>
-
+    <div className="fixed inset-x-0 bottom-14 top-14 md:bottom-0">
       <KnowledgeGraphPanel data={graphData} />
     </div>
   );

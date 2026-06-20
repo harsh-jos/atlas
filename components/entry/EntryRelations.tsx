@@ -1,30 +1,12 @@
 import Link from 'next/link';
-import type { RelationType } from '@prisma/client';
 import type { EntryArtifactData } from '@/lib/entry-data';
+import { RELATION_INCOMING_LABELS, RELATION_OUTGOING_LABELS } from '@/lib/relations';
 import { cleanTitle } from '@/lib/utils';
 
 export interface EntryRelationsProps {
   outgoing: EntryArtifactData['relationsFrom'];
   incoming: EntryArtifactData['relationsTo'];
 }
-
-// Outgoing relations read from this entry's perspective.
-const outgoingLabels: Record<RelationType, string> = {
-  PART_OF: 'Part of',
-  USES: 'Uses',
-  PREREQUISITE: 'Prerequisite',
-  CONTRASTS: 'Contrasts with',
-  SEE_ALSO: 'See also',
-};
-
-// Incoming relations read with the inverse meaning. SEE_ALSO is omitted —
-// it is always stored in both directions, so the outgoing list already covers it.
-const incomingLabels: Partial<Record<RelationType, string>> = {
-  PART_OF: 'Has parts',
-  USES: 'Used by',
-  PREREQUISITE: 'Required for',
-  CONTRASTS: 'Contrasts with',
-};
 
 interface RelationChip {
   id: string;
@@ -45,7 +27,7 @@ function buildGroups(
   };
 
   for (const relation of outgoing) {
-    push(outgoingLabels[relation.relationType], {
+    push(RELATION_OUTGOING_LABELS[relation.relationType], {
       id: relation.id,
       slug: relation.to.slug,
       title: relation.to.title,
@@ -53,7 +35,7 @@ function buildGroups(
   }
 
   for (const relation of incoming) {
-    const label = incomingLabels[relation.relationType];
+    const label = RELATION_INCOMING_LABELS[relation.relationType];
     if (!label) continue; // skip SEE_ALSO incoming (already shown outgoing)
     push(label, {
       id: relation.id,

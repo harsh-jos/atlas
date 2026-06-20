@@ -6,6 +6,7 @@ export interface KnowledgeGraphNode {
   id: string;
   title: string;
   slug: string;
+  summary: string | null;
   collectionName: string;
   collectionColor: string;
 }
@@ -31,6 +32,7 @@ export async function getKnowledgeGraphData(): Promise<KnowledgeGraphData> {
       id: true,
       title: true,
       slug: true,
+      summary: true,
       collection: {
         select: {
           name: true,
@@ -52,6 +54,7 @@ export async function getKnowledgeGraphData(): Promise<KnowledgeGraphData> {
       id: entry.id,
       title: cleanTitle(entry.title),
       slug: entry.slug,
+      summary: entry.summary,
       collectionName: entry.collection.name,
       collectionColor: entry.collection.color || '#888888',
     })),
