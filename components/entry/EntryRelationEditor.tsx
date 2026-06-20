@@ -1,7 +1,8 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import type { EntryRelationCandidate } from '@/lib/entry-data';
+import type { RelationCandidate } from '@/lib/entry-data';
+import { RelationTargetCombobox } from '@/components/entry/RelationTargetCombobox';
 
 export type EditableRelationType =
   | 'PART_OF'
@@ -13,13 +14,16 @@ export type EditableRelationType =
 export interface EditableRelation {
   id: string;
   toId: string;
+  toTitle: string;
+  toCollectionColor: string | null;
   relationType: EditableRelationType;
   note: string;
 }
 
 export interface EntryRelationEditorProps {
   relations: EditableRelation[];
-  candidates: EntryRelationCandidate[];
+  /** The entry being edited — excluded from target search (no self-relations). */
+  excludeId: string;
   onChange: (relations: EditableRelation[]) => void;
 }
 
@@ -33,7 +37,7 @@ const relationTypes: EditableRelationType[] = [
 
 export function EntryRelationEditor({
   relations,
-  candidates,
+  excludeId,
   onChange,
 }: EntryRelationEditorProps) {
   return (
@@ -46,7 +50,6 @@ export function EntryRelationEditor({
           size="sm"
           className="gap-1.5"
           onClick={addRelation}
-          disabled={candidates.length === 0}
         >
           <Plus className="h-3.5 w-3.5" />
           Add relation
@@ -70,17 +73,15 @@ export function EntryRelationEditor({
                   ))}
                 </select>
 
-                <select
-                  value={relation.toId}
-                  onChange={(event) => updateRelation(index, 'toId', event.target.value)}
-                  className="h-9 rounded-lg border-thin bg-surface px-2 text-xs text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
-                >
-                  {candidates.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {candidate.title}
-                    </option>
-                  ))}
-                </select>
+                <RelationTargetCombobox
+                  value={{
+                    toId: relation.toId,
+                    toTitle: relation.toTitle,
+                    toCollectionColor: relation.toCollectionColor,
+                  }}
+                  excludeId={excludeId}
+                  onSelect={(candidate) => updateRelationTarget(index, candidate)}
+                />
 
                 <button
                   type="button"
@@ -109,17 +110,13 @@ export function EntryRelationEditor({
   );
 
   function addRelation() {
-    const firstCandidate = candidates[0];
-
-    if (!firstCandidate) {
-      return;
-    }
-
     onChange([
       ...relations,
       {
         id: crypto.randomUUID(),
-        toId: firstCandidate.id,
+        toId: '',
+        toTitle: '',
+        toCollectionColor: null,
         relationType: 'SEE_ALSO',
         note: '',
       },
@@ -130,10 +127,29 @@ export function EntryRelationEditor({
     onChange(relations.filter((_, relationIndex) => relationIndex !== index));
   }
 
-  function updateRelation(index: number, key: keyof EditableRelation, value: string) {
+  function updateRelation(
+    index: number,
+    key: 'relationType' | 'note',
+    value: string
+  ) {
     onChange(
       relations.map((relation, relationIndex) =>
         relationIndex === index ? { ...relation, [key]: value } : relation
+      )
+    );
+  }
+
+  function updateRelationTarget(index: number, candidate: RelationCandidate) {
+    onChange(
+      relations.map((relation, relationIndex) =>
+        relationIndex === index
+          ? {
+              ...relation,
+              toId: candidate.id,
+              toTitle: candidate.title,
+              toCollectionColor: candidate.collectionColor,
+            }
+          : relation
       )
     );
   }

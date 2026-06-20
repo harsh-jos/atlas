@@ -22,6 +22,20 @@ export function slugify(text: string): string {
 }
 
 /**
+ * Strips inline Markdown noise from heading-derived text — bold markers, inline
+ * code backticks, and leading heading hashes — so titles read cleanly wherever
+ * they surface. Conservative by design: single `*`/`_` are left untouched so
+ * code identifiers like `before_model_callback` survive intact.
+ */
+export function cleanTitle(text: string): string {
+  return text
+    .replace(/`/g, '') // inline code backticks
+    .replace(/\*\*/g, '') // **bold** markers
+    .replace(/^#{1,6}\s+/, '') // leading heading hashes
+    .trim();
+}
+
+/**
  * Formats a date into a human-readable string (e.g., "May 24, 2026").
  */
 export function formatDate(date: Date | string | number): string {

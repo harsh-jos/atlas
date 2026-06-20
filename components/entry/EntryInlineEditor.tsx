@@ -8,11 +8,11 @@ import { useRouter } from 'next/navigation';
 import type {
   EntryArtifactData,
   EntryEditorCollection,
-  EntryRelationCandidate,
 } from '@/lib/entry-data';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
+import { cleanTitle } from '@/lib/utils';
 import {
   EditableSource,
   EntrySourceEditor,
@@ -25,7 +25,6 @@ import {
 export interface EntryInlineEditorProps {
   entry: EntryArtifactData;
   collections: EntryEditorCollection[];
-  relationCandidates: EntryRelationCandidate[];
 }
 
 interface SavedEntryResponse {
@@ -35,7 +34,6 @@ interface SavedEntryResponse {
 export function EntryInlineEditor({
   entry,
   collections,
-  relationCandidates,
 }: EntryInlineEditorProps) {
   const router = useRouter();
   const [title, setTitle] = React.useState(entry.title);
@@ -57,6 +55,8 @@ export function EntryInlineEditor({
     entry.relationsFrom.map((relation) => ({
       id: relation.id,
       toId: relation.toId,
+      toTitle: cleanTitle(relation.to.title),
+      toCollectionColor: relation.to.collection.color,
       relationType: relation.relationType,
       note: relation.note ?? '',
     }))
@@ -97,6 +97,8 @@ export function EntryInlineEditor({
       relations: entry.relationsFrom.map((relation) => ({
         id: relation.id,
         toId: relation.toId,
+        toTitle: cleanTitle(relation.to.title),
+        toCollectionColor: relation.to.collection.color,
         relationType: relation.relationType,
         note: relation.note ?? '',
       })),
@@ -291,7 +293,7 @@ export function EntryInlineEditor({
 
         <EntryRelationEditor
           relations={relations}
-          candidates={relationCandidates}
+          excludeId={entry.id}
           onChange={setRelations}
         />
       </div>

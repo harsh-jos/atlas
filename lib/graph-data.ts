@@ -1,5 +1,6 @@
 import { RelationType } from '@prisma/client';
 import db from '@/lib/db';
+import { cleanTitle } from '@/lib/utils';
 
 export interface KnowledgeGraphNode {
   id: string;
@@ -49,7 +50,7 @@ export async function getKnowledgeGraphData(): Promise<KnowledgeGraphData> {
   return {
     nodes: entries.map((entry) => ({
       id: entry.id,
-      title: entry.title,
+      title: cleanTitle(entry.title),
       slug: entry.slug,
       collectionName: entry.collection.name,
       collectionColor: entry.collection.color || '#888888',

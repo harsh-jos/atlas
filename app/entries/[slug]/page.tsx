@@ -1,11 +1,7 @@
 import { notFound } from 'next/navigation';
 import { EntryArtifact } from '@/components/entry/EntryArtifact';
 import { EntryInlineEditor } from '@/components/entry/EntryInlineEditor';
-import {
-  getEntryArtifact,
-  getEntryEditorCollections,
-  getEntryRelationCandidates,
-} from '@/lib/entry-data';
+import { getEntryArtifact, getEntryEditorCollections } from '@/lib/entry-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,18 +23,9 @@ export default async function EntryPage({ params, searchParams }: EntryPageProps
   }
 
   if (query.edit === 'true') {
-    const [collections, relationCandidates] = await Promise.all([
-      getEntryEditorCollections(),
-      getEntryRelationCandidates(entry.id),
-    ]);
+    const collections = await getEntryEditorCollections();
 
-    return (
-      <EntryInlineEditor
-        entry={entry}
-        collections={collections}
-        relationCandidates={relationCandidates}
-      />
-    );
+    return <EntryInlineEditor entry={entry} collections={collections} />;
   }
 
   return <EntryArtifact entry={entry} />;

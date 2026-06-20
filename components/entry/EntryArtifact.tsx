@@ -7,7 +7,7 @@ import { MarkdownBody } from '@/components/entry/MarkdownBody';
 import { EntrySources } from '@/components/entry/EntrySources';
 import { EntryRelations } from '@/components/entry/EntryRelations';
 import { EntryMetadata } from '@/components/entry/EntryMetadata';
-import { formatDate } from '@/lib/utils';
+import { cleanTitle, formatDate } from '@/lib/utils';
 
 export interface EntryArtifactProps {
   entry: EntryArtifactData;
@@ -45,7 +45,7 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
             items={[
               { label: 'Library', href: '/' },
               { label: entry.collection.name, href: `/collections/${entry.collection.slug}` },
-              { label: entry.title },
+              { label: cleanTitle(entry.title) },
             ]}
           />
           <Link
@@ -59,7 +59,7 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
         <article>
           <header className="mb-8">
             <h1 className="font-display text-[34px] font-bold leading-[1.12] tracking-[-0.03em] text-ink">
-              {entry.title}
+              {cleanTitle(entry.title)}
             </h1>
             <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-faint">
               <span>{entry.collection.name}</span>

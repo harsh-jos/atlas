@@ -1,4 +1,5 @@
 import type { Source, SourceType } from '@prisma/client';
+import { cleanTitle } from '@/lib/utils';
 
 export interface EntrySourcesProps {
   sources: Source[];
@@ -27,7 +28,7 @@ export function EntrySources({ sources }: EntrySourcesProps) {
       </h2>
       <ol className="space-y-3">
         {sources.map((source, index) => {
-          const detail = [sourceLabels[source.sourceType], source.author, source.ref]
+          const detail = [sourceLabels[source.sourceType], source.author, cleanTitle(source.ref ?? '')]
             .filter(Boolean)
             .join(' · ');
 
@@ -44,10 +45,10 @@ export function EntrySources({ sources }: EntrySourcesProps) {
                     rel="noreferrer"
                     className="font-medium text-ink underline decoration-[var(--hairline)] underline-offset-[3px] transition-colors hover:decoration-accent"
                   >
-                    {source.title}
+                    {cleanTitle(source.title)}
                   </a>
                 ) : (
-                  <span className="font-medium text-ink">{source.title}</span>
+                  <span className="font-medium text-ink">{cleanTitle(source.title)}</span>
                 )}
                 {detail && <span className="text-muted"> — {detail}</span>}
               </div>

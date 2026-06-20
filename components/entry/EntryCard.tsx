@@ -2,7 +2,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
-import { timeAgo } from '@/lib/utils';
+import { cleanTitle, timeAgo } from '@/lib/utils';
 
 export interface EntryCardProps {
   title: string;
@@ -31,7 +31,7 @@ export function EntryCard({
         {/* Title row */}
         <div className="flex items-center gap-2 mb-1">
           <span className="font-display text-[15px] font-semibold tracking-[-0.02em] text-ink truncate">
-            {title}
+            {cleanTitle(title)}
           </span>
         </div>
 
