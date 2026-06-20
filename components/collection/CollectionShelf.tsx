@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cleanTitle } from '@/lib/utils';
 
 export interface CollectionShelfProps {
   name: string;
@@ -48,7 +49,7 @@ export function CollectionShelf({
                 className="h-1.5 w-1.5 shrink-0 rounded-full"
                 style={{ backgroundColor: accent }}
               />
-              <span className="truncate">{recentEntryTitle}</span>
+              <span className="truncate">{cleanTitle(recentEntryTitle)}</span>
             </div>
           ) : (
             <div className="text-[12px] text-faint">No entries yet</div>

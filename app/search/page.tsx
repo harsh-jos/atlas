@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { searchEntries, searchResultExcerpt } from '@/lib/search';
-import { timeAgo } from '@/lib/utils';
+import { searchEntries, searchResultExcerpt, SEARCH_RESULT_LIMIT } from '@/lib/search';
+import { cleanTitle, timeAgo } from '@/lib/utils';
 
 interface SearchPageProps {
   searchParams: Promise<{
@@ -22,6 +22,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <h1 className="font-display text-[32px] font-bold leading-none tracking-[-0.03em] text-ink">Search</h1>
         {query && (
           <p className="mt-3 text-[15px] text-muted">
+            {results.length === SEARCH_RESULT_LIMIT ? 'Top ' : ''}
             {results.length} {results.length === 1 ? 'result' : 'results'} for{' '}
             <span className="text-ink">{query}</span>
           </p>
@@ -53,7 +54,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 <span className="text-[12px] text-muted">{result.collectionName}</span>
               </div>
               <h2 className="font-display text-[16px] font-semibold tracking-[-0.02em] text-ink">
-                {result.title}
+                {cleanTitle(result.title)}
               </h2>
               <p className="mt-1 max-w-3xl text-[13px] leading-6 text-muted">
                 {searchResultExcerpt(result, query)}

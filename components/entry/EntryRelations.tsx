@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { RelationType } from '@prisma/client';
 import type { EntryArtifactData } from '@/lib/entry-data';
+import { cleanTitle } from '@/lib/utils';
 
 export interface EntryRelationsProps {
   outgoing: EntryArtifactData['relationsFrom'];
@@ -88,7 +89,7 @@ export function EntryRelations({ outgoing, incoming }: EntryRelationsProps) {
                   href={`/entries/${chip.slug}`}
                   className="rounded-full border-thin bg-surface px-3 py-1 text-[13px] font-medium text-body transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
                 >
-                  {chip.title}
+                  {cleanTitle(chip.title)}
                 </Link>
               ))}
             </div>

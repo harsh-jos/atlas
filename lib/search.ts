@@ -1,5 +1,8 @@
 import db from '@/lib/db';
 
+/** Upper bound on rows returned by a single search — see the LIMIT in the query. */
+export const SEARCH_RESULT_LIMIT = 25;
+
 export interface EntrySearchResult {
   id: string;
   title: string;
@@ -52,7 +55,7 @@ export async function searchEntries(query: string) {
       ) @@ plainto_tsquery('english', ${normalizedQuery})
     GROUP BY e.id, c.id
     ORDER BY rank DESC, e."updatedAt" DESC
-    LIMIT 25;
+    LIMIT ${SEARCH_RESULT_LIMIT};
   `;
 }
 

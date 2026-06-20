@@ -64,16 +64,37 @@ export async function getEntryEditorCollections() {
 
 export type EntryEditorCollection = Awaited<ReturnType<typeof getEntryEditorCollections>>[number];
 
-export async function getEntryRelationCandidates(entryId: string) {
+/** A relation-target candidate as the editor's picker consumes it (display-ready). */
+export interface RelationCandidate {
+  id: string;
+  title: string;
+  collectionColor: string | null;
+}
+
+/** Rows returned per relation-target search — keeps the picker dropdown short. */
+export const RELATION_CANDIDATE_LIMIT = 20;
+
+/**
+ * Candidate entries for a relation target, matched by a title query. Bounded by
+ * {@link RELATION_CANDIDATE_LIMIT} so the editor never loads the whole library —
+ * an empty query just returns the first page alphabetically.
+ */
+export async function searchEntryRelationCandidates(
+  query: string,
+  excludeId: string,
+  limit: number = RELATION_CANDIDATE_LIMIT
+) {
+  const trimmed = query.trim();
+
   return db.entry.findMany({
     where: {
-      id: {
-        not: entryId,
-      },
+      id: { not: excludeId },
+      ...(trimmed ? { title: { contains: trimmed, mode: 'insensitive' } } : {}),
     },
     orderBy: {
       title: 'asc',
     },
+    take: limit,
     select: {
       id: true,
       title: true,
@@ -86,5 +107,3 @@ export async function getEntryRelationCandidates(entryId: string) {
     },
   });
 }
-
-export type EntryRelationCandidate = Awaited<ReturnType<typeof getEntryRelationCandidates>>[number];

@@ -1,3 +1,5 @@
+import { cleanTitle } from '@/lib/utils';
+
 export interface EntryMetadataProps {
   metadata: unknown;
 }
@@ -6,6 +8,10 @@ interface MetaRow {
   label: string;
   value: string;
 }
+
+// Ingestion plumbing — meaningful to the importer, noise to a reader. Kept out
+// of the reader-facing "Details" list.
+const INTERNAL_METADATA_KEYS = new Set(['importId', 'sourceKey', 'sourceKind', 'headingLevel']);
 
 // "arxivId" -> "Arxiv id", "year" -> "Year"
 function humanizeKey(key: string): string {
@@ -23,11 +29,14 @@ function toRows(metadata: unknown): MetaRow[] {
 
   return Object.entries(metadata as Record<string, unknown>)
     .map(([key, raw]): MetaRow | null => {
+      if (INTERNAL_METADATA_KEYS.has(key)) return null;
       if (raw === null || raw === undefined || raw === '') return null;
       const value =
-        typeof raw === 'string' || typeof raw === 'number' || typeof raw === 'boolean'
-          ? String(raw)
-          : JSON.stringify(raw);
+        typeof raw === 'string'
+          ? cleanTitle(raw)
+          : typeof raw === 'number' || typeof raw === 'boolean'
+            ? String(raw)
+            : JSON.stringify(raw);
       return { label: humanizeKey(key), value };
     })
     .filter((row): row is MetaRow => row !== null);
