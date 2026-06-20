@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: '/', label: 'Home', match: (p: string) => p === '/' },
   { href: '/graph', label: 'Graph', match: (p: string) => p.startsWith('/graph') },
   { href: '/search', label: 'Search', match: (p: string) => p.startsWith('/search') },
+  { href: '/import', label: 'Import', match: (p: string) => p.startsWith('/import') },
 ];
 
 export function TopNav() {

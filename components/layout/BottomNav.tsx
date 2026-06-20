@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Network, Search, Plus } from 'lucide-react';
+import { Home, Network, Search, Upload, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function BottomNav() {
@@ -66,6 +66,17 @@ export function BottomNav() {
       >
         <Search className="h-[18px] w-[18px]" />
         <span className="text-[10px] font-medium">Search</span>
+      </Link>
+
+      <Link
+        href="/import"
+        className={cn(
+          'flex flex-col items-center gap-0.5 transition-colors',
+          pathname.startsWith('/import') ? 'text-accent' : 'text-faint hover:text-ink'
+        )}
+      >
+        <Upload className="h-[18px] w-[18px]" />
+        <span className="text-[10px] font-medium">Import</span>
       </Link>
 
       <button
