@@ -24,6 +24,12 @@ export default async function HomePage() {
   return (
     <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8">
       <header className="mb-10">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
+          <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-accent">
+            Your library
+          </span>
+        </div>
         <h1 className="font-display text-[46px] font-extrabold leading-[1.05] tracking-[-0.035em] text-ink">
           Library
         </h1>

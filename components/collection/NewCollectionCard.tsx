@@ -71,7 +71,7 @@ export function NewCollectionCard() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="group flex h-full min-h-[8.5rem] w-full flex-col items-center justify-center gap-2 rounded-[12px] border border-dashed border-[var(--hairline)] bg-transparent text-faint transition-colors hover:border-accent/50 hover:bg-accent-soft/50 hover:text-accent"
+        className="group flex h-full min-h-[9.5rem] w-full flex-col items-center justify-center gap-2 rounded-[18px] border border-dashed border-[var(--hairline-strong)] bg-transparent text-faint transition-all duration-300 hover:border-accent/50 hover:bg-accent-soft/40 hover:text-accent"
       >
         <Plus className="h-4 w-4" />
         <span className="text-[13px] font-medium">New collection</span>
@@ -80,7 +80,7 @@ export function NewCollectionCard() {
   }
 
   return (
-    <div className="h-full rounded-[12px] border-thin bg-surface p-5">
+    <div className="h-full rounded-[18px] border-thin bg-surface p-5 shadow-card">
       <div className="mb-3.5 flex items-center justify-between">
         <h3 className="text-[15px] font-semibold text-ink">New collection</h3>
         <button
