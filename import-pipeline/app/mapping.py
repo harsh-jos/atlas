@@ -44,6 +44,8 @@ def _entry_spec(draft: EntryDraft, meta: DocMeta, scope: str, import_id: str) ->
         metadata["sourceUrl"] = url
     if draft.structural:
         metadata["structural"] = True  # heading-only node — render as a section, not an article
+    if draft.enriched_by:
+        metadata["enrichedBy"] = draft.enriched_by  # which enricher produced this (observability)
 
     source = {
         "sourceType": str(meta.source_type),

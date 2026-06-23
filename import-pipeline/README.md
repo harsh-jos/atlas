@@ -23,8 +23,10 @@ source ─▶ adapter ─▶ StructuredDocument ─▶ segment ─▶ enrich ─
   - **Markdown** — raw text or `.md` file.
 - **Segmenter** (`app/segment.py`) — one entry per subsection; the heading hierarchy becomes
   `PART_OF` relations and internal links become `SEE_ALSO`. Short leaf sections merge upward.
-- **Enricher** (`app/enrich.py`) — deterministic summary (lead paragraph) + keyword tags.
-  Swap in a DeepSeek/local-LLM enricher later behind the same `Enricher` protocol.
+- **Enricher** (`app/enrichment/`) — `deterministic` summary (lead paragraph) + keyword tags by
+  default, or an `llm` enricher that calls an external OpenAI-compatible model (DeepSeek or a
+  local server) behind the same `Enricher` protocol. Set `ENRICHER=llm` + `LLM_BASE_URL`; it
+  falls back to deterministic (loudly, flagged per entry) on any failure or past a cost cap.
 - **Writer** (`app/writer.py`) — upserts keyed on `(collectionId, metadata.sourceKey)`, so
   re-importing the same source updates entries in place instead of duplicating them.
 
@@ -80,7 +82,9 @@ uv run python -m app.scripts.preview url https://adk.dev/   # dry-run, prints st
 
 ## Not included (yet)
 
-- Vector embeddings / GraphRAG, OCR / scanned PDFs, LLM enrichment (interface is stubbed).
+- Vector embeddings / GraphRAG, OCR / scanned PDFs.
+- LLM-suggested semantic relations (`USES`/`PREREQUISITE`/`CONTRASTS`) — the LLM enricher fills
+  summaries and tags today; relations are still structural (`PART_OF`) + link-derived (`SEE_ALSO`).
 - Stale-relation cleanup: re-importing a source whose structure changed leaves old edges.
 
 [trafilatura]: https://trafilatura.readthedocs.io/

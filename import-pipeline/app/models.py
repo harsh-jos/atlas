@@ -81,6 +81,7 @@ class EntryDraft:
     structural: bool = False  # a heading-only node kept to anchor the hierarchy, no body of its own
     summary: str | None = None  # filled by the enricher
     tags: list[str] = field(default_factory=list)  # filled by the enricher
+    enriched_by: str | None = None  # which enricher produced this entry (observability)
 
 
 # --- Mapped Atlas rows (output of [5] mapper, consumed by [6] writer) ---------------------

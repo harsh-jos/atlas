@@ -16,6 +16,7 @@ from typing import Any
 from app.config import get_settings
 from app.db.pool import get_pool
 from app.models import SourceType
+from app.enrichment import make_enricher
 from app.pipeline import build_import
 from app.sources import article, markdown, pdf, website
 from app.sources.base import SourceResult
@@ -74,12 +75,15 @@ def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> di
     # the job instead of looking like a clean success (fail loud, never silent).
     report = source.report.as_dict() if source.report else None
     on_progress({"stage": "segmenting", "source": report})
+    enricher = make_enricher(settings)
     mapped = build_import(
         source.doc,
         collection_name=params.get("collectionName") or source.suggested_collection,
         scope=source.scope,
         min_entry_chars=settings.min_entry_chars,
         max_entry_chars=settings.max_entry_chars,
+        enricher=enricher,
+        enrich_concurrency=settings.llm_max_concurrency,
         collection_color=params.get("color"),
     )
 
@@ -87,7 +91,11 @@ def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> di
     with get_pool().connection() as conn:
         summary = write_import(conn, mapped)
 
+    # If the LLM enricher ran, report how many entries fell back (degraded enrichment is visible).
+    stats = getattr(enricher, "stats", None)
     result: dict[str, Any] = {**summary, "source": report}
+    if stats is not None:
+        result["enrichment"] = stats.as_dict()
     on_progress({"stage": "done", **result})
     return result
 

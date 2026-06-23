@@ -1,22 +1,20 @@
-"""[4] Enricher: fills each EntryDraft's summary and tags.
+"""No-LLM enricher: lead-paragraph summary + structural and keyword tags.
 
-v1 is fully deterministic and dependency-free — no LLM, no models. `Enricher` is a Protocol,
-so a `DeepSeekEnricher` / `LocalLLMEnricher` can be dropped in later (per-entry, cost-capped)
-without touching the rest of the pipeline. The in-house keyword extractor is intentionally
-simple frequency ranking; swapping in YAKE/KeyBERT later is a one-function change.
+Fully deterministic and dependency-free. It is both the default enricher and the always-available
+fallback the LLM enricher degrades to, so it must never fail. The in-house keyword extractor is
+intentionally simple frequency ranking; swapping in YAKE/KeyBERT later is a one-function change.
 """
 
 from __future__ import annotations
 
 import re
 from collections import Counter
-from typing import Protocol
 
+from app.enrichment.base import MAX_TAGS
 from app.models import DocMeta, EntryDraft
 from app.slugify import slugify
 
 _SUMMARY_LIMIT = 280
-_MAX_TAGS = 6
 
 _CODE_FENCE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
@@ -69,19 +67,16 @@ def _keywords(text: str, k: int) -> list[str]:
     return [word for word, _ in counts.most_common(k)]
 
 
-class Enricher(Protocol):
-    def enrich(self, draft: EntryDraft, meta: DocMeta) -> None: ...
-
-
 class DeterministicEnricher:
     """No-LLM enricher: lead-paragraph summary + structural and keyword tags."""
 
-    def __init__(self, max_tags: int = _MAX_TAGS) -> None:
+    def __init__(self, max_tags: int = MAX_TAGS) -> None:
         self._max_tags = max_tags
 
     def enrich(self, draft: EntryDraft, meta: DocMeta) -> None:
         draft.summary = _summary(draft.body_md)
         draft.tags = self._tags(draft, meta)
+        draft.enriched_by = "deterministic"
 
     def _tags(self, draft: EntryDraft, meta: DocMeta) -> list[str]:
         title_slug = slugify(draft.title)
