@@ -5,11 +5,11 @@
   /* ClickUp-derived system, adapted for a calm reading home.
      A single violet signature used sparingly; carbon for primary actions. */
 
-  /* Surfaces */
-  --canvas: #ffffff;        /* page */
-  --surface: #ffffff;       /* cards — separated by hairline + micro-shadow */
-  --surface-soft: #f8f9fa;  /* paper — inset panels, summary block, code */
-  --surface-band: #e9ebf0;  /* linen — alternating section bands */
+  /* Surfaces — soft cool-tinted canvas so pure-white cards float above it. */
+  --canvas: #f5f6fa;        /* page — faint cool tint, never stark white */
+  --surface: #ffffff;       /* cards — lifted off the canvas by shadow + tint */
+  --surface-soft: #eef0f6;  /* paper — inset panels, summary block, code */
+  --surface-band: #e6e9f1;  /* linen — alternating section bands */
 
   /* Text */
   --ink: #090c1d;     /* midnight ink — headings + primary text */
@@ -50,6 +50,9 @@
   --color-action: var(--action);
   --color-action-hover: var(--action-hover);
 
+  /* One radius for content cards — keeps every card surface in step. */
+  --radius-card: 18px;
+
   /* Plus Jakarta Sans = display / UI chrome. Inter = body + long-form reading. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: var(--font-plus-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -58,6 +61,13 @@
 
 body {
   background-color: var(--canvas);
+  /* Faint violet aura up top — atmosphere, not decoration. Fixed so it stays put. */
+  background-image: radial-gradient(
+    1100px 560px at 50% -8%,
+    rgba(123, 104, 238, 0.07),
+    transparent 70%
+  );
+  background-attachment: fixed;
   color: var(--body);
   font-family: var(--font-sans);
   font-weight: 400;
@@ -98,12 +108,19 @@ body {
   border-color: var(--hairline);
 }
 
-/* Blue-tinted micro-shadows — lift, never drama. */
+/* Layered, diffuse shadows so white cards float off the tinted canvas. */
 .shadow-card {
-  box-shadow: rgba(13, 21, 48, 0.04) 0px 4px 4px 0px, rgba(0, 0, 0, 0.04) 0px 1px 3px 0px;
+  box-shadow:
+    rgba(13, 21, 48, 0.04) 0px 1px 2px 0px,
+    rgba(13, 21, 48, 0.05) 0px 5px 14px -4px,
+    rgba(13, 21, 48, 0.04) 0px 14px 34px -10px;
 }
+/* Hover lift carries a soft violet glow — the signature, doing brand work. */
 .shadow-card-hover {
-  box-shadow: rgba(18, 43, 165, 0.1) 0px 8px 22px -6px, rgba(0, 0, 0, 0.05) 0px 1px 3px 0px;
+  box-shadow:
+    rgba(13, 21, 48, 0.05) 0px 2px 4px 0px,
+    rgba(18, 43, 165, 0.1) 0px 14px 28px -8px,
+    rgba(123, 104, 238, 0.16) 0px 26px 52px -14px;
 }
 .shadow-btn {
   box-shadow: rgba(13, 21, 48, 0.04) 0px 4px 4px 0px;

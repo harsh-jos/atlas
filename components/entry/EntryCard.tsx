@@ -37,7 +37,7 @@ export function EntryCard({
 
         {/* Summary preview */}
         {summary && (
-          <p className="text-[13px] text-muted line-clamp-2 leading-relaxed mb-2">
+          <p className="text-[13px] text-muted line-clamp-2 leading-relaxed mb-2 break-words">
             {summary}
           </p>
         )}

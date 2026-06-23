@@ -43,7 +43,7 @@ export function TopNav() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b-thin bg-canvas/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-white/40 bg-[var(--canvas)]/65 backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 sm:px-8">
         {/* Brand + nav */}
         <div className="flex items-center gap-9">

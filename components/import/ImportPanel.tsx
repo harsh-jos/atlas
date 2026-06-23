@@ -138,7 +138,7 @@ export function ImportPanel() {
   const active = KINDS.find((k) => k.value === kind);
 
   return (
-    <div className="rounded-[12px] border-thin bg-surface p-6 shadow-card">
+    <div className="rounded-card border-thin bg-surface p-6 shadow-card">
       {/* Source kind */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {KINDS.map((option) => {

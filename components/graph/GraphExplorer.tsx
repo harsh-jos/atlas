@@ -24,6 +24,7 @@ const FALLBACK_PALETTE = {
   faint: '#7c828d',
   hairline: '#d9d9d9',
   accent: '#7b68ee',
+  surfaceSoft: '#f8f9fa',
 };
 
 // Resolve design tokens to concrete colors (canvas can't read CSS vars). Runs in
@@ -38,6 +39,7 @@ function readPalette() {
     faint: read('--faint', FALLBACK_PALETTE.faint),
     hairline: read('--hairline-strong', FALLBACK_PALETTE.hairline),
     accent: read('--accent', FALLBACK_PALETTE.accent),
+    surfaceSoft: read('--surface-soft', FALLBACK_PALETTE.surfaceSoft),
   };
 }
 
@@ -51,6 +53,16 @@ function withAlpha(hex: string, alpha: number): string {
   const g = parseInt(value.slice(2, 4), 16);
   const b = parseInt(value.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Mix a hex color toward white — used for the lit core of a node's sphere gradient.
+function lighten(hex: string, amount: number): string {
+  const value = hex.replace('#', '');
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * amount);
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
 }
 
 export function GraphExplorer({ data }: GraphExplorerProps) {
@@ -223,25 +235,72 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
         (focusId != null && !isFocus && !isNeighbor) ||
         (matchedIds != null && !isMatch && focusId == null);
 
-      ctx.globalAlpha = dimmed ? 0.12 : 1;
-
-      if (isFocus) {
+      // Dimmed nodes stay flat and cheap — they fade into the background.
+      if (dimmed) {
+        ctx.globalAlpha = 0.12;
         ctx.beginPath();
-        ctx.arc(x, y, radius + 4 / scale, 0, 2 * Math.PI);
-        ctx.fillStyle = withAlpha(palette.accent, 0.18);
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = node.collectionColor;
+        ctx.fill();
+        ctx.lineWidth = 1 / scale;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        return;
+      }
+
+      ctx.globalAlpha = 1;
+
+      // Soft, pulsing accent glow around the focused node. The focused link's
+      // directional particles keep the render loop alive, so this animates.
+      if (isFocus) {
+        const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 600);
+        const glowRadius = radius + (5 + pulse * 4) / scale;
+        const glow = ctx.createRadialGradient(x, y, radius * 0.6, x, y, glowRadius);
+        glow.addColorStop(0, withAlpha(palette.accent, 0.32));
+        glow.addColorStop(1, withAlpha(palette.accent, 0));
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, y, glowRadius, 0, 2 * Math.PI);
         ctx.fill();
       }
 
+      // Lift the active subset (focus + neighbours) off the canvas with a shadow.
+      // Kept off the ambient nodes so large graphs stay light to paint.
+      const lifted = isFocus || isNeighbor;
+      if (lifted) {
+        ctx.shadowColor = withAlpha(palette.ink, 0.22);
+        ctx.shadowBlur = radius * 1.1;
+        ctx.shadowOffsetY = radius * 0.25;
+      }
+
+      // Radial gradient (lit toward the top-left) gives each node a spherical feel.
+      const fill = ctx.createRadialGradient(
+        x - radius * 0.35,
+        y - radius * 0.35,
+        radius * 0.1,
+        x,
+        y,
+        radius
+      );
+      fill.addColorStop(0, lighten(node.collectionColor, 0.5));
+      fill.addColorStop(1, node.collectionColor);
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      ctx.fillStyle = node.collectionColor;
+      ctx.fillStyle = fill;
       ctx.fill();
+
+      // Clear the shadow before the crisp stroke and labels.
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
       ctx.lineWidth = (isFocus ? 1.8 : 1) / scale;
       ctx.strokeStyle = isFocus ? palette.accent : '#ffffff';
       ctx.stroke();
 
       const showLabel =
-        !dimmed && (isFocus || isNeighbor || isMatch || hubIds.has(id) || scale > 1.9);
+        isFocus || isNeighbor || isMatch || hubIds.has(id) || scale > 1.9;
 
       if (showLabel) {
         const fontSize = 12 / scale;
@@ -282,6 +341,32 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
     [focusId]
   );
 
+  // A barely-there radial vignette so the full-bleed canvas reads as a space, not a
+  // void. Painted in device pixels (reset transform) so it stays fixed under pan/zoom.
+  const paintBackground = React.useCallback(
+    (ctx: CanvasRenderingContext2D) => {
+      const { canvas } = ctx;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const w = canvas.width;
+      const h = canvas.height;
+      const grad = ctx.createRadialGradient(
+        w / 2,
+        h * 0.42,
+        Math.min(w, h) * 0.15,
+        w / 2,
+        h / 2,
+        Math.max(w, h) * 0.72
+      );
+      grad.addColorStop(0, '#ffffff');
+      grad.addColorStop(1, palette.surfaceSoft);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    },
+    [palette]
+  );
+
   const collectionLegend = React.useMemo(() => {
     const seen = new Map<string, string>();
     for (const node of data.nodes) {
@@ -298,12 +383,14 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
         width={dimensions.width}
         height={dimensions.height}
         backgroundColor="#ffffff"
+        onRenderFramePre={paintBackground}
         nodeId="id"
         nodeRelSize={5}
         nodeLabel={() => ''}
         nodeCanvasObjectMode={() => 'replace'}
         nodeCanvasObject={paintNode}
         nodePointerAreaPaint={paintPointerArea}
+        linkCurvature={0.15}
         linkColor={(link) => {
           const base = RELATION_COLORS[link.relationType] ?? palette.faint;
           if (focusId != null) {
