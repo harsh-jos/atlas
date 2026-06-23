@@ -14,7 +14,15 @@ LLM_API_KEY=...                              # omit for a local server that need
 LLM_MODEL=deepseek-chat                      # or the local model name
 LLM_MAX_CONCURRENCY=4
 LLM_MAX_ENTRIES=25                           # keep small for the first runs (cost cap)
+LLM_JSON_MODE=true                           # set false if a local server 400s on response_format
 ```
+
+> **Using a small/local model (SLM)?** The enricher is built to treat the model as an optional
+> booster, never a dependency. It recovers JSON from code fences / surrounding prose, coerces
+> sloppy types, **rejects valid-but-garbage summaries** (too short, mostly punctuation, or echoing
+> the title) and falls back to the deterministic summary, and a crash in the model can never sink
+> an import (the entry is just left un-enriched). See `tests/test_enrichment.py` — 65 tests,
+> incl. an adversarial battery. So a bad SLM degrades gracefully; it won't corrupt your library.
 
 ## 1. Smoke the connection first (cheapest possible check)
 

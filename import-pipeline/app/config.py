@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     llm_timeout_s: float = 60.0
     llm_max_concurrency: int = 4  # parallel in-flight enrichment calls
     llm_max_entries: int | None = None  # per-import cost cap; None = no cap
+    llm_json_mode: bool = True  # set false for a server that rejects response_format (lenient parse still works)
 
     # Service-owned job state (no Redis, no extra Postgres tables).
     jobs_db_path: str = "jobs.db"

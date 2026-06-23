@@ -28,6 +28,21 @@ _SYSTEM_PROMPT = (
 )
 _BODY_EXCERPT_CHARS = 4000
 
+# A small model can return well-formed JSON whose summary is still useless (a single word, mostly
+# punctuation, or just the title echoed back). These bars reject that so we fall back rather than
+# write garbage — the deterministic summary is better than a bad one.
+_MIN_USABLE_SUMMARY = 15
+_MIN_LETTER_RATIO = 0.5
+
+
+def _is_usable_summary(summary: str, draft: EntryDraft) -> bool:
+    text = summary.strip()
+    if len(text) < _MIN_USABLE_SUMMARY:
+        return False
+    if sum(ch.isalpha() for ch in text) < len(text) * _MIN_LETTER_RATIO:
+        return False
+    return text.lower() != draft.title.strip().lower()
+
 
 @dataclass
 class EnrichStats:
@@ -60,6 +75,10 @@ class LLMEnricher:
             result = self._enrich_via_llm(draft, meta)
         except (LLMError, ValidationError) as error:
             log.warning("LLM enrich failed for %r; using deterministic: %s", draft.title, error)
+            self._fall_back(draft, meta, "llm-fallback")
+            return
+        if not _is_usable_summary(result.summary, draft):
+            log.warning("LLM summary for %r was low-quality; using deterministic", draft.title)
             self._fall_back(draft, meta, "llm-fallback")
             return
         draft.summary = result.summary
