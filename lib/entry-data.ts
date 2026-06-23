@@ -2,6 +2,9 @@ import db from '@/lib/db';
 
 export async function getEntryArtifact(slug: string) {
   return db.entry.findUnique({
+    // Load the entry and every nested relation in one round-trip instead of
+    // ~6 sequential queries — the dominant cost on a far-away database.
+    relationLoadStrategy: 'join',
     where: { slug },
     include: {
       collection: true,

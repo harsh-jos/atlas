@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Network, Search, Upload, Plus } from 'lucide-react';
+import { Home, Network, Search, Upload, Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function BottomNav() {
@@ -84,8 +84,12 @@ export function BottomNav() {
         disabled={isCreating}
         className="flex flex-col items-center gap-0.5 text-faint hover:text-ink transition-colors disabled:opacity-50 cursor-pointer"
       >
-        <Plus className="h-[18px] w-[18px]" />
-        <span className="text-[10px] font-medium">New</span>
+        {isCreating ? (
+          <Loader2 className="h-[18px] w-[18px] animate-spin" />
+        ) : (
+          <Plus className="h-[18px] w-[18px]" />
+        )}
+        <span className="text-[10px] font-medium">{isCreating ? 'Creating…' : 'New'}</span>
       </button>
     </nav>
   );
