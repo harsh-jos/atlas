@@ -26,7 +26,7 @@ export function CollectionShelf({
 
   return (
     <Link href={`/collections/${slug}`} className="group block">
-      <div className="relative flex h-full min-h-[9.5rem] flex-col overflow-hidden rounded-[18px] border-thin bg-surface py-5 pl-5 pr-5 shadow-card transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-card-hover">
+      <div className="relative flex h-full min-h-[9.5rem] flex-col overflow-hidden rounded-card border-thin bg-surface py-5 pl-5 pr-5 shadow-card transition-all duration-300 ease-out group-hover:-translate-y-1 group-hover:shadow-card-hover">
         {/* Spine — thins to a hairline, widens a touch on hover, like a book pulled out */}
         <span
           aria-hidden="true"
