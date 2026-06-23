@@ -58,11 +58,17 @@ class EnrichStats:
 
 class LLMEnricher:
     def __init__(
-        self, client: LLMClient, fallback: Enricher, *, max_entries: int | None = None
+        self,
+        client: LLMClient,
+        fallback: Enricher,
+        *,
+        max_entries: int | None = None,
+        body_excerpt_chars: int = _BODY_EXCERPT_CHARS,
     ) -> None:
         self._client = client
         self._fallback = fallback
         self._max_entries = max_entries
+        self._body_excerpt_chars = body_excerpt_chars
         self._used = 0
         self._lock = Lock()
         self.stats = EnrichStats()
@@ -89,7 +95,8 @@ class LLMEnricher:
 
     def _enrich_via_llm(self, draft: EntryDraft, meta: DocMeta) -> EnrichmentResult:
         breadcrumb = " > ".join(draft.breadcrumb)
-        user = f"Source: {meta.title}\nPath: {breadcrumb}\nTitle: {draft.title}\n\n{draft.body_md[:_BODY_EXCERPT_CHARS]}"
+        body = draft.body_md[: self._body_excerpt_chars]
+        user = f"Source: {meta.title}\nPath: {breadcrumb}\nTitle: {draft.title}\n\n{body}"
         data = self._client.complete_json(system=_SYSTEM_PROMPT, user=user)
         return EnrichmentResult.model_validate(data)
 

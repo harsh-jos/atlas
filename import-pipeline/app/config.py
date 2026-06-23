@@ -29,9 +29,12 @@ class Settings(BaseSettings):
     llm_base_url: str | None = None
     llm_api_key: str | None = None  # optional — local servers usually need none
     llm_model: str = "deepseek-chat"
-    llm_timeout_s: float = 60.0
-    llm_max_concurrency: int = 4  # parallel in-flight enrichment calls
+    # Local-first defaults: one laptop model can't really parallelize, and small models are slow.
+    llm_timeout_s: float = 120.0
+    llm_max_concurrency: int = 2  # parallel in-flight calls; raise for a cloud API
     llm_max_entries: int | None = None  # per-import cost cap; None = no cap
+    llm_max_tokens: int = 512  # output cap; summary + tags needs ~100, lower to speed a slow model
+    llm_body_excerpt_chars: int = 4000  # input cap per entry; lower (~2500) for faster local calls
     llm_json_mode: bool = True  # set false for a server that rejects response_format (lenient parse still works)
 
     # Service-owned job state (no Redis, no extra Postgres tables).
