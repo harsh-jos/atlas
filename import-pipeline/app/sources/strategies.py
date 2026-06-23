@@ -143,6 +143,7 @@ class SitemapStrategy:
                 continue
             page_root = page.doc.root
             page_root.title = page.doc.meta.title
+            page_root.source_url = url  # per-page provenance + cross-page link resolution
             _relevel(page_root, 1)
             site.children.append(page_root)
             fetched += 1

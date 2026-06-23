@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.segment import DEFAULT_MAX_ENTRY_CHARS
+
 
 class Settings(BaseSettings):
     """Service configuration, loaded from the environment / `.env`."""
@@ -16,6 +18,8 @@ class Settings(BaseSettings):
 
     # Leaf sections shorter than this merge up into their parent during segmentation.
     min_entry_chars: int = 200
+    # Entries longer than this split into PART_OF continuations (readable + embeddable chunks).
+    max_entry_chars: int = DEFAULT_MAX_ENTRY_CHARS
 
     # Service-owned job state (no Redis, no extra Postgres tables).
     jobs_db_path: str = "jobs.db"

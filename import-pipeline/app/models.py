@@ -55,6 +55,7 @@ class Section:
     anchor: str | None = None  # heading slug, for internal-link (SEE_ALSO) resolution
     links: list[str] = field(default_factory=list)  # hrefs found in this section's content
     children: list[Section] = field(default_factory=list)
+    source_url: str | None = None  # the page this section came from (set per-page on crawls)
 
 
 @dataclass(slots=True)
@@ -76,6 +77,8 @@ class EntryDraft:
     parent_key: str | None = None  # drives the PART_OF edge
     anchor: str | None = None
     out_links: list[str] = field(default_factory=list)  # drives SEE_ALSO edges
+    source_url: str | None = None  # this entry's own page URL — provenance + cross-page links
+    structural: bool = False  # a heading-only node kept to anchor the hierarchy, no body of its own
     summary: str | None = None  # filled by the enricher
     tags: list[str] = field(default_factory=list)  # filled by the enricher
 

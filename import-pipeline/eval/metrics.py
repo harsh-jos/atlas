@@ -71,6 +71,11 @@ def compute_metrics(
         depth_hist[lvl] = depth_hist.get(lvl, 0) + 1
     tiny = sum(1 for b in body_lens if 0 < b < min_entry_chars)
     empty = sum(1 for b in body_lens if b == 0)
+    structural = sum(1 for e in entries if e.metadata.get("structural"))
+    # Empty bodies that are NOT deliberate section-anchor nodes — the ones worth worrying about.
+    empty_unintended = sum(
+        1 for e in entries if not (e.body or "") and not e.metadata.get("structural")
+    )
     huge = sum(1 for b in body_lens if b > 12_000)  # too big to be a clean RAG chunk
 
     # --- Graph: connectivity of the produced relations ------------------------------------
@@ -117,7 +122,8 @@ def compute_metrics(
             "tiny_entries": tiny,
             "tiny_pct": _pct(tiny, n),
             "empty_body_entries": empty,
-            "empty_pct": _pct(empty, n),
+            "structural_entries": structural,
+            "empty_unintended_entries": empty_unintended,
             "huge_entries": huge,
         },
         "graph": {

@@ -79,6 +79,7 @@ def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> di
         collection_name=params.get("collectionName") or source.suggested_collection,
         scope=source.scope,
         min_entry_chars=settings.min_entry_chars,
+        max_entry_chars=settings.max_entry_chars,
         collection_color=params.get("color"),
     )
 
