@@ -19,7 +19,7 @@ from app.models import SourceType
 from app.pipeline import build_import
 from app.sources import article, markdown, pdf, website
 from app.sources.base import SourceResult
-from app.writer import ImportSummary, write_import
+from app.writer import write_import
 
 log = logging.getLogger(__name__)
 
@@ -64,13 +64,16 @@ def load_source(kind: str, params: dict[str, Any]) -> SourceResult:
     raise ValueError(f"unknown import kind: {kind!r}")
 
 
-def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> ImportSummary:
+def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> dict[str, Any]:
     settings = get_settings()
 
     on_progress({"stage": "loading"})
     source = load_source(kind, params)
 
-    on_progress({"stage": "segmenting"})
+    # Surface which strategy actually loaded the source, so a degraded fall-back is visible in
+    # the job instead of looking like a clean success (fail loud, never silent).
+    report = source.report.as_dict() if source.report else None
+    on_progress({"stage": "segmenting", "source": report})
     mapped = build_import(
         source.doc,
         collection_name=params.get("collectionName") or source.suggested_collection,
@@ -83,8 +86,9 @@ def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> Im
     with get_pool().connection() as conn:
         summary = write_import(conn, mapped)
 
-    on_progress({"stage": "done", **summary})
-    return summary
+    result: dict[str, Any] = {**summary, "source": report}
+    on_progress({"stage": "done", **result})
+    return result
 
 
 def process_job(store: Any, job: dict[str, Any]) -> dict[str, Any]:
