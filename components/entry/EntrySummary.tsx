@@ -4,7 +4,7 @@ export interface EntrySummaryProps {
 
 export function EntrySummary({ summary }: EntrySummaryProps) {
   return (
-    <section className="rounded-[12px] border-thin bg-surface-soft p-5">
+    <section className="rounded-card border-thin bg-surface-soft p-5">
       <h2 className="mb-2 font-display text-[11px] font-semibold uppercase tracking-[0.06em] text-faint">
         Summary
       </h2>

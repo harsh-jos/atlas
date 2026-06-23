@@ -119,7 +119,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
 
       {entries.length > 0 ? (
         <>
-          <div className="overflow-hidden rounded-[12px] border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
+          <div className="overflow-hidden rounded-card border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
             {entries.map((entry) => (
               <EntryCard
                 key={entry.id}
