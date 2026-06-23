@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# companion chrome extension (independent of the main app)
+/atlas-clipper
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
