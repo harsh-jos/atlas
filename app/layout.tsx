@@ -40,8 +40,9 @@ export default function RootLayout({
         {/* Global navigation */}
         <TopNav />
 
-        {/* Main Content Area */}
-        <main className="flex-1 pb-16 md:pb-6">
+        {/* Main Content Area — clears the fixed bottom nav (h-14) plus the
+            device safe-area inset on mobile so content is never hidden. */}
+        <main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] md:pb-6">
           {children}
         </main>
 

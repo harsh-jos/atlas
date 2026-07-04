@@ -30,7 +30,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       </div>
 
       {!query ? (
-        <div className="flex items-center gap-4 rounded-[12px] border-thin bg-surface p-6 shadow-card">
+        <div className="flex items-center gap-4 rounded-card border-thin bg-surface p-6 shadow-card">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-soft text-faint">
             <Search className="h-4 w-4" />
           </div>
@@ -39,7 +39,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </p>
         </div>
       ) : results.length > 0 ? (
-        <div className="overflow-hidden rounded-[12px] border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
+        <div className="overflow-hidden rounded-card border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
           {results.map((result) => (
             <Link
               key={result.id}
@@ -56,7 +56,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <h2 className="font-display text-[16px] font-semibold tracking-[-0.02em] text-ink">
                 {cleanTitle(result.title)}
               </h2>
-              <p className="mt-1 max-w-3xl text-[13px] leading-6 text-muted">
+              <p className="mt-1 max-w-3xl break-words text-[13px] leading-6 text-muted">
                 {searchResultExcerpt(result, query)}
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">

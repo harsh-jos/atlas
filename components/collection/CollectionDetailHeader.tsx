@@ -96,7 +96,7 @@ export function CollectionDetailHeader({
 
   if (isEditing) {
     return (
-      <div className="mb-8 rounded-[12px] border-thin bg-surface p-5 shadow-card">
+      <div className="mb-8 rounded-card border-thin bg-surface p-5 shadow-card">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-[15px] font-bold text-ink">Edit collection</h2>
           <button
