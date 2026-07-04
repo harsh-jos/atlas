@@ -16,16 +16,21 @@ interface EntryPageProps {
 
 export default async function EntryPage({ params, searchParams }: EntryPageProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const entry = await getEntryArtifact(slug);
+  const isEdit = query.edit === 'true';
+
+  // Fetch the entry and (in edit mode) the editor's collection list together —
+  // they're independent, so there's no reason to pay two sequential round-trips.
+  const [entry, collections] = await Promise.all([
+    getEntryArtifact(slug),
+    isEdit ? getEntryEditorCollections() : Promise.resolve(null),
+  ]);
 
   if (!entry) {
     notFound();
   }
 
-  if (query.edit === 'true') {
-    const collections = await getEntryEditorCollections();
-
-    return <EntryInlineEditor entry={entry} collections={collections} />;
+  if (isEdit) {
+    return <EntryInlineEditor entry={entry} collections={collections!} />;
   }
 
   return <EntryArtifact entry={entry} />;
