@@ -2,7 +2,9 @@
 
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions"]
+  // relationJoins lets us load an entry + all its relations in a single SQL
+  // query (LATERAL JOIN) instead of one round-trip per relation.
+  previewFeatures = ["postgresqlExtensions", "relationJoins"]
 }
 
 datasource db {
