@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
@@ -43,7 +43,7 @@ export function TopNav() {
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b-thin bg-canvas/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 w-full border-b border-white/40 bg-[var(--canvas)]/65 backdrop-blur-xl backdrop-saturate-150">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 sm:px-8">
         {/* Brand + nav */}
         <div className="flex items-center gap-9">
@@ -91,8 +91,12 @@ export function TopNav() {
             disabled={isCreating}
             className="h-9 gap-1.5 rounded-lg px-3.5 text-[13px]"
           >
-            <Plus className="h-3.5 w-3.5" />
-            <span>New entry</span>
+            {isCreating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
+            <span>{isCreating ? 'Creating…' : 'New entry'}</span>
           </Button>
         </div>
       </div>
