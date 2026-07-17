@@ -161,7 +161,7 @@ export function CollectionDetailHeader({
             className="inline-block h-3 w-3 shrink-0 rounded-full"
             style={{ backgroundColor: accentColor }}
           />
-          <h1 className="font-display text-[32px] font-bold leading-[1.05] tracking-[-0.03em] text-ink">
+          <h1 className="font-title text-[32px] font-bold leading-[1.05] tracking-[-0.03em] text-ink">
             {name}
           </h1>
         </div>
