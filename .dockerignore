@@ -16,3 +16,6 @@ import-pipeline
 
 # Local-only design inspiration (large binaries).
 docs/design-taste
+
+# Runtime-uploaded assets (provided by the web_assets volume in compose).
+uploads

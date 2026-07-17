@@ -83,3 +83,13 @@ enum RelationType {
   CONTRASTS     // this entry is an alternative to or differs from the target
   SEE_ALSO      // loosely related, no strong directional meaning
 }
+
+// Uploaded images. Bytes live on disk (ASSETS_DIR/<id>); this row holds the
+// metadata and is the lookup for serving at /assets/<id>.
+model Asset {
+  id        String   @id @default(uuid())
+  fileName  String   // original upload name, for reference
+  mimeType  String
+  size      Int
+  createdAt DateTime @default(now())
+}
