@@ -1,3 +1,4 @@
+import { SectionLabel } from '@/components/entry/SectionLabel';
 import { cleanTitle } from '@/lib/utils';
 
 export interface EntryMetadataProps {
@@ -52,9 +53,7 @@ export function EntryMetadata({ metadata }: EntryMetadataProps) {
 
   return (
     <section>
-      <h2 className="mb-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-faint">
-        Details
-      </h2>
+      <SectionLabel>Details</SectionLabel>
       <dl className="space-y-2">
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline gap-3 text-[14px] leading-6">
