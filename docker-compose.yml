@@ -50,6 +50,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-atlas}:${POSTGRES_PASSWORD:-atlas}@db:5432/${POSTGRES_DB:-atlas}
       IMPORT_SERVICE_URL: http://pipeline:8000
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      ASSETS_DIR: /data/assets
+    volumes:
+      - web_assets:/data/assets
     depends_on:
       db:
         condition: service_healthy
@@ -61,3 +64,4 @@ services:
 volumes:
   pgdata:
   pipeline_data:
+  web_assets:

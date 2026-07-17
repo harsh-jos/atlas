@@ -4,8 +4,10 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ReadingProgressBar } from '@/components/entry/ReadingProgressBar';
 import { EntrySummary } from '@/components/entry/EntrySummary';
 import { MarkdownBody } from '@/components/entry/MarkdownBody';
+import { HtmlBody } from '@/components/entry/HtmlBody';
 import { EntrySources } from '@/components/entry/EntrySources';
 import { EntryRelations } from '@/components/entry/EntryRelations';
+import { EntryTags } from '@/components/entry/EntryTags';
 import { EntryMetadata } from '@/components/entry/EntryMetadata';
 import { cleanTitle, formatDate } from '@/lib/utils';
 
@@ -56,9 +58,9 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
           </Link>
         </div>
 
-        <article>
-          <header className="mb-8">
-            <h1 className="font-display text-[34px] font-bold leading-[1.12] tracking-[-0.03em] text-ink">
+        <article className="font-reading">
+          <header className="mb-6">
+            <h1 className="font-title text-[30px] font-semibold leading-[1.12] tracking-[-0.02em] text-ink sm:text-[36px] sm:leading-[1.1]">
               {cleanTitle(entry.title)}
             </h1>
             <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-faint">
@@ -86,33 +88,19 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
 
           <EntrySummary summary={entry.summary} />
 
-          <div className="mt-9">
-            <MarkdownBody body={entry.body} />
+          <div className="mt-8">
+            {entry.bodyHtml?.trim() ? (
+              <HtmlBody html={entry.bodyHtml} />
+            ) : (
+              <MarkdownBody body={entry.body} />
+            )}
           </div>
 
           {hasEndMatter && (
-            <footer className="mt-16 space-y-10 border-t-thin pt-10">
+            <footer className="mt-16 space-y-11 border-t-thin pt-10">
               <EntrySources sources={entry.sources} />
               <EntryRelations outgoing={entry.relationsFrom} incoming={entry.relationsTo} />
-
-              {entry.tags.length > 0 && (
-                <section>
-                  <h2 className="mb-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-faint">
-                    Tagged
-                  </h2>
-                  <div className="flex flex-wrap gap-2">
-                    {entry.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border-thin bg-surface px-2.5 py-0.5 text-[12px] text-muted"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-              )}
-
+              <EntryTags tags={entry.tags} />
               <EntryMetadata metadata={entry.metadata} />
             </footer>
           )}

@@ -1,157 +1,162 @@
 # Atlas
 
-> A calm, reading-first personal knowledge base — collect technical knowledge with explicit sources and typed relations, then read and explore it like a book.
+> A calm, reading-first personal knowledge base — a "learning home" where you arrive with a link
+> or a PDF *to learn the concept from Atlas itself*.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=nextdotjs&logoColor=white)
-![React](https://img.shields.io/badge/React-19-087EA4?style=flat&logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?style=flat&logo=postgresql&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat&logo=prisma&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=flat&logo=tailwindcss&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
 
-Atlas turns books, papers, documentation, and tutorials into a connected library. Every
-entry keeps its **source provenance**, links to related entries through **typed relations**,
-and lives in a **collection**. Read entries in a clean, book-like view; search across
-everything; and explore the connections as an interactive graph.
+Atlas turns books, papers, docs, and tutorials into a connected library of **entries** — each with
+a beautiful reading view (markdown or hand-authored HTML, math, code, images), typed **relations**
+to other entries, cited **sources**, and a place in a **collection**. Read like a book, search
+across everything, and explore the connections as a graph. A companion Python **import pipeline**
+ingests whole docs sites, articles, PDFs, and markdown into linked entries.
 
-A companion **import pipeline** ingests whole documentation sites, articles, PDFs, and
-markdown — splitting each source into linked entries automatically.
+The vision, roadmap, and design system live in [`docs/`](docs/) —
+[vision](docs/vision.md) · [design](docs/design.md) · [learning science](docs/learning-science.md).
 
-## Features
+**Stack:** Next.js 16 (App Router, React 19, Server Components) · TypeScript · Prisma ·
+PostgreSQL + pgvector · Tailwind v4 · a FastAPI + uv import service. Everything runs locally via
+Docker.
 
-- **Collections** — a quiet "library shelf" home; group entries and give each shelf a color.
-- **Reading view** — a single centered column with sources and related entries kept as quiet
-  back-matter at the end, like a real book. Includes a reading-progress indicator and inline
-  Markdown/LaTeX rendering.
-- **Source provenance** — every entry cites where it came from (book, paper, docs, tutorial,
-  course, or website) with author, URL, and a precise reference (chapter, page, section).
-- **Typed relations** — connect entries with meaning: `PART_OF`, `USES`, `PREREQUISITE`,
-  `CONTRASTS`, and `SEE_ALSO`. Incoming relations are shown with their inverse label.
-- **Knowledge graph** — an interactive force-directed view of entries and the relations
-  between them, colored by collection.
-- **Full-text search** — weighted PostgreSQL search across titles, summaries, bodies, and
-  tags.
-- **Inline editing** — edit an entry, its sources, and its relations in place, with a
-  server-backed typeahead for picking relation targets.
-- **Embeddings-ready schema** — entries reserve a `pgvector` column for a future
-  semantic/RAG layer (unused in v1).
+---
 
-## Tech stack
+## Running Atlas locally (Docker)
 
-| Area       | Choice                                                                    |
-| ---------- | ------------------------------------------------------------------------- |
-| Framework  | [Next.js 16](https://nextjs.org/) (App Router, React 19, Server Components)|
-| Language   | TypeScript (strict)                                                        |
-| Database   | PostgreSQL + [pgvector](https://github.com/pgvector/pgvector)              |
-| ORM        | [Prisma](https://www.prisma.io/)                                          |
-| Styling    | [Tailwind CSS v4](https://tailwindcss.com/) with design tokens            |
-| Editor     | [CodeMirror](https://codemirror.net/) (Markdown)                          |
-| Graph      | [react-force-graph](https://github.com/vasturiano/react-force-graph)      |
-| Content    | react-markdown · remark-gfm · KaTeX                                       |
-| Import svc | Python · [FastAPI](https://fastapi.tiangolo.com/) · [uv](https://docs.astral.sh/uv/) |
-
-## Getting started
-
-Atlas runs locally as a Docker stack — the Next.js app, Postgres (with `pgvector`), and the
-Python import pipeline — brought up with a single command.
+The whole stack — web app, database, and import pipeline — comes up with one command.
 
 ### Prerequisites
 
-- **Docker Desktop** (or Docker Engine + Compose v2). Nothing else is required to run it.
+- **Docker Desktop** (macOS/Windows) or **Docker Engine + Compose v2** (Linux). Nothing else.
+- Make sure Docker is actually running (Docker Desktop launched) before the commands below.
 
-### Run the stack
+### First run
 
 ```bash
 git clone https://github.com/harsh-jos/atlas.git
 cd atlas
-
-cp .env.example .env       # defaults work out of the box
+cp .env.example .env
 docker compose up --build
 ```
 
-- App → [http://localhost:3000](http://localhost:3000)
-- Import pipeline → [http://localhost:8000/healthz](http://localhost:8000/healthz)
+> ⚠️ **Port 5432 conflict (common on dev machines).** If you already run a local PostgreSQL, it
+> occupies `5432` and will shadow the container. In `.env`, set **`POSTGRES_PORT=5433`** and change
+> the port in **`DATABASE_URL`** to `5433` as well (`postgresql://atlas:atlas@localhost:5433/atlas`).
+> This only affects the host-facing port; nothing inside Docker changes.
 
-The web container runs `prisma migrate deploy` automatically on start, so the schema (and the
-`pgvector` extension) is provisioned for you. The first build is slow — the pipeline image
-pulls in docling/torch (multi-GB) for PDF parsing.
+The **first build is slow**: the import pipeline image pulls in docling/torch (multi-GB) for PDF
+parsing. Subsequent starts are fast. The web container automatically runs database migrations
+(`prisma migrate deploy`, which also enables the `pgvector` extension) on every start.
 
-Seed some sample data (optional), once the stack is up:
+When it's up:
+
+- **App** → http://localhost:3000
+- **Import pipeline health** → http://localhost:8000/healthz
+
+Seed some sample data (optional):
 
 ```bash
 docker compose exec web npm run db:seed
 ```
 
-Stop with `docker compose down` (add `-v` to also delete the database volume).
+### What's running
 
-Then use the **Import** page to bring in a documentation site, article, PDF, or markdown.
+| Service    | Image / build        | Host port | Purpose                                                        |
+| ---------- | -------------------- | --------- | ------------------------------------------------------------- |
+| `db`       | `pgvector/pgvector`  | 5432/5433 | PostgreSQL + pgvector. Data in the `pgdata` volume.           |
+| `pipeline` | `./import-pipeline`  | 8000      | FastAPI import service. Jobs + uploads in `pipeline_data`.    |
+| `web`      | `.` (Next.js)        | 3000      | The app. Runs migrations on start; uploads in `web_assets`.  |
 
-### Develop on the host (optional)
-
-Prefer hot reload? Run just the database in Docker and the app on your machine:
+### Everyday commands
 
 ```bash
-docker compose up -d db     # Postgres + pgvector only
-npm install
-npm run db:deploy           # apply migrations
-npm run dev                 # http://localhost:3000
+docker compose up -d            # start in the background (add --build after code changes)
+docker compose down             # stop and remove containers (KEEPS your data)
+docker compose down -v          # stop AND delete all data (db, uploads, pipeline jobs)
+docker compose logs -f web      # tail the web app logs (or: db, pipeline)
+docker compose ps               # see status + health of each service
+docker compose exec web npm run db:seed          # seed sample data
+docker compose exec web npx prisma migrate deploy # apply migrations manually (runs on start anyway)
+docker compose exec db psql -U atlas -d atlas    # open a psql shell
 ```
 
-The default `DATABASE_URL` in `.env` already points at the dockerized DB on `localhost:5432`.
+After changing dependencies or the Prisma schema, rebuild the web image:
+
+```bash
+docker compose up -d --build web
+```
+
+### Environment (`.env`)
+
+`docker compose` reads `.env` for these. Inside containers, compose injects the correct
+`DATABASE_URL` and `IMPORT_SERVICE_URL` itself — the `DATABASE_URL` below is only used when you run
+the app/Prisma **on the host** (see next section).
+
+| Variable              | Default                                       | Notes                                            |
+| --------------------- | --------------------------------------------- | ------------------------------------------------ |
+| `POSTGRES_USER`       | `atlas`                                        | Database user.                                   |
+| `POSTGRES_PASSWORD`   | `atlas`                                        | Database password (local only).                  |
+| `POSTGRES_DB`         | `atlas`                                        | Database name.                                   |
+| `POSTGRES_PORT`       | `5432`                                         | Host port for Postgres. Use `5433` if 5432 is taken. |
+| `WEB_PORT`            | `3000`                                         | Host port for the app.                           |
+| `IMPORT_SERVICE_PORT` | `8000`                                         | Host port for the pipeline.                      |
+| `DATABASE_URL`        | `postgresql://atlas:atlas@localhost:5432/atlas`| **Host-only** connection (match the port above). |
+| `DEEPSEEK_API_KEY`    | *(empty)*                                      | Optional LLM key for future enrichment; unused today. |
+
+### Persistent data (volumes)
+
+Your data lives in named Docker volumes and **survives `docker compose down`**:
+
+- `pgdata` — the PostgreSQL database.
+- `web_assets` — uploaded images (served at `/assets/<id>`).
+- `pipeline_data` — the import pipeline's job queue and upload staging.
+
+`docker compose down -v` deletes all three — use it only for a clean reset.
+
+### Develop with hot reload (optional)
+
+To iterate on the web app with fast refresh, run only the database in Docker and the app on your
+host:
+
+```bash
+docker compose up -d db      # Postgres + pgvector only
+npm install
+npm run db:deploy            # apply migrations
+npm run dev                  # http://localhost:3000
+```
+
+The `DATABASE_URL` in `.env` points the host app at the dockerized DB (mind the 5432/5433 port).
 To run the import pipeline on the host too, see [`import-pipeline/README.md`](import-pipeline/README.md).
 
-## Project structure
+### Troubleshooting
+
+- **`docker compose up` fails to connect to the daemon** — Docker Desktop isn't running; start it.
+- **`Ports are not available` / `address already in use`** — something holds `3000`/`5432`/`8000`.
+  Change the matching `*_PORT` in `.env` (for Postgres, also update the `DATABASE_URL` port).
+- **Prisma `P1010: User was denied access` when running on the host** — a native Postgres on `5432`
+  is shadowing the container. Publish the container on `5433` (see the port-conflict note above).
+- **Web starts before the DB is ready** — compose waits for the DB healthcheck; if it still races,
+  `docker compose restart web`.
+- **Full reset** — `docker compose down -v && docker compose up --build`.
+
+---
+
+## Project layout
 
 ```
 atlas/
-├── app/                  # Next.js App Router — pages and API routes
-│   ├── collections/      # collection detail (sort, tag filter, pagination)
-│   ├── entries/          # entry reading view + inline editor
-│   ├── graph/            # knowledge graph
-│   ├── search/           # full-text search
-│   ├── import/           # import UI
-│   └── api/              # route handlers (entries, collections, imports, search)
-├── components/           # UI: collection/, entry/, graph/, import/, layout/, ui/
-├── lib/                  # data access, search, utils, Prisma singleton (db.ts)
+├── app/                  # Next.js App Router — pages + API routes (incl. /api/assets, /assets/[id])
+├── components/           # UI: entry/, collection/, graph/, import/, layout/, ui/
+├── lib/                  # data access, search, assets, Prisma singleton (db.ts)
 ├── prisma/               # schema, migrations, seed
-├── import-pipeline/      # local Python ingestion service (FastAPI)
-└── docs/                 # design system & philosophy
+├── import-pipeline/      # local Python ingestion service (FastAPI + uv)
+├── docs/                 # vision, design system, learning-science notes
+├── docker-compose.yml    # the whole local stack
+└── Dockerfile            # the web image
 ```
-
-## Data model
-
-| Model        | Purpose                                                                       |
-| ------------ | ----------------------------------------------------------------------------- |
-| `Collection` | A named, colored group of entries.                                            |
-| `Entry`      | A unit of knowledge: title, summary, Markdown body, tags, and JSON metadata.  |
-| `Source`     | Where an entry came from — type, author, URL, and a precise reference.        |
-| `Relation`   | A typed, optionally annotated edge between two entries.                        |
-
-Entries also carry a nullable `vector(1536)` embedding column, reserved for a future AI
-layer. See [`prisma/schema.prisma`](prisma/schema.prisma) for the full schema.
-
-## Scripts
-
-| Command               | Description                              |
-| --------------------- | ---------------------------------------- |
-| `npm run dev`         | Start the development server.            |
-| `npm run build`       | Generate the Prisma client and build.    |
-| `npm run start`       | Start the production server.             |
-| `npm run lint`        | Run ESLint.                              |
-| `npm run db:migrate`  | Create and apply a development migration.|
-| `npm run db:deploy`   | Apply pending migrations.                |
-| `npm run db:generate` | Regenerate the Prisma client.            |
-| `npm run db:seed`     | Seed sample data.                        |
-
-## Design
-
-Atlas is an inward-facing learning home — optimized for opening and reading, not for
-displaying what you know: calm, browsing-first, and book-like. Design tokens are the single
-source of truth in `app/globals.css` (mapped into Tailwind's `@theme`); type is Plus Jakarta
-Sans for display/UI and Inter for reading. The full design system and philosophy live in
-[`docs/design.md`](docs/design.md).
 
 ## License
 
-This is a personal project. No open-source license is currently applied — all rights
-reserved by the author.
+Personal project — all rights reserved by the author. No open-source license is currently applied.

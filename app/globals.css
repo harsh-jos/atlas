@@ -30,6 +30,14 @@
   /* Action — neutral carbon (primary buttons trust neutral over chromatic) */
   --action: #202023;
   --action-hover: #090909;
+
+  /* Reading body face — system Helvetica/Arial. A plain, named property so a
+     future settings switcher can override it; --font-reading in @theme points here. */
+  --reading: "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
+
+  /* Title/display face — Geist. A plain, named property so a future settings switcher
+     can override it; --font-title in @theme points here. */
+  --title: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 @theme inline {
@@ -53,7 +61,11 @@
   /* One radius for content cards — keeps every card surface in step. */
   --radius-card: 18px;
 
-  /* Plus Jakarta Sans = display / UI chrome. Inter = body + long-form reading. */
+  /* Voices — see app/layout.tsx. title = Geist (display/titles); reading = long-form body
+     (both swappable via plain properties for a future settings switcher);
+     display/sans = UI chrome; mono = code + technical labels. */
+  --font-title: var(--title);
+  --font-reading: var(--reading);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: var(--font-plus-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;

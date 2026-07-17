@@ -1,11 +1,16 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Inter, Geist_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans, Inter, Geist_Mono, Geist } from 'next/font/google';
 import { TopNav } from '@/components/layout/TopNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import './globals.css';
 
-// Plus Jakarta Sans carries display + UI chrome; Inter carries body and
-// long-form reading; Geist Mono for code and tabular numerals.
+// Voices: Geist = titles/display (globals.css --title); system Helvetica/Arial = reading body
+// (--reading); Inter = UI default; Plus Jakarta Sans = UI chrome; Geist Mono = code.
+const title = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+});
+
 const display = Plus_Jakarta_Sans({
   variable: '--font-plus-jakarta',
   subsets: ['latin'],
@@ -34,7 +39,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
+      className={`${title.variable} ${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas text-body font-sans">
         {/* Global navigation */}

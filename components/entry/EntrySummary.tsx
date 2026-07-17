@@ -2,15 +2,13 @@ export interface EntrySummaryProps {
   summary: string | null;
 }
 
+/**
+ * The summary as an editorial lead/deck — a calm standfirst between the title
+ * and the body, set slightly larger and quieter than the reading text.
+ */
 export function EntrySummary({ summary }: EntrySummaryProps) {
-  return (
-    <section className="rounded-card border-thin bg-surface-soft p-5">
-      <h2 className="mb-2 font-display text-[11px] font-semibold uppercase tracking-[0.06em] text-faint">
-        Summary
-      </h2>
-      <p className="text-[18px] leading-[1.6] text-ink">
-        {summary?.trim() || 'No summary has been written yet.'}
-      </p>
-    </section>
-  );
+  const text = summary?.trim();
+  if (!text) return null;
+
+  return <p className="text-[20px] leading-[1.55] text-muted">{text}</p>;
 }
