@@ -11,8 +11,11 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first so this layer caches across source changes.
+# `npm install` (not `npm ci`) because native/wasm optional deps (turbopack,
+# tailwind oxide) resolve per-platform, and the lockfile is generated on macOS —
+# `npm ci`'s strict cross-platform check fails on the Linux-only variants.
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 COPY . .
 
