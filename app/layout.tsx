@@ -1,27 +1,15 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Inter, Geist_Mono, Fraunces, Geist, Poppins } from 'next/font/google';
+import { Plus_Jakarta_Sans, Inter, Geist_Mono, Fraunces } from 'next/font/google';
 import { TopNav } from '@/components/layout/TopNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import './globals.css';
 
-// Three voices: Fraunces = editorial serif for display/titles; Inter = reading
-// body + UI; Plus Jakarta Sans = UI chrome; Geist Mono = code and technical labels.
-// Swap the serif family here + in globals.css (--font-serif) to change the display voice.
+// Four voices: Fraunces = editorial serif for display/titles; system Helvetica/Arial =
+// long-form reading body (globals.css --reading); Inter = UI default; Plus Jakarta Sans =
+// UI chrome; Geist Mono = code + technical labels. Swap the serif here + globals.css.
 const serif = Fraunces({
   variable: '--font-fraunces',
   subsets: ['latin'],
-});
-
-// Reading-body candidates, selectable at runtime via ReadingFontControl (--font-reading).
-const geist = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const poppins = Poppins({
-  variable: '--font-poppins',
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
 });
 
 const display = Plus_Jakarta_Sans({
@@ -52,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${serif.variable} ${display.variable} ${sans.variable} ${geist.variable} ${poppins.variable} ${mono.variable} h-full antialiased`}
+      className={`${serif.variable} ${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas text-body font-sans">
         {/* Global navigation */}
