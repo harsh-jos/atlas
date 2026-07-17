@@ -59,7 +59,7 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
 
         <article className="font-reading">
           <header className="mb-6">
-            <h1 className="font-title text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink">
+            <h1 className="font-title text-[30px] font-semibold leading-[1.12] tracking-[-0.02em] text-ink sm:text-[36px] sm:leading-[1.1]">
               {cleanTitle(entry.title)}
             </h1>
             <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-faint">
