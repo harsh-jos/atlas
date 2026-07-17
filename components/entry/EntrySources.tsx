@@ -1,4 +1,5 @@
 import type { Source, SourceType } from '@prisma/client';
+import { SectionLabel } from '@/components/entry/SectionLabel';
 import { cleanTitle } from '@/lib/utils';
 
 export interface EntrySourcesProps {
@@ -23,9 +24,7 @@ export function EntrySources({ sources }: EntrySourcesProps) {
 
   return (
     <section>
-      <h2 className="mb-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-faint">
-        Sources
-      </h2>
+      <SectionLabel>Sources</SectionLabel>
       <ol className="space-y-3">
         {sources.map((source, index) => {
           const detail = [sourceLabels[source.sourceType], source.author, cleanTitle(source.ref ?? '')]

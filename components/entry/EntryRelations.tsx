@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { EntryArtifactData } from '@/lib/entry-data';
+import { SectionLabel } from '@/components/entry/SectionLabel';
 import { RELATION_INCOMING_LABELS, RELATION_OUTGOING_LABELS } from '@/lib/relations';
 import { cleanTitle } from '@/lib/utils';
 
@@ -57,9 +58,7 @@ export function EntryRelations({ outgoing, incoming }: EntryRelationsProps) {
 
   return (
     <section>
-      <h2 className="mb-4 text-[12px] font-semibold uppercase tracking-[0.06em] text-faint">
-        Related
-      </h2>
+      <SectionLabel>Related</SectionLabel>
       <div className="space-y-3">
         {groups.map((group) => (
           <div key={group.label} className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
