@@ -52,46 +52,53 @@ markdown — splitting each source into linked entries automatically.
 
 ## Getting started
 
+Atlas runs locally as a Docker stack — the Next.js app, Postgres (with `pgvector`), and the
+Python import pipeline — brought up with a single command.
+
 ### Prerequisites
 
-- **Node.js 20+**
-- A **PostgreSQL** database with the `pgvector` extension available — e.g.
-  [Neon](https://neon.tech), [Supabase](https://supabase.com), Vercel Postgres, or local
-  Postgres.
+- **Docker Desktop** (or Docker Engine + Compose v2). Nothing else is required to run it.
 
-### Setup
+### Run the stack
 
 ```bash
 git clone https://github.com/harsh-jos/atlas.git
 cd atlas
 
-cp .env.example .env    # then set DATABASE_URL
-npm install
-npm run db:deploy       # apply migrations
-npm run db:seed         # seed sample data (optional)
-npm run dev
+cp .env.example .env       # defaults work out of the box
+docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+- App → [http://localhost:3000](http://localhost:3000)
+- Import pipeline → [http://localhost:8000/healthz](http://localhost:8000/healthz)
 
-> **Tip:** if pages feel slow, prefer a *pooled* connection string (e.g. Neon's `-pooler`
-> endpoint). Most per-request latency comes from establishing connections to a remote
-> serverless database, not from rendering.
+The web container runs `prisma migrate deploy` automatically on start, so the schema (and the
+`pgvector` extension) is provisioned for you. The first build is slow — the pipeline image
+pulls in docling/torch (multi-GB) for PDF parsing.
 
-### Importing content (optional)
-
-The import pipeline is a separate local Python service that writes into the same database.
-See [`import-pipeline/README.md`](import-pipeline/README.md) for setup and usage. In short:
+Seed some sample data (optional), once the stack is up:
 
 ```bash
-cd import-pipeline
-cp .env.example .env    # point DATABASE_URL at the same DB as the app
-uv sync
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+docker compose exec web npm run db:seed
 ```
 
-Then use the **Import** page in the app to bring in a documentation site, article, PDF, or
-markdown.
+Stop with `docker compose down` (add `-v` to also delete the database volume).
+
+Then use the **Import** page to bring in a documentation site, article, PDF, or markdown.
+
+### Develop on the host (optional)
+
+Prefer hot reload? Run just the database in Docker and the app on your machine:
+
+```bash
+docker compose up -d db     # Postgres + pgvector only
+npm install
+npm run db:deploy           # apply migrations
+npm run dev                 # http://localhost:3000
+```
+
+The default `DATABASE_URL` in `.env` already points at the dockerized DB on `localhost:5432`.
+To run the import pipeline on the host too, see [`import-pipeline/README.md`](import-pipeline/README.md).
 
 ## Project structure
 

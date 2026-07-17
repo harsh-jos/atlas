@@ -1,0 +1,13 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+
+# Service-owned runtime state — provided by a mounted volume in compose.
+uploads
+jobs.db
+
+# Secrets are injected by docker compose.
+.env
+.env.*
