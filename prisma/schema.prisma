@@ -30,6 +30,7 @@ model Entry {
   slug         String       @unique
   summary      String?      // 2–3 sentence distillation — this is the RAG chunk when embeddings are added
   body         String?      // full markdown content
+  bodyHtml     String?      // optional hand-authored HTML; when set, renders instead of `body`
   tags         String[]     // optional, multi-value, user-defined. NOT an enum. e.g. ["paper", "concept", "foundational"]
   collectionId String
   collection   Collection   @relation(fields: [collectionId], references: [id])

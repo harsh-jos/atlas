@@ -4,6 +4,7 @@ import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ReadingProgressBar } from '@/components/entry/ReadingProgressBar';
 import { EntrySummary } from '@/components/entry/EntrySummary';
 import { MarkdownBody } from '@/components/entry/MarkdownBody';
+import { HtmlBody } from '@/components/entry/HtmlBody';
 import { EntrySources } from '@/components/entry/EntrySources';
 import { EntryRelations } from '@/components/entry/EntryRelations';
 import { EntryTags } from '@/components/entry/EntryTags';
@@ -88,7 +89,11 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
           <EntrySummary summary={entry.summary} />
 
           <div className="mt-8">
-            <MarkdownBody body={entry.body} />
+            {entry.bodyHtml?.trim() ? (
+              <HtmlBody html={entry.bodyHtml} />
+            ) : (
+              <MarkdownBody body={entry.body} />
+            )}
           </div>
 
           {hasEndMatter && (

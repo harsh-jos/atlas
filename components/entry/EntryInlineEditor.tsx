@@ -3,6 +3,7 @@
 import * as React from 'react';
 import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
+import { html } from '@codemirror/lang-html';
 import { AlertCircle, Check, Eye, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type {
@@ -39,6 +40,7 @@ export function EntryInlineEditor({
   const [title, setTitle] = React.useState(entry.title);
   const [summary, setSummary] = React.useState(entry.summary ?? '');
   const [body, setBody] = React.useState(entry.body ?? '');
+  const [bodyHtml, setBodyHtml] = React.useState(entry.bodyHtml ?? '');
   const [tags, setTags] = React.useState(entry.tags.join(', '));
   const [collectionId, setCollectionId] = React.useState(entry.collectionId);
   const [sources, setSources] = React.useState<EditableSource[]>(() =>
@@ -75,12 +77,13 @@ export function EntryInlineEditor({
       title,
       summary,
       body,
+      bodyHtml,
       tags: parseTags(tags),
       collectionId,
       sources,
       relations,
     }),
-    [body, collectionId, relations, sources, summary, tags, title]
+    [body, bodyHtml, collectionId, relations, sources, summary, tags, title]
   );
 
   const initialDraft = React.useMemo(
@@ -88,6 +91,7 @@ export function EntryInlineEditor({
       title: entry.title,
       summary: entry.summary ?? '',
       body: entry.body ?? '',
+      bodyHtml: entry.bodyHtml ?? '',
       tags: entry.tags,
       collectionId: entry.collectionId,
       sources: entry.sources.map((source) => ({
@@ -109,6 +113,7 @@ export function EntryInlineEditor({
     }),
     [
       entry.body,
+      entry.bodyHtml,
       entry.collectionId,
       entry.relationsFrom,
       entry.sources,
@@ -354,6 +359,28 @@ export function EntryInlineEditor({
             />
           </div>
         </div>
+
+        <details className="rounded-xl border-thin bg-surface/60">
+          <summary className="cursor-pointer list-none px-4 py-3 text-[13px] font-medium text-muted">
+            HTML body <span className="text-faint">— optional; replaces the markdown body when set</span>
+          </summary>
+          <div className="border-t-thin p-3">
+            <div className="overflow-hidden rounded-lg border-thin bg-surface">
+              <CodeMirror
+                value={bodyHtml}
+                minHeight="240px"
+                extensions={[html()]}
+                basicSetup={{
+                  foldGutter: false,
+                  highlightActiveLine: false,
+                  highlightActiveLineGutter: false,
+                }}
+                onChange={setBodyHtml}
+                className="text-sm"
+              />
+            </div>
+          </div>
+        </details>
 
         <EntrySourceEditor sources={sources} onChange={setSources} />
 
