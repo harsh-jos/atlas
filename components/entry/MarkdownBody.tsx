@@ -22,17 +22,17 @@ export function MarkdownBody({ body }: MarkdownBodyProps) {
       rehypePlugins={[rehypeKatex]}
       components={{
         h1: ({ children }) => (
-          <h1 className="mt-12 border-b-thin pb-3 font-display text-[26px] font-bold leading-tight tracking-[-0.025em] text-ink first:mt-0">
+          <h1 className="mt-12 border-b-thin pb-3 font-serif text-[27px] font-semibold leading-tight tracking-[-0.01em] text-ink first:mt-0">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="mt-11 font-display text-[21px] font-bold leading-snug tracking-[-0.02em] text-ink first:mt-0">
+          <h2 className="mt-11 font-serif text-[22px] font-semibold leading-snug tracking-[-0.005em] text-ink first:mt-0">
             {children}
           </h2>
         ),
         h3: ({ children }) => (
-          <h3 className="mt-8 font-display text-[17px] font-bold leading-snug text-ink">{children}</h3>
+          <h3 className="mt-8 font-serif text-[18px] font-semibold leading-snug text-ink">{children}</h3>
         ),
         p: ({ children }) => <p className="my-5 text-[18px] leading-[1.75] text-body">{children}</p>,
         ul: ({ children }) => (

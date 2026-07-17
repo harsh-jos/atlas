@@ -1,11 +1,17 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Inter, Geist_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans, Inter, Geist_Mono, Fraunces } from 'next/font/google';
 import { TopNav } from '@/components/layout/TopNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import './globals.css';
 
-// Plus Jakarta Sans carries display + UI chrome; Inter carries body and
-// long-form reading; Geist Mono for code and tabular numerals.
+// Three voices: Fraunces = editorial serif for display/titles; Inter = reading
+// body + UI; Plus Jakarta Sans = UI chrome; Geist Mono = code and technical labels.
+// Swap the serif family here + in globals.css (--font-serif) to change the display voice.
+const serif = Fraunces({
+  variable: '--font-fraunces',
+  subsets: ['latin'],
+});
+
 const display = Plus_Jakarta_Sans({
   variable: '--font-plus-jakarta',
   subsets: ['latin'],
@@ -34,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
+      className={`${serif.variable} ${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas text-body font-sans">
         {/* Global navigation */}
