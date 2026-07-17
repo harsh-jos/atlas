@@ -18,12 +18,21 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
     <nav aria-label="Breadcrumb" className={cn('flex items-center space-x-1.5 text-[13px] text-muted select-none', className)}>
       {items.map((item, index) => {
         const isLast = index === items.length - 1;
+        // The current-page crumb is redundant on mobile (the title sits right below),
+        // and its length pushes the Edit action off-screen — hide it on small viewports.
+        const hideOnMobile = isLast && items.length > 1;
 
         return (
           <React.Fragment key={index}>
-            {index > 0 && <ChevronRight className="h-3.5 w-3.5 text-faint" />}
+            {index > 0 && (
+              <ChevronRight
+                className={cn('h-3.5 w-3.5 text-faint', hideOnMobile && 'hidden sm:inline-block')}
+              />
+            )}
             {isLast ? (
-              <span className="text-ink truncate max-w-[200px] sm:max-w-xs">{item.label}</span>
+              <span className="hidden max-w-[200px] truncate text-ink sm:inline sm:max-w-xs">
+                {item.label}
+              </span>
             ) : item.href ? (
               <Link
                 href={item.href}

@@ -30,7 +30,7 @@ export default async function HomePage() {
             Your library
           </span>
         </div>
-        <h1 className="font-display text-[46px] font-extrabold leading-[1.05] tracking-[-0.035em] text-ink">
+        <h1 className="font-title text-[46px] font-extrabold leading-[1.05] tracking-[-0.035em] text-ink">
           Library
         </h1>
         <p className="mt-3 text-[18px] leading-snug text-muted">

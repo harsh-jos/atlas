@@ -19,7 +19,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <div className="mb-7">
-        <h1 className="font-display text-[32px] font-bold leading-none tracking-[-0.03em] text-ink">Search</h1>
+        <h1 className="font-title text-[32px] font-bold leading-none tracking-[-0.03em] text-ink">Search</h1>
         {query && (
           <p className="mt-3 text-[15px] text-muted">
             {results.length === SEARCH_RESULT_LIMIT ? 'Top ' : ''}
