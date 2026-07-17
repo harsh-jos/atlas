@@ -1,0 +1,18 @@
+.git
+node_modules
+.next
+out
+build
+npm-debug.log*
+*.tsbuildinfo
+.DS_Store
+
+# Secrets never belong in an image — env is injected by docker compose.
+.env
+.env.*
+
+# Built separately as its own service; also carries a heavy local .venv/torch.
+import-pipeline
+
+# Local-only design inspiration (large binaries).
+docs/design-taste
