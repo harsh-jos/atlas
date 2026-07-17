@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { EntryArtifactData } from '@/lib/entry-data';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ReadingProgressBar } from '@/components/entry/ReadingProgressBar';
+import { TitleFontControl } from '@/components/entry/TitleFontControl';
 import { EntrySummary } from '@/components/entry/EntrySummary';
 import { MarkdownBody } from '@/components/entry/MarkdownBody';
 import { EntrySources } from '@/components/entry/EntrySources';
@@ -37,6 +38,7 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
   return (
     <>
       <ReadingProgressBar />
+      <TitleFontControl />
 
       <div className="mx-auto max-w-[40rem] px-5 py-12 sm:px-8">
         {/* Quiet top row — orientation + a way out to edit, nothing loud */}

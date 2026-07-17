@@ -1,16 +1,30 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Inter, Geist_Mono, Fraunces } from 'next/font/google';
+import {
+  Plus_Jakarta_Sans,
+  Inter,
+  Geist_Mono,
+  Fraunces,
+  Newsreader,
+  Instrument_Serif,
+  Playfair_Display,
+  Geist,
+} from 'next/font/google';
 import { TopNav } from '@/components/layout/TopNav';
 import { BottomNav } from '@/components/layout/BottomNav';
 import './globals.css';
 
-// Four voices: Fraunces = editorial serif for display/titles; system Helvetica/Arial =
-// long-form reading body (globals.css --reading); Inter = UI default; Plus Jakarta Sans =
-// UI chrome; Geist Mono = code + technical labels. Swap the serif here + globals.css.
+// Voices: Fraunces = current title serif; system Helvetica/Arial = reading body
+// (globals.css --reading); Inter = UI default; Plus Jakarta Sans = UI chrome; Geist Mono = code.
 const serif = Fraunces({
   variable: '--font-fraunces',
   subsets: ['latin'],
 });
+
+// Temporary title-face candidates (TitleFontControl) — trimmed once a title font is chosen.
+const newsreader = Newsreader({ variable: '--font-newsreader', subsets: ['latin'] });
+const instrument = Instrument_Serif({ variable: '--font-instrument', subsets: ['latin'], weight: '400' });
+const playfair = Playfair_Display({ variable: '--font-playfair', subsets: ['latin'] });
+const geist = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 
 const display = Plus_Jakarta_Sans({
   variable: '--font-plus-jakarta',
@@ -40,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${serif.variable} ${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
+      className={`${serif.variable} ${newsreader.variable} ${instrument.variable} ${playfair.variable} ${geist.variable} ${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-canvas text-body font-sans">
         {/* Global navigation */}

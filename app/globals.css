@@ -34,6 +34,10 @@
   /* Reading body face — system Helvetica/Arial. A plain, named property so a
      future settings switcher can override it; --font-reading in @theme points here. */
   --reading: "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
+
+  /* Title/display face — plain property so TitleFontControl can override it at runtime;
+     --font-serif in @theme points here. Default = Fraunces. */
+  --title: var(--font-fraunces), ui-serif, Georgia, Cambria, "Times New Roman", serif;
 }
 
 @theme inline {
@@ -60,12 +64,20 @@
   /* Three voices — see app/layout.tsx. Serif = editorial display/titles;
      reading = long-form body (swappable for a future settings switcher);
      display/sans = UI chrome; mono = code + technical labels. */
-  --font-serif: var(--font-fraunces), ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  --font-serif: var(--title);
   --font-reading: var(--reading);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-display: var(--font-plus-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
+
+/* Title/display font override — driven by TitleFontControl (localStorage). Overrides the
+   plain --title property. Default (no attribute) = Fraunces, set in :root above. */
+html[data-title="newsreader"] { --title: var(--font-newsreader), ui-serif, Georgia, serif; }
+html[data-title="instrument"] { --title: var(--font-instrument), ui-serif, Georgia, serif; }
+html[data-title="playfair"] { --title: var(--font-playfair), ui-serif, Georgia, serif; }
+html[data-title="jakarta"] { --title: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif; }
+html[data-title="geist"] { --title: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif; }
 
 body {
   background-color: var(--canvas);
