@@ -1,0 +1,63 @@
+name: atlas
+
+# One command brings up the whole local stack: `docker compose up --build`.
+# Postgres (with pgvector) + the Python import pipeline + the Next.js app.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-atlas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-atlas}
+      POSTGRES_DB: ${POSTGRES_DB:-atlas}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-atlas} -d ${POSTGRES_DB:-atlas}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pipeline:
+    build: ./import-pipeline
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-atlas}:${POSTGRES_PASSWORD:-atlas}@db:5432/${POSTGRES_DB:-atlas}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      JOBS_DB_PATH: /data/jobs.db
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - pipeline_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${IMPORT_SERVICE_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-atlas}:${POSTGRES_PASSWORD:-atlas}@db:5432/${POSTGRES_DB:-atlas}
+      IMPORT_SERVICE_URL: http://pipeline:8000
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      pipeline:
+        condition: service_started
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  pgdata:
+  pipeline_data:
