@@ -1,8 +1,15 @@
 # Atlas — working notes for agents
 
-Atlas is a personal knowledge base: a calm, reading-first "learning home." Stack: Next.js 16
-(App Router) + TypeScript (strict) + Prisma + PostgreSQL/pgvector + Tailwind v4. Server
-Components by default; client components only where interactivity is genuinely needed.
+Atlas is a calm, reading-first **learning home** — you arrive with a link or PDF *to learn the
+concept from Atlas itself*; the reading experience is the product. Stack: Next.js 16 (App Router)
++ TypeScript (strict) + Prisma + PostgreSQL/pgvector + Tailwind v4. Server Components by default;
+client components only where interactivity is genuinely needed. Moving to a Dockerized, local-first
+setup (one `docker-compose` for the whole stack).
+
+## Vision is the source of truth
+`docs/vision.md` holds what Atlas is and why — product identity, roadmap, and the learning-science
+foundation (`docs/learning-science.md`). **Read `docs/vision.md` before shaping any feature.** When
+intent is unclear, it wins over stale code.
 
 ## This is NOT the Next.js you know
 This repo runs a modified Next.js 16 with breaking changes from the public docs — APIs,
@@ -21,8 +28,13 @@ From the team's engineering rulebook. These are defaults, not law — break one 
 good, *stated* reason.
 
 - **Optimize for the next reader.** Simple beats clever. Match the surrounding code's idiom.
-- **Small, single-purpose units.** One file/function = one responsibility; if you can't name
-  it without "and", split it. No god-files.
+- **Write the simplest thing that works (YAGNI).** Less code is better code. Don't build for
+  imagined future needs; solve the problem in front of you. The best refactor makes code smaller.
+- **SOLID, clean, modular, reusable.** Single responsibility, depend on abstractions not
+  concretions, small focused interfaces. Prefer pure, composable functions.
+- **Small, single-purpose units + clear structure.** One file/function = one responsibility; if
+  you can't name it without "and", split it. No god-files. Prefer *more, smaller* files and
+  functions when it improves readability, and keep a clear, predictable folder structure.
 - **Single source of truth.** One home per fact/constant/mapping — derive, don't duplicate
   (duplicated data drifts). Prisma is reached only through the `lib/db.ts` singleton.
 - **Fail loud, never silent.** Distinguish "no result" (correct) from "failure" (a bug);
@@ -32,7 +44,8 @@ good, *stated* reason.
 - **No magic literals.** Meaningful numbers/strings become named constants.
 - **DRY by the rule of three.** Extract a helper on the third repetition, not the first. A
   good refactor usually makes the code smaller.
-- **Comments explain *why*, not *what*.** Delete dead code — git remembers.
+- **No comments unless necessary.** Prefer self-documenting names over narration; add a comment
+  only when the *why* isn't obvious from the code. Delete dead code — git remembers.
 - **Verify against reality, not docs.** Docs and AI explanations go stale; confirm behavior
   live when it matters.
 - **Gate every change.** Run the type-checker (and lint) after each change, not at the end.

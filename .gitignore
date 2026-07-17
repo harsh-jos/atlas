@@ -39,6 +39,9 @@ yarn-error.log*
 # companion chrome extension (independent of the main app)
 /atlas-clipper
 
+# local design inspiration (referenced by docs/design.md, kept out of git — large binaries)
+/docs/design-taste
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
