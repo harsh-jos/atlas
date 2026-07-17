@@ -1,9 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import CodeMirror from '@uiw/react-codemirror';
+import CodeMirror, { type ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { markdown } from '@codemirror/lang-markdown';
-import { AlertCircle, Check, Eye, Trash2 } from 'lucide-react';
+import { AlertCircle, Check, Eye, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type {
   EntryArtifactData,
@@ -65,6 +65,10 @@ export function EntryInlineEditor({
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const editorRef = React.useRef<ReactCodeMirrorRef>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const draft = React.useMemo(
     () => ({
@@ -181,6 +185,44 @@ export function EntryInlineEditor({
     router.refresh();
   }
 
+  function insertAtCursor(text: string) {
+    const view = editorRef.current?.view;
+    if (!view) {
+      setBody((current) => current + text);
+      return;
+    }
+    const { from, to } = view.state.selection.main;
+    view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } });
+    view.focus();
+  }
+
+  async function uploadImage(file: File) {
+    setUploadError(null);
+    setIsUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch('/api/assets', { method: 'POST', body: form });
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string };
+        setUploadError(data.error ?? 'Upload failed.');
+        return;
+      }
+      const { url, fileName } = (await response.json()) as { url: string; fileName: string };
+      insertAtCursor(`\n\n![${fileName}](${url})\n\n`);
+    } catch {
+      setUploadError('Upload failed.');
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-selecting the same file
+    if (file) void uploadImage(file);
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -271,10 +313,34 @@ export function EntryInlineEditor({
           />
         </label>
 
-        <label className="grid gap-2">
-          <span className="text-[13px] font-medium text-muted">Body</span>
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[13px] font-medium text-muted">Body</span>
+            <div className="flex items-center gap-2">
+              {uploadError && <span className="text-[12px] text-red-600">{uploadError}</span>}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="gap-1.5"
+                disabled={isUploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImageIcon className="h-3.5 w-3.5" />
+                {isUploading ? 'Uploading…' : 'Add image'}
+              </Button>
+            </div>
+          </div>
           <div className="overflow-hidden rounded-xl border-thin bg-surface">
             <CodeMirror
+              ref={editorRef}
               value={body}
               minHeight="520px"
               extensions={[markdown()]}
@@ -287,7 +353,7 @@ export function EntryInlineEditor({
               className="text-sm"
             />
           </div>
-        </label>
+        </div>
 
         <EntrySourceEditor sources={sources} onChange={setSources} />
 

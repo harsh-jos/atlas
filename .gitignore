@@ -44,6 +44,9 @@ yarn-error.log*
 # local design inspiration (referenced by docs/design.md, kept out of git — large binaries)
 /docs/design-taste
 
+# uploaded image assets (host dev; dockerized via the web_assets volume)
+/uploads
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
