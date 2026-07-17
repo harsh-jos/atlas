@@ -70,23 +70,20 @@ elevation). Large containers read at ~16–20px radius, inner cards/inputs ~12px
 pills fully round. Generous whitespace is part of the design, not a lack of content. `bg-canvas` is
 effectively white — use `surface-soft` for hover and inset tints.
 
-### Type — a three-voice system *(the biggest evolution from the old doc)*
-The references consistently pair three voices. Use them deliberately:
+### Type — the voice system *(decided live, 2026-07)*
+The references leaned editorial-serif for titles, but tried live the creator preferred a **clean
+sans** everywhere. Serif was rejected. The decided system (tokens in `app/globals.css`):
 
-1. **Editorial serif — display & titles.** A high-contrast transitional/"didone-adjacent" serif
-   (feel: Canela / GT Sectra / Freight / Newsreader) carries headings, entry titles, and hero
-   moments. This is where the "premium editorial journal" gravitas comes from, and it's the single
-   thing the stale doc was missing. Tight, confident, not timid.
-2. **Neutral grotesk — UI & labels.** A clean sans (current `font-display` = Plus Jakarta Sans;
-   Inter/Söhne/Neue-Haas also fit) for navigation, buttons, form labels, metadata, chips.
-3. **Monospace — technical accent.** Geist/JetBrains Mono for code, micro-labels above headings,
-   tags, keyboard hints, and IDs. Used as a "scientific" voice, sparingly.
+1. **Geist — titles & display** (`font-title` → `--title`). Headings, entry titles, hero moments.
+   A modern neo-grotesk: confident and clean, not literary. This is the display voice.
+2. **System Helvetica/Arial — reading body** (`font-reading` → `--reading`). Long-form entry bodies
+   (~18px, ~1.75 line-height). Chosen by eye over Inter/Geist/Poppins.
+3. **Inter — UI default**, **Plus Jakarta Sans — UI chrome** (`font-display`) for nav, buttons,
+   labels, metadata, chips.
+4. **Geist Mono — technical accent** (`font-mono`) for code, micro-labels, tags, keyboard hints, IDs.
 
-**Reading body — decided:** stay on **Inter** for long-form entry bodies (~18px, ~1.75 line-height)
-for now; the editorial serif stays for display/titles only. A **reading-font switcher in app
-settings** (e.g. Inter ↔ a refined serif) is planned for later — so build the reading typography as
-a swappable token, not a hardcoded family, to keep that door open. Don't mix reading faces within a
-single view.
+Both `--title` and `--reading` are plain, overridable properties so a **reading/title-font switcher
+in app settings** can be added later without touching components. Don't mix faces within one view.
 
 ### Colour & status
 Near-monochrome by default: ink descending from near-black → slate → steel on white/light-grey.

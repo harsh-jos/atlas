@@ -2,7 +2,6 @@ import Link from 'next/link';
 import type { EntryArtifactData } from '@/lib/entry-data';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ReadingProgressBar } from '@/components/entry/ReadingProgressBar';
-import { TitleFontControl } from '@/components/entry/TitleFontControl';
 import { EntrySummary } from '@/components/entry/EntrySummary';
 import { MarkdownBody } from '@/components/entry/MarkdownBody';
 import { EntrySources } from '@/components/entry/EntrySources';
@@ -38,7 +37,6 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
   return (
     <>
       <ReadingProgressBar />
-      <TitleFontControl />
 
       <div className="mx-auto max-w-[40rem] px-5 py-12 sm:px-8">
         {/* Quiet top row — orientation + a way out to edit, nothing loud */}
@@ -60,7 +58,7 @@ export function EntryArtifact({ entry }: EntryArtifactProps) {
 
         <article className="font-reading">
           <header className="mb-8">
-            <h1 className="font-serif text-[36px] font-semibold leading-[1.1] tracking-[-0.015em] text-ink">
+            <h1 className="font-title text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-ink">
               {cleanTitle(entry.title)}
             </h1>
             <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-faint">
