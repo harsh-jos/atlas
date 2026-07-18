@@ -2,11 +2,10 @@
 
 import dynamic from 'next/dynamic';
 import { Share2 } from 'lucide-react';
-import { EmptyState } from '@/components/ui/EmptyState';
 import type { KnowledgeGraphData } from '@/lib/graph-data';
 
-const GraphExplorer = dynamic(
-  () => import('@/components/graph/GraphExplorer').then((mod) => mod.GraphExplorer),
+const KnowledgeGraph3D = dynamic(
+  () => import('@/components/graph/KnowledgeGraph3D').then((mod) => mod.KnowledgeGraph3D),
   {
     ssr: false,
     loading: () => (
@@ -24,15 +23,21 @@ export interface KnowledgeGraphPanelProps {
 export function KnowledgeGraphPanel({ data }: KnowledgeGraphPanelProps) {
   if (data.nodes.length === 0) {
     return (
-      <div className="flex h-full w-full items-center justify-center px-6">
-        <EmptyState
-          icon={<Share2 className="h-4 w-4" />}
-          title="The graph is empty"
-          description="Add entries and connect them with relations to see them here."
-        />
+      <div className="flex h-full w-full items-center justify-center bg-canvas px-6">
+        <div className="flex max-w-sm flex-col items-center text-center">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border-thin bg-surface text-muted shadow-card">
+            <Share2 className="h-4 w-4" />
+          </div>
+          <h2 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink">
+            The graph is empty
+          </h2>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+            Add entries and connect them with relations to see them here.
+          </p>
+        </div>
       </div>
     );
   }
 
-  return <GraphExplorer data={data} />;
+  return <KnowledgeGraph3D data={data} />;
 }
