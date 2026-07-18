@@ -93,6 +93,27 @@ def find_entries_by_source_keys(
     return {row["sk"]: {"id": row["id"], "slug": row["slug"]} for row in rows}
 
 
+def prune_stale_entries(
+    conn: Connection, collection_id: str, scope: str, keep_keys: Sequence[str]
+) -> int:
+    """Delete entries from a prior import of the same `scope` whose sourceKey is gone this run.
+
+    Re-importing a source whose structure changed (e.g. a section removed, or a coarser split)
+    would otherwise leave orphaned entries and their edges behind. Relations cascade on the
+    entry delete, so this keeps a re-import a true mirror of the source. Returns rows deleted.
+    """
+    cur = conn.execute(
+        """
+        DELETE FROM "Entry"
+        WHERE "collectionId" = %s
+          AND metadata->>'scope' = %s
+          AND NOT (metadata->>'sourceKey' = ANY(%s::text[]))
+        """,
+        (collection_id, scope, list(keep_keys)),
+    )
+    return cur.rowcount
+
+
 def load_existing_slugs(conn: Connection) -> set[str]:
     """All entry slugs (slug is globally unique) — used to allocate slugs without per-row queries."""
     return {row["slug"] for row in conn.execute('SELECT slug FROM "Entry"').fetchall()}
