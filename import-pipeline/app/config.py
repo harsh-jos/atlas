@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     jobs_db_path: str = "jobs.db"
     uploads_dir: str = "uploads"
 
+    # If set, every import is ALSO mirrored into this Obsidian vault (folder of markdown
+    # notes) alongside the Postgres write. Leave unset to write only to Atlas.
+    obsidian_vault_dir: str | None = None
+
     # Optional LLM enrichment (DeepSeek). Off by default: the pipeline is fully deterministic
     # unless this is enabled AND a key is present. It only ever upgrades entries, never blocks.
     llm_enrichment: bool = False
