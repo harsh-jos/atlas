@@ -17,13 +17,16 @@ from app.slugify import slugify
 
 _SUMMARY_LIMIT = 280
 _MAX_TAGS = 6
+_MIN_KEYWORD_FREQ = 2  # a keyword must recur to be worth a tag on longer sections
 
 _CODE_FENCE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 _LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 _INLINE_NOISE = re.compile(r"[*_`>#]+")
 _WS = re.compile(r"\s+")
-_WORD = re.compile(r"[a-z][a-z0-9+#.\-]{2,}")
+# A word: starts alpha, may carry internal '-' or '.' (node.js, fine-tune) but never trailing
+# punctuation, so we don't emit tags like "minutes." or "example:".
+_WORD = re.compile(r"[a-z][a-z0-9+#]*(?:[-.][a-z0-9+#]+)*")
 
 # Compact English stopword set — enough to keep frequency-based tags meaningful.
 _STOPWORDS = frozenset(
@@ -33,7 +36,9 @@ _STOPWORDS = frozenset(
     what who whom while via per about above below over under more most such only same so
     some out up down new like first second example examples note default value values set
     get make made does do done able well within without across between among being been
-    here where why http https www com org net io html href link links page""".split()
+    here where why http https www com org net io html href link links page see following
+    need want add create build run guide guides start started next now way ways let lets
+    step steps below above shows show learn work works section docs documentation""".split()
 )
 
 
@@ -62,15 +67,20 @@ def _summary(body_md: str) -> str | None:
     return None
 
 
-def _keywords(text: str, k: int) -> list[str]:
+def _keywords(text: str, k: int, *, min_freq: int) -> list[str]:
     counts: Counter[str] = Counter(
-        word for word in _WORD.findall(text.lower()) if word not in _STOPWORDS
+        word
+        for word in _WORD.findall(text.lower())
+        if len(word) >= 3 and word not in _STOPWORDS
     )
-    return [word for word, _ in counts.most_common(k)]
+    ranked = [(word, n) for word, n in counts.most_common() if n >= min_freq]
+    if not ranked:  # short section: relax the recurrence floor rather than emit nothing
+        ranked = counts.most_common(k)
+    return [word for word, _ in ranked[:k]]
 
 
 class Enricher(Protocol):
-    def enrich(self, draft: EntryDraft, meta: DocMeta) -> None: ...
+    def enrich_all(self, drafts: list[EntryDraft], meta: DocMeta) -> None: ...
 
 
 class DeterministicEnricher:
@@ -79,15 +89,17 @@ class DeterministicEnricher:
     def __init__(self, max_tags: int = _MAX_TAGS) -> None:
         self._max_tags = max_tags
 
-    def enrich(self, draft: EntryDraft, meta: DocMeta) -> None:
-        draft.summary = _summary(draft.body_md)
-        draft.tags = self._tags(draft, meta)
+    def enrich_all(self, drafts: list[EntryDraft], meta: DocMeta) -> None:
+        for draft in drafts:
+            draft.summary = _summary(draft.body_md)
+            draft.tags = self._tags(draft, meta)
 
     def _tags(self, draft: EntryDraft, meta: DocMeta) -> list[str]:
         title_slug = slugify(draft.title)
         # Clean links/images out first so URL fragments don't become tags.
         text = _clean_inline(_strip_code(draft.body_md))
-        candidates = [meta.source_type.lower(), *_keywords(text, k=4)]
+        keywords = _keywords(text, k=self._max_tags, min_freq=_MIN_KEYWORD_FREQ)
+        candidates = [meta.source_type.lower(), *keywords]
 
         tags: list[str] = []
         for raw in candidates:

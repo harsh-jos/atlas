@@ -240,14 +240,15 @@ function StatusBlock({ status }: { status: ImportJobStatus }) {
   }
 
   if (status.status === 'done' && status.result) {
-    const { collectionSlug, entries, relations } = status.result;
+    const { collectionSlug, entries, relations, pruned } = status.result;
     return (
       <div className="mt-5 flex items-start gap-2 rounded-lg border-thin border-green-200/70 bg-green-50/50 px-3.5 py-3 text-[13px] text-green-800">
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
         <div>
           <p className="font-medium">
             Imported {entries} {entries === 1 ? 'entry' : 'entries'} and {relations}{' '}
-            {relations === 1 ? 'relation' : 'relations'}.
+            {relations === 1 ? 'relation' : 'relations'}
+            {pruned ? `, removed ${pruned} stale` : ''}.
           </p>
           <Link
             href={`/collections/${collectionSlug}`}
