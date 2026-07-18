@@ -68,6 +68,30 @@ curl -X POST localhost:8000/imports/file -F file=@paper.pdf -F collectionName="P
 `kind` is one of `url` (docs site), `article`, `markdown` (with `text`). Optional:
 `collectionName`, `sourceType` (`BOOK|PAPER|DOCS|TUTORIAL|COURSE|WEBSITE`).
 
+## Use it standalone for Obsidian (no database, no service)
+
+The same fetch → segment → enrich pipeline can write into an **Obsidian vault** instead of
+Postgres — one markdown note per entry, with YAML frontmatter and `[[wikilinks]]` for the
+relations, so Obsidian's graph view and backlinks work. This path needs no `DATABASE_URL` and
+no running service:
+
+```bash
+# A whole documentation site -> a folder of linked notes in your vault
+uv run python -m app.scripts.to_obsidian url https://google.github.io/adk-docs/ --vault ~/MyVault
+
+# Other sources
+uv run python -m app.scripts.to_obsidian article https://example.com/post --vault ~/MyVault
+uv run python -m app.scripts.to_obsidian pdf ./book.pdf --vault ~/MyVault --collection "My Book"
+```
+
+Each import becomes a folder inside the vault (named after the collection). Re-running mirrors
+the source: notes are overwritten in place and ones whose section disappeared are removed.
+Tune note granularity with `--min-chars` (merge small sections up; lower = more, smaller notes)
+and `--max-level` (split down to this heading level; deeper headings fold into the note body).
+
+**Do both at once.** To have the running service mirror every Atlas import into a vault as well,
+set `OBSIDIAN_VAULT_DIR=/path/to/vault` in `.env` — imports then write to Postgres *and* the vault.
+
 ## Develop
 
 ```bash
@@ -80,8 +104,9 @@ uv run python -m app.scripts.preview url https://adk.dev/   # dry-run, prints st
 
 ## Not included (yet)
 
-- Vector embeddings / GraphRAG, OCR / scanned PDFs, LLM enrichment (interface is stubbed).
-- Stale-relation cleanup: re-importing a source whose structure changed leaves old edges.
+- Vector embeddings / GraphRAG, OCR / scanned PDFs.
+- LLM enrichment is implemented (DeepSeek, `app/enrich_llm.py`) but **off by default**; enable it
+  with `LLM_ENRICHMENT=true` + `DEEPSEEK_API_KEY` in `.env`.
 
 [trafilatura]: https://trafilatura.readthedocs.io/
 [docling]: https://docling-project.github.io/docling/

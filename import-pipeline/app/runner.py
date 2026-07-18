@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.db.pool import get_pool
 from app.enrich_llm import enricher_from_settings
 from app.models import SourceType
+from app.obsidian import write_vault
 from app.pipeline import build_import
 from app.sources import article, markdown, pdf, website
 from app.sources.base import SourceResult
@@ -85,6 +86,10 @@ def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> Im
     on_progress({"stage": "writing", "entries": len(mapped.entries)})
     with get_pool().connection() as conn:
         summary = write_import(conn, mapped)
+
+    if settings.obsidian_vault_dir:
+        vault = write_vault(mapped, settings.obsidian_vault_dir)
+        log.info("mirrored import to Obsidian vault: %s (%d notes)", vault["folder"], vault["entries"])
 
     on_progress({"stage": "done", **summary})
     return summary
