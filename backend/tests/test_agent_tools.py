@@ -11,7 +11,6 @@ from app.agent.toolkit import build_toolkit
 from app.core.enums import SourceType
 from app.db.models import Artifact, User
 from app.pipeline.parsing.markdown_parser import parse_markdown
-from app.pipeline.preview import UnknownPreview
 from app.pipeline.sources.base import SourceResult
 
 SAMPLE = """# Vector Search
@@ -97,9 +96,11 @@ def test_search_finds_what_was_committed(session, tools):
     assert all({"slug", "title", "concept"} <= set(hit) for hit in hits)
 
 
-def test_commit_refuses_an_unknown_preview(tools):
-    with pytest.raises(UnknownPreview):
-        tools["commit"](str(uuid4()), [])
+def test_commit_refuses_an_unknown_preview(tools, session, user):
+    """Refused, but as a value — see test_a_tool_failure_comes_back_as_something_to_say."""
+    result = tools["commit"](str(uuid4()), [])
+    assert "error" in result
+    assert session.query(Artifact).filter_by(user_id=user.id).count() == 0
 
 
 def test_preview_returns_the_artifact_list_not_just_a_count(tools):
@@ -117,3 +118,20 @@ def test_preview_reports_what_the_person_already_knows(session, tools):
 
     second = tools["preview"]("https://example.com/docs", "Vector Search")
     assert second["alreadyKnown"]
+
+
+def test_a_tool_failure_comes_back_as_something_to_say(tools):
+    """A raising tool kills the whole turn, so failure has to be a value the model can relay."""
+    result = tools["commit"](str(uuid4()), ["anything"])
+    assert result.get("alreadyResolved") is True
+    assert "already resolved" in result["error"].lower()
+
+
+def test_an_unexpected_tool_failure_is_captured_too(tools, monkeypatch):
+    monkeypatch.setattr(
+        toolkit_module,
+        "search_artifacts",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("db gone")),
+    )
+    result = tools["search"]("anything")
+    assert "db gone" in result["error"]

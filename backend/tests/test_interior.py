@@ -141,7 +141,9 @@ def _deep():
 
 
 def test_deep_headings_fold_into_ancestor_entry():
-    mapped = build_import(_deep(), concept_name="G", scope="g", min_artifact_chars=80, max_split_level=3)
+    mapped = build_import(
+        _deep(), concept_name="G", scope="g", min_artifact_chars=80, max_split_level=3
+    )
     titles = {e.title for e in mapped.artifacts}
     assert "Env vars" not in titles  # H4 folded up
     setup = _entry(mapped, "Setup")
@@ -150,7 +152,9 @@ def test_deep_headings_fold_into_ancestor_entry():
 
 
 def test_empty_hub_gets_toc_body_and_no_blank_entries():
-    mapped = build_import(_deep(), concept_name="G", scope="g", min_artifact_chars=80, max_split_level=3)
+    mapped = build_import(
+        _deep(), concept_name="G", scope="g", min_artifact_chars=80, max_split_level=3
+    )
     for entry in mapped.artifacts:
         assert (entry.body or "").strip(), f"{entry.title} is blank"
     hub = _entry(mapped, "Hub")  # has only content via its child -> ToC body
@@ -163,3 +167,53 @@ def test_tags_have_no_trailing_punctuation():
         for tag in entry.tags:
             assert tag == tag.strip(" .,:;"), f"noisy tag {tag!r}"
             assert not tag.endswith("."), f"trailing dot in tag {tag!r}"
+
+
+DUPLICATE_HEADINGS = """# Course
+
+Enough prose in the root section that it stands on its own as a readable artifact for the reader.
+
+## Chapter one
+
+Some substantial body text here so the section is not merged upward into its parent by the segmenter.
+
+### End the timer and print out how long it took
+
+A tutorial repeats this heading after every training loop it walks the reader through here.
+
+### Train the model
+
+Body text belonging to the training step, long enough to survive segmentation on its own merits.
+
+### End the timer and print out how long it took
+
+The very same heading, under the very same chapter — which collided on source_key.
+"""
+
+
+def test_repeated_headings_get_distinct_source_keys():
+    """source_key is the idempotency key — a collision silently collapses two artifacts into one."""
+    doc = parse_markdown(DUPLICATE_HEADINGS, fallback_title="Course", source_type=SourceType.DOCS)
+    mapped = build_import(
+        doc, concept_name="Course", scope="s", min_artifact_chars=1, max_split_level=3
+    )
+
+    keys = [artifact.source_key for artifact in mapped.artifacts]
+    assert len(keys) == len(set(keys)), f"duplicate source_key: {keys}"
+
+
+def test_source_keys_are_stable_across_identical_imports():
+    """Disambiguation must not depend on anything that changes between runs."""
+
+    def keys():
+        doc = parse_markdown(
+            DUPLICATE_HEADINGS, fallback_title="Course", source_type=SourceType.DOCS
+        )
+        return [
+            a.source_key
+            for a in build_import(
+                doc, concept_name="Course", scope="s", min_artifact_chars=1, max_split_level=3
+            ).artifacts
+        ]
+
+    assert keys() == keys()

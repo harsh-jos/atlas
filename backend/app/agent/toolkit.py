@@ -5,7 +5,9 @@ Every tool is async: ADK calls sync tools inline, and a blocking crawl would sta
 """
 
 import asyncio
+import logging
 from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -16,8 +18,23 @@ from app.db.base import SessionScope
 from app.db.models import User
 from app.pipeline.build import build_import
 from app.pipeline.loader import load_source
-from app.pipeline.preview import PreviewService
+from app.pipeline.preview import PreviewService, UnknownPreview
 from app.search import search_artifacts
+
+log = logging.getLogger(__name__)
+
+
+async def _attempt(work: Callable[..., dict], *args: Any) -> dict:
+    """A tool that raises kills the whole turn, so failure comes back as something to say.
+
+    The model is told to relay the message rather than invent a result, which is why the reason
+    travels with it — a bare "failed" would tempt it to guess what happened.
+    """
+    try:
+        return await asyncio.to_thread(work, *args)
+    except Exception as error:
+        log.warning("tool %s failed: %s", work.__name__, error)
+        return {"error": f"{type(error).__name__}: {error}"}
 
 
 def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
@@ -58,7 +75,11 @@ def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
     def _commit(preview_id: str, source_keys: list[str]) -> dict:
         with scope() as session:
             service = PreviewService(session, owner(session))
-            return dict(service.commit(UUID(preview_id), source_keys or None))
+            try:
+                return dict(service.commit(UUID(preview_id), source_keys or None))
+            except UnknownPreview:
+                # Usually the person already resolved it in the chooser. Not an error to them.
+                return {"alreadyResolved": True, "error": "That preview was already resolved."}
 
     async def search_knowledge_base(query: str) -> dict:
         """Search what this person has ALREADY learned and kept.
@@ -73,7 +94,7 @@ def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
             results: matching artifacts, each with slug, title, summary and concept name.
             An empty list means they have nothing on this yet.
         """
-        return await asyncio.to_thread(_search, query)
+        return await _attempt(_search, query)
 
     async def preview_source(url: str, concept_name: str = "") -> dict:
         """Fetch a source and show exactly which artifacts it would become. Writes NOTHING.
@@ -94,7 +115,7 @@ def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
             alreadyKnown: artifacts the person ALREADY has on this topic. If this is not
             empty, tell them before they choose — they may want to extend rather than duplicate.
         """
-        return await asyncio.to_thread(_preview, url, concept_name)
+        return await _attempt(_preview, url, concept_name)
 
     async def commit_artifacts(preview_id: str, source_keys: list[str]) -> dict:
         """Write the artifacts the person explicitly chose into their knowledge base.
@@ -110,6 +131,6 @@ def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
         Returns:
             conceptSlug, artifacts written, relations created, pruned, and bytes charged.
         """
-        return await asyncio.to_thread(_commit, preview_id, source_keys)
+        return await _attempt(_commit, preview_id, source_keys)
 
     return [search_knowledge_base, preview_source, commit_artifacts]
