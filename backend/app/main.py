@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.api.imports import router as imports_router
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
+from app.realtime.router import router as realtime_router
 from app.pipeline.db import repository
 from app.pipeline.db.pool import close_pool, get_pool
 from app.jobs.queue import JobStore, run_worker
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Atlas", version="0.1.0", lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(realtime_router)
 app.include_router(imports_router)
 
 
