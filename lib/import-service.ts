@@ -19,6 +19,7 @@ export interface ImportResult {
   collectionSlug: string;
   entries: number;
   relations: number;
+  pruned?: number;
 }
 
 export interface ImportJobStatus {
