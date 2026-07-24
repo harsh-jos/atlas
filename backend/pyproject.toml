@@ -19,6 +19,7 @@ dependencies = [
     "pyjwt>=2.10",
     "pwdlib[argon2]>=0.2",
     "email-validator>=2.2",
+    "google-adk>=1.16",
 ]
 
 # This is an application, not a distributable package — don't try to build it.

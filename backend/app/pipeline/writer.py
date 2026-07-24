@@ -51,10 +51,17 @@ class ImportWriter:
         self.user_id: UUID = user.id
         self.quota = quota
 
-    def write(self, mapped: MappedImport) -> ImportSummary:
+    def write(
+        self, mapped: MappedImport, known_keys: Sequence[str] | None = None
+    ) -> ImportSummary:
+        """`known_keys` is everything the source offered; without it, the selection is the source.
+
+        Pruning compares against the source, not against the selection — otherwise committing a
+        curated subset would delete artifacts the user kept from an earlier import.
+        """
         concept = self._ensure_concept(mapped)
         existing = self._existing_artifacts(concept, mapped.artifacts)
-        stale = self._stale_artifacts(concept, mapped.artifacts)
+        stale = self._stale_artifacts(concept, mapped.artifacts, known_keys)
         delta = self._charge(mapped.artifacts, [*existing.values(), *stale])
 
         artifacts = self._upsert_artifacts(concept, mapped.artifacts, existing)
@@ -105,17 +112,18 @@ class ImportWriter:
         return {artifact.meta["sourceKey"]: artifact for artifact in rows}
 
     def _stale_artifacts(
-        self, concept: Concept, specs: Sequence[ArtifactSpec]
+        self, concept: Concept, specs: Sequence[ArtifactSpec], known_keys: Sequence[str] | None
     ) -> Sequence[Artifact]:
-        """Artifacts from a prior import of this scope whose section vanished this run."""
+        """Artifacts from a prior import of this scope whose section vanished from the source."""
         scope = specs[0].metadata.get("scope") if specs else None
         if not scope:
             return []
+        keep = list(known_keys) if known_keys is not None else [s.source_key for s in specs]
         return list(
             self.session.scalars(
                 self._in_concept(concept).where(
                     Artifact.meta["scope"].astext == scope,
-                    Artifact.meta["sourceKey"].astext.notin_([s.source_key for s in specs]),
+                    Artifact.meta["sourceKey"].astext.notin_(keep),
                 )
             )
         )
