@@ -15,6 +15,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import get_settings
+from app.auth.repository import UserRepository
 from app.db.base import get_session_factory
 from app.pipeline.enrich_llm import enricher_from_settings
 from app.pipeline.models import SourceType
@@ -23,6 +24,7 @@ from app.pipeline.build import build_import
 from app.pipeline.sources import article, markdown, pdf, website
 from app.pipeline.sources.base import SourceResult
 from app.pipeline.writer import ImportSummary, ImportWriter
+from app.storage.quota import QuotaService
 
 log = logging.getLogger(__name__)
 
@@ -86,7 +88,10 @@ def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> Im
 
     on_progress({"stage": "writing", "artifacts": len(mapped.artifacts)})
     with get_session_factory().begin() as session:
-        summary = ImportWriter(session, UUID(params["userId"])).write(mapped)
+        user = UserRepository(session).get(UUID(params["userId"]))
+        if user is None:
+            raise ValueError(f"import owner {params['userId']} no longer exists")
+        summary = ImportWriter(session, user, QuotaService(session, user)).write(mapped)
 
     if settings.obsidian_vault_dir:
         vault = write_vault(mapped, settings.obsidian_vault_dir)

@@ -12,8 +12,9 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.slugify import slugify
-from app.db.models import Artifact, Concept, Relation, Source
+from app.db.models import Artifact, Concept, Relation, Source, User
 from app.pipeline.models import ArtifactSpec, MappedImport, RelationSpec
+from app.storage.quota import QuotaService
 
 _UNTITLED = "untitled"
 
@@ -23,6 +24,7 @@ class ImportSummary(TypedDict):
     artifacts: int
     relations: int
     pruned: int
+    bytes: int
 
 
 def allocate_slug(title: str, taken: set[str]) -> str:
@@ -36,24 +38,46 @@ def allocate_slug(title: str, taken: set[str]) -> str:
     return slug
 
 
+def text_bytes(*parts: str | None) -> int:
+    """What an artifact costs against the quota: its stored text, UTF-8 encoded."""
+    return sum(len(part.encode()) for part in parts if part)
+
+
 class ImportWriter:
     """Writes one import into one user's knowledge base; re-imports update rows in place."""
 
-    def __init__(self, session: Session, user_id: UUID) -> None:
+    def __init__(self, session: Session, user: User, quota: QuotaService) -> None:
         self.session = session
-        self.user_id = user_id
+        self.user_id: UUID = user.id
+        self.quota = quota
 
     def write(self, mapped: MappedImport) -> ImportSummary:
         concept = self._ensure_concept(mapped)
-        artifacts = self._upsert_artifacts(concept, mapped.artifacts)
+        existing = self._existing_artifacts(concept, mapped.artifacts)
+        stale = self._stale_artifacts(concept, mapped.artifacts)
+        delta = self._charge(mapped.artifacts, [*existing.values(), *stale])
+
+        artifacts = self._upsert_artifacts(concept, mapped.artifacts, existing)
         self._replace_sources(mapped.artifacts, artifacts)
         relations = self._insert_relations(mapped.relations, artifacts)
+        self._prune(stale)
         return {
             "conceptSlug": concept.slug,
             "artifacts": len(mapped.artifacts),
             "relations": relations,
-            "pruned": self._prune_stale(concept, mapped.artifacts),
+            "pruned": len(stale),
+            "bytes": delta,
         }
+
+    def _charge(self, specs: Sequence[ArtifactSpec], replaced: Sequence[Artifact]) -> int:
+        """Reserve before writing, so an over-quota import fails without half-filling the base."""
+        incoming = sum(text_bytes(s.body, s.summary) for s in specs)
+        delta = incoming - sum(text_bytes(a.body, a.summary) for a in replaced)
+        if delta > 0:
+            self.quota.reserve(delta)
+        elif delta < 0:
+            self.quota.release(-delta)
+        return delta
 
     def _ensure_concept(self, mapped: MappedImport) -> Concept:
         spec = mapped.concept
@@ -70,19 +94,40 @@ class ImportWriter:
         self.session.flush()
         return concept
 
-    def _upsert_artifacts(
+    def _existing_artifacts(
         self, concept: Concept, specs: Sequence[ArtifactSpec]
     ) -> dict[str, Artifact]:
-        existing = {
-            artifact.meta["sourceKey"]: artifact
-            for artifact in self.session.scalars(
-                select(Artifact).where(
-                    Artifact.user_id == self.user_id,
-                    Artifact.concept_id == concept.id,
-                    Artifact.meta["sourceKey"].astext.in_([s.source_key for s in specs]),
+        rows = self.session.scalars(
+            self._in_concept(concept).where(
+                Artifact.meta["sourceKey"].astext.in_([s.source_key for s in specs])
+            )
+        )
+        return {artifact.meta["sourceKey"]: artifact for artifact in rows}
+
+    def _stale_artifacts(
+        self, concept: Concept, specs: Sequence[ArtifactSpec]
+    ) -> Sequence[Artifact]:
+        """Artifacts from a prior import of this scope whose section vanished this run."""
+        scope = specs[0].metadata.get("scope") if specs else None
+        if not scope:
+            return []
+        return list(
+            self.session.scalars(
+                self._in_concept(concept).where(
+                    Artifact.meta["scope"].astext == scope,
+                    Artifact.meta["sourceKey"].astext.notin_([s.source_key for s in specs]),
                 )
             )
-        }
+        )
+
+    def _in_concept(self, concept: Concept):
+        return select(Artifact).where(
+            Artifact.user_id == self.user_id, Artifact.concept_id == concept.id
+        )
+
+    def _upsert_artifacts(
+        self, concept: Concept, specs: Sequence[ArtifactSpec], existing: dict[str, Artifact]
+    ) -> dict[str, Artifact]:
         taken = self._taken_slugs()
         written: dict[str, Artifact] = {}
         for spec in specs:
@@ -160,19 +205,11 @@ class ImportWriter:
         )
         return len(rows)
 
-    def _prune_stale(self, concept: Concept, specs: Sequence[ArtifactSpec]) -> int:
-        """Drop artifacts from a prior import of this scope whose section vanished this run."""
-        scope = specs[0].metadata.get("scope") if specs else None
-        if not scope:
-            return 0
-        result = self.session.execute(
+    def _prune(self, stale: Sequence[Artifact]) -> None:
+        if not stale:
+            return
+        self.session.execute(
             delete(Artifact)
-            .where(
-                Artifact.user_id == self.user_id,
-                Artifact.concept_id == concept.id,
-                Artifact.meta["scope"].astext == scope,
-                Artifact.meta["sourceKey"].astext.notin_([s.source_key for s in specs]),
-            )
+            .where(Artifact.id.in_([a.id for a in stale]))
             .execution_options(synchronize_session="fetch")
         )
-        return result.rowcount
