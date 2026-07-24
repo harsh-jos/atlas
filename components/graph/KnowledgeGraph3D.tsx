@@ -176,6 +176,31 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
 
   const focusId = hoverId ?? selectedId;
 
+  const linkTouchesFocus = React.useCallback(
+    (link: GraphLink) =>
+      focusId != null && (resolveId(link.source) === focusId || resolveId(link.target) === focusId),
+    [focusId]
+  );
+
+  // Accessor identity is a prop change to the graph, so keep these keyed to what they read.
+  const emptyLabel = React.useCallback(() => '', []);
+  const particleColor = React.useCallback(
+    (link: GraphLink) => RELATION_COLORS[link.relationType],
+    []
+  );
+  const linkColor = React.useCallback(
+    (link: GraphLink) => (focusId != null && !linkTouchesFocus(link) ? '#dcdee6' : LINK_BASE),
+    [focusId, linkTouchesFocus]
+  );
+  const linkWidth = React.useCallback(
+    (link: GraphLink) => (focusId != null && linkTouchesFocus(link) ? 1.6 : 0.9),
+    [focusId, linkTouchesFocus]
+  );
+  const linkParticles = React.useCallback(
+    (link: GraphLink) => (focusId != null && linkTouchesFocus(link) ? 2 : 0),
+    [focusId, linkTouchesFocus]
+  );
+
   // Dim everything outside the focused node's neighbourhood.
   React.useEffect(() => {
     const neighbors = focusId ? adjacency.get(focusId) : null;
@@ -189,13 +214,17 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
     });
   }, [focusId, adjacency]);
 
-  // Frame the whole graph once the layout settles. A very soft, far fog adds
-  // just a touch of depth without washing the nodes out.
+  // Frame the graph ONCE, when the layout first settles. Refitting on every settle fights the
+  // camera: hovering a node changes linkDirectionalParticles, which restarts the engine, so the
+  // view was being yanked back on every hover — reading as an endless zoom out.
+  const hasFramed = React.useRef(false);
   const handleEngineStop = React.useCallback(() => {
     const graph = graphRef.current;
     if (!graph) return;
     const scene = graph.scene();
     if (!scene.fog) scene.fog = new THREE.Fog(BACKGROUND, 600, 1800);
+    if (hasFramed.current) return;
+    hasFramed.current = true;
     graph.zoomToFit(700, 90);
   }, []);
 
@@ -271,17 +300,11 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
     return [...seen.entries()].map(([name, color]) => ({ name, color }));
   }, [data.nodes]);
 
-  const linkTouchesFocus = React.useCallback(
-    (link: GraphLink) =>
-      focusId != null && (resolveId(link.source) === focusId || resolveId(link.target) === focusId),
-    [focusId]
-  );
-
   const panel = 'rounded-[12px] border-thin bg-surface/85 shadow-card backdrop-blur-md';
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-canvas">
-      <ForceGraph3D
+      <ForceGraph3D<ApiGraphNode, ApiGraphLink>
         ref={graphRef}
         graphData={graphData}
         width={dimensions.width}
@@ -290,13 +313,13 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
         showNavInfo={false}
         extraRenderers={cssRenderer ? [cssRenderer] : []}
         nodeThreeObject={nodeThreeObject}
-        nodeLabel={() => ''}
-        linkColor={(link) => (focusId != null && !linkTouchesFocus(link) ? '#dcdee6' : LINK_BASE)}
-        linkWidth={(link) => (focusId != null && linkTouchesFocus(link) ? 1.6 : 0.9)}
+        nodeLabel={emptyLabel}
+        linkColor={linkColor}
+        linkWidth={linkWidth}
         linkOpacity={0.8}
-        linkDirectionalParticles={(link) => (focusId != null && linkTouchesFocus(link) ? 2 : 0)}
+        linkDirectionalParticles={linkParticles}
         linkDirectionalParticleWidth={1.6}
-        linkDirectionalParticleColor={(link) => RELATION_COLORS[link.relationType]}
+        linkDirectionalParticleColor={particleColor}
         controlType="orbit"
         cooldownTicks={120}
         onEngineStop={handleEngineStop}
