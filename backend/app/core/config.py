@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     # Per-user ceiling on stored asset + artifact bytes.
     storage_quota_bytes: int = 500 * 1024 * 1024
 
+    # Vertex/Gemini. Credentials come from ADC; only the project is required to enable the agent.
+    vertex_project: str | None = None
+    vertex_location: str = "us-central1"
+    agent_model: str = "gemini-2.5-flash"
+    agent_search_model: str = "gemini-2.5-flash"
+
     # Leaf sections shorter than this merge up into their parent during segmentation, so a
     # page's short steps coalesce into it instead of becoming shallow standalone entries.
     min_artifact_chars: int = 600

@@ -1,7 +1,7 @@
 """Preview: park a built import so the user chooses what enters the knowledge base."""
 
 from collections.abc import Sequence
-from typing import Any, TypedDict
+from typing import TypedDict
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -94,8 +94,3 @@ class PreviewService:
 
     def _mapped(self, preview_id: UUID) -> MappedImport:
         return load_import(self._preview(preview_id).payload)
-
-
-def outline_summary(items: Sequence[OutlineItem]) -> dict[str, Any]:
-    """What the model and the UI both need to describe a preview at a glance."""
-    return {"artifacts": len(items), "bytes": sum(item["bytes"] for item in items)}
