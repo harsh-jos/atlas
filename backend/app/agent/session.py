@@ -32,6 +32,18 @@ def get_session_service() -> BaseSessionService:
     return DatabaseSessionService(db_url=database_url().render_as_string(hide_password=False))
 
 
+def _preview_id(response: types.FunctionResponse) -> str | None:
+    """A preview the agent just built, so the UI can offer the choice instead of prose."""
+    if response.name != "preview_source" or not isinstance(response.response, dict):
+        return None
+    payload = response.response
+    inner = payload.get("result")
+    if isinstance(inner, dict):
+        payload = inner
+    found = payload.get("previewId")
+    return found if isinstance(found, str) else None
+
+
 async def ask(
     agent: Agent,
     user_id: str,
@@ -56,6 +68,10 @@ async def ask(
         if on_event:
             for call in event.get_function_calls():
                 await on_event({"type": "agent.tool", "name": call.name})
+            for response in event.get_function_responses():
+                preview_id = _preview_id(response)
+                if preview_id:
+                    await on_event({"type": "agent.preview", "previewId": preview_id})
         if event.is_final_response() and event.content and event.content.parts:
             text = "".join(part.text for part in event.content.parts if part.text)
             if text:
