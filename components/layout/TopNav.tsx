@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home', match: (p: string) => p === '/' },
+  { href: '/chat', label: 'Learn', match: (p: string) => p.startsWith('/chat') },
   { href: '/graph', label: 'Graph', match: (p: string) => p.startsWith('/graph') },
   { href: '/search', label: 'Search', match: (p: string) => p.startsWith('/search') },
 ];

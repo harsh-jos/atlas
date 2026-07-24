@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Network, Search } from 'lucide-react';
+import { Home, Sparkles, Network, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home', icon: Home, match: (p: string) => p === '/' },
+  { href: '/chat', label: 'Learn', icon: Sparkles, match: (p: string) => p.startsWith('/chat') },
   { href: '/graph', label: 'Graph', icon: Network, match: (p: string) => p.startsWith('/graph') },
   { href: '/search', label: 'Search', icon: Search, match: (p: string) => p.startsWith('/search') },
 ];

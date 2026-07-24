@@ -26,13 +26,13 @@ def verify_password(password: str, password_hash: str | None) -> bool:
     return _hasher.verify(password, password_hash or _absent_user_hash())
 
 
-def create_access_token(subject: UUID) -> str:
+def create_access_token(subject: UUID, ttl_minutes: int | None = None) -> str:
     settings = get_settings()
     issued_at = datetime.now(UTC)
     payload = {
         "sub": str(subject),
         "iat": issued_at,
-        "exp": issued_at + timedelta(minutes=settings.access_token_ttl_minutes),
+        "exp": issued_at + timedelta(minutes=ttl_minutes or settings.access_token_ttl_minutes),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
