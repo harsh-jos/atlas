@@ -130,3 +130,19 @@ export interface ImportSummary {
   pruned: number;
   bytes: number;
 }
+
+export interface ProposedEdge {
+  fromTitle: string;
+  toTitle: string;
+  relationType: RelationType;
+  note: string;
+  confidence: number;
+}
+
+export interface LinkReport {
+  embedded: number;
+  considered: number;
+  proposed: number;
+  capped: boolean;
+  edges: ProposedEdge[];
+}

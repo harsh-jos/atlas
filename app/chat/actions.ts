@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { type ActionResult, attempt } from '@/lib/actions';
 import { apiGet, apiSend } from '@/lib/api';
-import type { ImportSummary, PreviewDetail } from '@/lib/api-types';
+import type { ImportSummary, LinkReport, PreviewDetail } from '@/lib/api-types';
 
 /** One turn with the agent. A turn can commit artifacts, so the library is revalidated after. */
 export async function sendTurn(sessionId: string, message: string): Promise<ActionResult<string>> {
@@ -53,4 +53,15 @@ export async function commitPreview(
 
 export async function discardPreview(previewId: string): Promise<ActionResult<void>> {
   return attempt(() => apiSend<void>('DELETE', `/previews/${previewId}`));
+}
+
+/** Propose connections for what was just kept. Slow — the caller shows progress meanwhile. */
+export async function proposeLinks(conceptSlug: string): Promise<ActionResult<LinkReport>> {
+  const result = await attempt(() =>
+    apiSend<LinkReport>('POST', '/links/propose', { concept_slug: conceptSlug })
+  );
+  if (result.error === undefined) {
+    revalidatePath('/graph');
+  }
+  return result;
 }

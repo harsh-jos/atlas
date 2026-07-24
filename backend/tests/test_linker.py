@@ -244,3 +244,15 @@ def test_a_rerun_on_an_unchanged_base_proposes_nothing_new(session, user, artifa
 
     assert second["considered"] == 0, "every pair was already judged"
     assert _count(session, Relation) == settled
+
+
+def test_the_report_names_the_edges_it_proposed(session, user, artifacts):
+    """A count alone is not reviewable; the UI has to show what was actually connected."""
+    report = Linker(session, user, FakeEmbedder(), FakeJudge()).propose([a.id for a in artifacts])
+
+    assert len(report["edges"]) == report["proposed"]
+    edge = report["edges"][0]
+    titles = set(TOPICS)
+    assert edge["fromTitle"] in titles and edge["toTitle"] in titles
+    assert edge["relationType"] == RelationType.PREREQUISITE
+    assert edge["note"] and 0 < edge["confidence"] <= 1
