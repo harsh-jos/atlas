@@ -125,6 +125,16 @@ class Artifact(OwnedRecord):
     )
 
 
+class Preview(OwnedRecord):
+    """A built-but-unwritten import, parked between proposal and curation."""
+
+    __tablename__ = "previews"
+
+    concept_name: Mapped[str] = mapped_column(String(200))
+    scope: Mapped[str] = mapped_column(String(500))
+    payload: Mapped[dict] = mapped_column(JSONB)
+
+
 class Source(Record):
     """Where an artifact came from — the provenance spine."""
 
