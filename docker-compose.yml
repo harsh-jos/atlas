@@ -21,14 +21,19 @@ services:
       timeout: 5s
       retries: 10
 
+  # The Python backend: API, ingestion pipeline, and the agent. Owns the schema.
   pipeline:
-    build: ./import-pipeline
+    build: ./backend
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-atlas}:${POSTGRES_PASSWORD:-atlas}@db:5432/${POSTGRES_DB:-atlas}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — the backend refuses to sign with a default}
+      VERTEX_PROJECT: ${VERTEX_PROJECT:-}
+      VERTEX_LOCATION: ${VERTEX_LOCATION:-global}
+      AGENT_MODEL: ${AGENT_MODEL:-gemini-3.5-flash}
       JOBS_DB_PATH: /data/jobs.db
       UPLOADS_DIR: /data/uploads
+      ASSETS_DIR: /data/assets
     volumes:
       - pipeline_data:/data
     depends_on:

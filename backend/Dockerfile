@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Python import pipeline (FastAPI + uvicorn), managed with uv.
+# The Atlas backend: API, ingestion pipeline and agent (FastAPI + uvicorn), managed with uv.
 # NOTE: docling pulls in torch, so this image is large (multi-GB) and slow to build
 # the first time. That is inherent to PDF parsing support.
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
@@ -24,4 +24,5 @@ COPY app ./app
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# The backend owns the schema, so it applies migrations before serving.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
