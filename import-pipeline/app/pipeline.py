@@ -11,9 +11,9 @@ from uuid import uuid4
 from app.enrich import DeterministicEnricher, Enricher
 from app.mapping import map_import
 from app.models import CollectionSpec, MappedImport, StructuredDocument
-from app.segment import segment
+from app.segment import DEFAULT_MAX_SPLIT_LEVEL, segment
 
-DEFAULT_MIN_ENTRY_CHARS = 200
+DEFAULT_MIN_ENTRY_CHARS = 600
 
 
 def build_import(
@@ -23,6 +23,7 @@ def build_import(
     scope: str,
     import_id: str | None = None,
     min_entry_chars: int = DEFAULT_MIN_ENTRY_CHARS,
+    max_split_level: int = DEFAULT_MAX_SPLIT_LEVEL,
     enricher: Enricher | None = None,
     collection_color: str | None = None,
     collection_description: str | None = None,
@@ -30,9 +31,10 @@ def build_import(
     import_id = import_id or str(uuid4())
     enricher = enricher or DeterministicEnricher()
 
-    drafts = segment(doc, scope=scope, min_entry_chars=min_entry_chars)
-    for draft in drafts:
-        enricher.enrich(draft, doc.meta)
+    drafts = segment(
+        doc, scope=scope, min_entry_chars=min_entry_chars, max_split_level=max_split_level
+    )
+    enricher.enrich_all(drafts, doc.meta)
 
     collection = CollectionSpec(
         name=collection_name,

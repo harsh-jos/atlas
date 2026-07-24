@@ -21,6 +21,7 @@ class ImportSummary(TypedDict):
     collectionSlug: str
     entries: int
     relations: int
+    pruned: int
 
 
 def write_import(conn: Connection, mapped: MappedImport) -> ImportSummary:
@@ -100,8 +101,20 @@ def write_import(conn: Connection, mapped: MappedImport) -> ImportSummary:
                 )
         relations = repo.insert_relations(conn, relation_rows)
 
+        # Idempotency: drop entries from a prior import of this same source whose section
+        # disappeared this run (structure changed / coarser split). Their edges cascade.
+        scope = mapped.entries[0].metadata.get("scope") if mapped.entries else None
+        pruned = (
+            repo.prune_stale_entries(
+                conn, collection_id, scope, [e.source_key for e in mapped.entries]
+            )
+            if scope
+            else 0
+        )
+
     return {
         "collectionSlug": collection["slug"],
         "entries": len(mapped.entries),
         "relations": relations,
+        "pruned": pruned,
     }

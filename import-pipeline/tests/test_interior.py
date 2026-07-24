@@ -45,9 +45,11 @@ def test_markdown_promotes_single_h1_to_root():
 
 
 def test_segmentation_granularity_and_merge():
-    mapped = build_import(_doc(), collection_name="Google ADK", scope="adk", min_entry_chars=100)
+    # At the H3 split level, subsections stay as their own entries.
+    mapped = build_import(
+        _doc(), collection_name="Google ADK", scope="adk", min_entry_chars=100, max_split_level=3
+    )
     titles = {e.title for e in mapped.entries}
-    # Subsection-level granularity: kept entries...
     assert titles == {"Google ADK", "Tools", "Function Tools", "Built-in Tools"}
     # ...and the short "Sessions" leaf merged up into the root entry instead of becoming one.
     assert "Sessions" not in titles
@@ -55,8 +57,21 @@ def test_segmentation_granularity_and_merge():
     assert "Short note." in (root.body or "")
 
 
-def test_part_of_and_see_also_relations():
+def test_default_split_level_folds_subsections_into_pages():
+    # The default (H2) folds H3 subsections into their section body — one substantial entry,
+    # not a stub plus a swarm of one-paragraph children.
     mapped = build_import(_doc(), collection_name="Google ADK", scope="adk", min_entry_chars=100)
+    titles = {e.title for e in mapped.entries}
+    assert titles == {"Google ADK", "Tools"}
+    tools = _entry(mapped, "Tools")
+    assert "### Function Tools" in (tools.body or "")
+    assert "### Built-in Tools" in (tools.body or "")
+
+
+def test_part_of_and_see_also_relations():
+    mapped = build_import(
+        _doc(), collection_name="Google ADK", scope="adk", min_entry_chars=100, max_split_level=3
+    )
     part_of = [r for r in mapped.relations if r.relation_type == RelationType.PART_OF]
     see_also = [r for r in mapped.relations if r.relation_type == RelationType.SEE_ALSO]
 
@@ -85,7 +100,9 @@ def test_deterministic_summary_and_tags():
 
 
 def test_metadata_carries_source_key_and_breadcrumb():
-    mapped = build_import(_doc(), collection_name="Google ADK", scope="adk", min_entry_chars=100)
+    mapped = build_import(
+        _doc(), collection_name="Google ADK", scope="adk", min_entry_chars=100, max_split_level=3
+    )
     fn_tools = _entry(mapped, "Function Tools")
     assert fn_tools.metadata["sourceKey"] == fn_tools.source_key
     assert fn_tools.metadata["breadcrumb"] == _BREADCRUMB_SEP.join(
@@ -97,3 +114,52 @@ def test_source_keys_are_stable_across_runs():
     a = build_import(_doc(), collection_name="X", scope="adk", min_entry_chars=100)
     b = build_import(_doc(), collection_name="X", scope="adk", min_entry_chars=100)
     assert [e.source_key for e in a.entries] == [e.source_key for e in b.entries]
+
+
+DEEP = """# Guide
+
+Intro paragraph long enough to be a real body for the root entry of this guide.
+
+## Setup
+
+Setup section content that is substantial enough to stand as its own readable entry here.
+
+#### Env vars
+
+A deep H4 heading whose content should fold into Setup, not spawn its own tiny entry node.
+
+## Hub
+
+### Only child
+
+The only child body, long enough on its own to remain a standalone entry under the hub.
+"""
+
+
+def _deep():
+    return parse_markdown(DEEP, fallback_title="Fallback", source_type=SourceType.DOCS)
+
+
+def test_deep_headings_fold_into_ancestor_entry():
+    mapped = build_import(_deep(), collection_name="G", scope="g", min_entry_chars=80, max_split_level=3)
+    titles = {e.title for e in mapped.entries}
+    assert "Env vars" not in titles  # H4 folded up
+    setup = _entry(mapped, "Setup")
+    assert "#### Env vars" in (setup.body or "")  # folded with its heading preserved
+    assert "fold into Setup" in (setup.body or "")
+
+
+def test_empty_hub_gets_toc_body_and_no_blank_entries():
+    mapped = build_import(_deep(), collection_name="G", scope="g", min_entry_chars=80, max_split_level=3)
+    for entry in mapped.entries:
+        assert (entry.body or "").strip(), f"{entry.title} is blank"
+    hub = _entry(mapped, "Hub")  # has only content via its child -> ToC body
+    assert "- Only child" in (hub.body or "")
+
+
+def test_tags_have_no_trailing_punctuation():
+    mapped = build_import(_doc(), collection_name="Google ADK", scope="adk", min_entry_chars=100)
+    for entry in mapped.entries:
+        for tag in entry.tags:
+            assert tag == tag.strip(" .,:;"), f"noisy tag {tag!r}"
+            assert not tag.endswith("."), f"trailing dot in tag {tag!r}"
