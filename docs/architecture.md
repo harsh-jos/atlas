@@ -323,9 +323,12 @@ forgotten exactly once and that will be the leak.
 
 **The 500 MB quota** needs three decisions made deliberately:
 
-1. **What counts.** Uploaded bytes (PDFs, images) are obvious. Generated artifact text is
-   effectively free by comparison — recommend counting stored asset bytes plus artifact body
-   bytes, and being transparent in the UI about which dominates.
+1. **What counts** *(decided 2026-07-24)*: stored asset bytes plus artifact text (body and
+   summary, UTF-8). Assets dominate today, but an agent that writes artifacts makes text the
+   part that actually grows — so it is charged from the start rather than retrofitted.
+   **Re-imports charge only the delta**, never the full size again; otherwise re-importing the
+   same documentation site would drain a quota without adding any knowledge, and pruned
+   sections give their bytes back.
 2. **Where it's enforced.** At `commit_artifacts` and at upload — *before* work is done, with the
    projected size shown during curation ("this source adds 4.2 MB"). Failing after a long
    ingest is the worst version of this feature.
