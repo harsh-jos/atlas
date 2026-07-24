@@ -23,7 +23,7 @@ import httpx
 
 from app.core.config import Settings
 from app.pipeline.enrich import DeterministicEnricher, Enricher
-from app.pipeline.models import DocMeta, EntryDraft
+from app.pipeline.models import DocMeta, ArtifactDraft
 
 log = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ class LLMEnricher:
         self._concurrency = concurrency
         self._fallback = fallback or DeterministicEnricher()
 
-    def enrich_all(self, drafts: list[EntryDraft], meta: DocMeta) -> None:
+    def enrich_all(self, drafts: list[ArtifactDraft], meta: DocMeta) -> None:
         self._fallback.enrich_all(drafts, meta)  # guarantee every entry has something
 
         targets = sorted(drafts, key=lambda d: len(d.body_md), reverse=True)
@@ -138,7 +138,7 @@ class LLMEnricher:
                 draft.tags = tags
         log.info("LLM-enriched %d/%d entries", upgraded, len(targets))
 
-    def _enrich_one(self, draft: EntryDraft) -> tuple[str | None, list[str] | None]:
+    def _enrich_one(self, draft: ArtifactDraft) -> tuple[str | None, list[str] | None]:
         try:
             content = self._complete(_SYSTEM, _user_prompt(draft.title, draft.body_md))
             return _parse(content)

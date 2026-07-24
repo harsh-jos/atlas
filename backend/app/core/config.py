@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # Leaf sections shorter than this merge up into their parent during segmentation, so a
     # page's short steps coalesce into it instead of becoming shallow standalone entries.
-    min_entry_chars: int = 600
+    min_artifact_chars: int = 600
     # Headings deeper than this fold into their ancestor entry's body (keeps entries substantial).
     max_split_level: int = 2
 

@@ -1,7 +1,7 @@
 """The pipeline's typed interior.
 
 Every source is parsed into a `StructuredDocument` (parse at the boundary, trust the
-interior). The segmenter turns that into `EntryDraft`s; the mapper turns those into a
+interior). The segmenter turns that into `ArtifactDraft`s; the mapper turns those into a
 `MappedImport` of Atlas rows; the writer persists it. Plain dataclasses keep the tree cheap
 and easy to unit-test; pydantic is reserved for the HTTP boundary (Phase 3).
 """
@@ -13,10 +13,10 @@ from dataclasses import dataclass, field
 from app.core.enums import RelationType, SourceType
 
 __all__ = [
-    "CollectionSpec",
+    "ConceptSpec",
     "DocMeta",
-    "EntryDraft",
-    "EntrySpec",
+    "ArtifactDraft",
+    "ArtifactSpec",
     "MappedImport",
     "RelationSpec",
     "RelationType",
@@ -60,7 +60,7 @@ class StructuredDocument:
 
 
 @dataclass(slots=True)
-class EntryDraft:
+class ArtifactDraft:
     source_key: str  # stable across re-imports: scope + breadcrumb path
     title: str
     breadcrumb: list[str]
@@ -77,14 +77,14 @@ class EntryDraft:
 
 
 @dataclass(slots=True)
-class CollectionSpec:
+class ConceptSpec:
     name: str
     description: str | None = None
     color: str | None = None
 
 
 @dataclass(slots=True)
-class EntrySpec:
+class ArtifactSpec:
     source_key: str
     title: str
     summary: str | None
@@ -104,6 +104,6 @@ class RelationSpec:
 
 @dataclass(slots=True)
 class MappedImport:
-    collection: CollectionSpec
-    entries: list[EntrySpec]
+    concept: ConceptSpec
+    artifacts: list[ArtifactSpec]
     relations: list[RelationSpec]

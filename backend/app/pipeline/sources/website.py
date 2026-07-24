@@ -198,7 +198,7 @@ def from_website(url: str, *, source_type: SourceType = SourceType.DOCS) -> Sour
                     response.text, fallback_title=title, source_type=source_type,
                     source_url=prefix,
                 )
-                return SourceResult(doc=doc, scope=prefix, suggested_collection=doc.meta.title)
+                return SourceResult(doc=doc, scope=prefix, suggested_concept=doc.meta.title)
 
     # Tier 2: sitemap.xml, probed at every ancestor; keep pages under the caller's focus prefix.
     for prefix in prefixes:
@@ -206,14 +206,14 @@ def from_website(url: str, *, source_type: SourceType = SourceType.DOCS) -> Sour
         if pages:
             log.info("crawling %d pages from %ssitemap.xml", len(pages), prefix)
             doc = _tree_from_pages(host, focus, pages, source_type)
-            return SourceResult(doc=doc, scope=focus, suggested_collection=host)
+            return SourceResult(doc=doc, scope=focus, suggested_concept=host)
 
     # Tier 3: BFS crawl under the focus prefix (docs sites with neither llms.txt nor a sitemap).
     crawled = crawl_pages(url, prefix=focus, max_pages=_MAX_PAGES)
     if len(crawled) > 1:
         log.info("crawled %d pages under %s", len(crawled), focus)
         doc = _tree_from_pages(host, focus, crawled, source_type)
-        return SourceResult(doc=doc, scope=focus, suggested_collection=host)
+        return SourceResult(doc=doc, scope=focus, suggested_concept=host)
 
     # Tier 4: single page.
     log.warning("no llms.txt, sitemap, or crawlable links for %s; importing one page", host)

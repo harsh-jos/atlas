@@ -1,4 +1,4 @@
-"""[4] Enricher: fills each EntryDraft's summary and tags.
+"""[4] Enricher: fills each ArtifactDraft's summary and tags.
 
 v1 is fully deterministic and dependency-free — no LLM, no models. `Enricher` is a Protocol,
 so a `DeepSeekEnricher` / `LocalLLMEnricher` can be dropped in later (per-entry, cost-capped)
@@ -12,7 +12,7 @@ import re
 from collections import Counter
 from typing import Protocol
 
-from app.pipeline.models import DocMeta, EntryDraft
+from app.pipeline.models import DocMeta, ArtifactDraft
 from app.core.slugify import slugify
 
 _SUMMARY_LIMIT = 280
@@ -80,7 +80,7 @@ def _keywords(text: str, k: int, *, min_freq: int) -> list[str]:
 
 
 class Enricher(Protocol):
-    def enrich_all(self, drafts: list[EntryDraft], meta: DocMeta) -> None: ...
+    def enrich_all(self, drafts: list[ArtifactDraft], meta: DocMeta) -> None: ...
 
 
 class DeterministicEnricher:
@@ -89,12 +89,12 @@ class DeterministicEnricher:
     def __init__(self, max_tags: int = _MAX_TAGS) -> None:
         self._max_tags = max_tags
 
-    def enrich_all(self, drafts: list[EntryDraft], meta: DocMeta) -> None:
+    def enrich_all(self, drafts: list[ArtifactDraft], meta: DocMeta) -> None:
         for draft in drafts:
             draft.summary = _summary(draft.body_md)
             draft.tags = self._tags(draft, meta)
 
-    def _tags(self, draft: EntryDraft, meta: DocMeta) -> list[str]:
+    def _tags(self, draft: ArtifactDraft, meta: DocMeta) -> list[str]:
         title_slug = slugify(draft.title)
         # Clean links/images out first so URL fragments don't become tags.
         text = _clean_inline(_strip_code(draft.body_md))

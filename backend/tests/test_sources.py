@@ -17,7 +17,7 @@ def test_markdown_adapter_builds_source_result():
         title="Notes",
         source_type=SourceType.DOCS,
     )
-    assert result.suggested_collection == "Title"  # promoted H1 wins over the fallback
+    assert result.suggested_concept == "Title"  # promoted H1 wins over the fallback
     assert result.scope == "md:notes"
     assert result.doc.meta.source_type == SourceType.DOCS
 

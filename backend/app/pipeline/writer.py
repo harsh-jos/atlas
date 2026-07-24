@@ -1,120 +1,178 @@
-"""[6] Writer: persist a MappedImport into Postgres in one transaction, with batched writes.
+"""[6] Writer: persist a MappedImport for one user, idempotently on (concept, sourceKey).
 
-A large import is a handful of statements: one lookup of existing entries, one slug load, then
-bulk insert/update of entries, bulk source replace, and a bulk relation insert. Entries are
-written first so relations can be resolved from sourceKey -> id. The whole thing is atomic — a
-failure leaves the database untouched (fail loud, never a half-written import).
+Atomicity belongs to the caller's transaction — a failure here leaves nothing half-written.
 """
 
-from __future__ import annotations
-
+from collections.abc import Sequence
 from typing import TypedDict
-from uuid import uuid4
+from uuid import UUID, uuid4
 
-from psycopg import Connection
+from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
 
-from app.pipeline.db import repository as repo
-from app.pipeline.models import MappedImport
+from app.core.slugify import slugify
+from app.db.models import Artifact, Concept, Relation, Source
+from app.pipeline.models import ArtifactSpec, MappedImport, RelationSpec
+
+_UNTITLED = "untitled"
 
 
 class ImportSummary(TypedDict):
-    collectionSlug: str
-    entries: int
+    conceptSlug: str
+    artifacts: int
     relations: int
     pruned: int
 
 
-def write_import(conn: Connection, mapped: MappedImport) -> ImportSummary:
-    with conn.transaction():
-        collection = repo.ensure_collection(
-            conn,
-            mapped.collection.name,
-            description=mapped.collection.description,
-            color=mapped.collection.color,
-        )
-        collection_id = collection["id"]
+def allocate_slug(title: str, taken: set[str]) -> str:
+    """Suffix until unique; mutates `taken` so a batch stays unique within itself."""
+    base = slugify(title) or _UNTITLED
+    slug, suffix = base, 1
+    while slug in taken:
+        slug = f"{base}-{suffix}"
+        suffix += 1
+    taken.add(slug)
+    return slug
 
-        existing = repo.find_entries_by_source_keys(
-            conn, collection_id, [e.source_key for e in mapped.entries]
-        )
-        taken_slugs = repo.load_existing_slugs(conn)
 
-        new_specs = [e for e in mapped.entries if e.source_key not in existing]
-        update_specs = [e for e in mapped.entries if e.source_key in existing]
-        new_slugs = repo.allocate_slugs((e.title for e in new_specs), taken_slugs)
+class ImportWriter:
+    """Writes one import into one user's knowledge base; re-imports update rows in place."""
 
-        key_to_id: dict[str, str] = {}
+    def __init__(self, session: Session, user_id: UUID) -> None:
+        self.session = session
+        self.user_id = user_id
 
-        insert_rows = []
-        for spec, slug in zip(new_specs, new_slugs, strict=True):
-            entry_id = str(uuid4())
-            key_to_id[spec.source_key] = entry_id
-            insert_rows.append(
-                {
-                    "id": entry_id,
-                    "title": spec.title,
-                    "slug": slug,
-                    "summary": spec.summary,
-                    "body": spec.body,
-                    "tags": spec.tags,
-                    "collection_id": collection_id,
-                    "metadata": spec.metadata,
-                }
-            )
-        repo.insert_entries(conn, insert_rows)
+    def write(self, mapped: MappedImport) -> ImportSummary:
+        concept = self._ensure_concept(mapped)
+        artifacts = self._upsert_artifacts(concept, mapped.artifacts)
+        self._replace_sources(mapped.artifacts, artifacts)
+        relations = self._insert_relations(mapped.relations, artifacts)
+        return {
+            "conceptSlug": concept.slug,
+            "artifacts": len(mapped.artifacts),
+            "relations": relations,
+            "pruned": self._prune_stale(concept, mapped.artifacts),
+        }
 
-        update_rows = []
-        for spec in update_specs:
-            entry_id = existing[spec.source_key]["id"]
-            key_to_id[spec.source_key] = entry_id
-            update_rows.append(
-                {
-                    "id": entry_id,
-                    "title": spec.title,
-                    "summary": spec.summary,
-                    "body": spec.body,
-                    "tags": spec.tags,
-                    "metadata": spec.metadata,
-                }
-            )
-        repo.update_entries(conn, update_rows)
+    def _ensure_concept(self, mapped: MappedImport) -> Concept:
+        spec = mapped.concept
+        slug = slugify(spec.name) or _UNTITLED
+        concept = self.session.scalars(
+            select(Concept).where(Concept.user_id == self.user_id, Concept.slug == slug)
+        ).one_or_none()
+        if concept is None:
+            concept = Concept(user_id=self.user_id, slug=slug)
+            self.session.add(concept)
+        concept.name = spec.name
+        concept.description = spec.description or concept.description
+        concept.color = spec.color or concept.color
+        self.session.flush()
+        return concept
 
-        source_rows = [
-            {"entry_id": key_to_id[spec.source_key], **spec.source}
-            for spec in mapped.entries
-            if spec.source
-        ]
-        repo.replace_sources(conn, list(key_to_id.values()), source_rows)
-
-        relation_rows = []
-        for relation in mapped.relations:
-            from_id = key_to_id.get(relation.from_key)
-            to_id = key_to_id.get(relation.to_key)
-            if from_id and to_id and from_id != to_id:
-                relation_rows.append(
-                    {
-                        "fromId": from_id,
-                        "toId": to_id,
-                        "relationType": str(relation.relation_type),
-                        "note": relation.note,
-                    }
+    def _upsert_artifacts(
+        self, concept: Concept, specs: Sequence[ArtifactSpec]
+    ) -> dict[str, Artifact]:
+        existing = {
+            artifact.meta["sourceKey"]: artifact
+            for artifact in self.session.scalars(
+                select(Artifact).where(
+                    Artifact.user_id == self.user_id,
+                    Artifact.concept_id == concept.id,
+                    Artifact.meta["sourceKey"].astext.in_([s.source_key for s in specs]),
                 )
-        relations = repo.insert_relations(conn, relation_rows)
-
-        # Idempotency: drop entries from a prior import of this same source whose section
-        # disappeared this run (structure changed / coarser split). Their edges cascade.
-        scope = mapped.entries[0].metadata.get("scope") if mapped.entries else None
-        pruned = (
-            repo.prune_stale_entries(
-                conn, collection_id, scope, [e.source_key for e in mapped.entries]
             )
-            if scope
-            else 0
+        }
+        taken = self._taken_slugs()
+        written: dict[str, Artifact] = {}
+        for spec in specs:
+            artifact = existing.get(spec.source_key)
+            if artifact is None:
+                artifact = Artifact(
+                    user_id=self.user_id,
+                    concept_id=concept.id,
+                    slug=allocate_slug(spec.title, taken),
+                )
+                self.session.add(artifact)
+            artifact.title = spec.title
+            artifact.summary = spec.summary
+            artifact.body = spec.body
+            artifact.tags = spec.tags
+            artifact.meta = spec.metadata
+            written[spec.source_key] = artifact
+        self.session.flush()
+        return written
+
+    def _taken_slugs(self) -> set[str]:
+        return set(
+            self.session.scalars(select(Artifact.slug).where(Artifact.user_id == self.user_id))
         )
 
-    return {
-        "collectionSlug": collection["slug"],
-        "entries": len(mapped.entries),
-        "relations": relations,
-        "pruned": pruned,
-    }
+    def _replace_sources(
+        self, specs: Sequence[ArtifactSpec], artifacts: dict[str, Artifact]
+    ) -> None:
+        if artifacts:
+            self.session.execute(
+                delete(Source)
+                .where(Source.artifact_id.in_([a.id for a in artifacts.values()]))
+                .execution_options(synchronize_session="fetch")
+            )
+        self.session.add_all(
+            [
+                Source(
+                    artifact_id=artifacts[spec.source_key].id,
+                    source_type=spec.source["sourceType"],
+                    title=spec.source["title"],
+                    author=spec.source.get("author"),
+                    url=spec.source.get("url"),
+                    ref=spec.source.get("ref"),
+                )
+                for spec in specs
+                if spec.source
+            ]
+        )
+
+    def _insert_relations(
+        self, relations: Sequence[RelationSpec], artifacts: dict[str, Artifact]
+    ) -> int:
+        rows = []
+        for relation in relations:
+            source = artifacts.get(relation.from_key)
+            target = artifacts.get(relation.to_key)
+            if source is None or target is None or source.id == target.id:
+                continue
+            rows.append(
+                {
+                    "id": uuid4(),
+                    "user_id": self.user_id,
+                    "from_id": source.id,
+                    "to_id": target.id,
+                    "relation_type": relation.relation_type,
+                    "note": relation.note,
+                }
+            )
+        if not rows:
+            return 0
+        self.session.execute(
+            insert(Relation)
+            .values(rows)
+            .on_conflict_do_nothing(index_elements=["from_id", "to_id", "relation_type"])
+        )
+        return len(rows)
+
+    def _prune_stale(self, concept: Concept, specs: Sequence[ArtifactSpec]) -> int:
+        """Drop artifacts from a prior import of this scope whose section vanished this run."""
+        scope = specs[0].metadata.get("scope") if specs else None
+        if not scope:
+            return 0
+        result = self.session.execute(
+            delete(Artifact)
+            .where(
+                Artifact.user_id == self.user_id,
+                Artifact.concept_id == concept.id,
+                Artifact.meta["scope"].astext == scope,
+                Artifact.meta["sourceKey"].astext.notin_([s.source_key for s in specs]),
+            )
+            .execution_options(synchronize_session="fetch")
+        )
+        return result.rowcount

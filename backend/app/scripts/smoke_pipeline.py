@@ -29,9 +29,9 @@ Section two also carries its own body so it becomes a distinct subsection entry,
 def main() -> None:
     doc = parse_markdown(SAMPLE, fallback_title="Smoke", source_type=SourceType.DOCS)
     mapped = build_import(
-        doc, collection_name="Pipeline Smoke", scope="pipeline-smoke", min_entry_chars=40
+        doc, concept_name="Pipeline Smoke", scope="pipeline-smoke", min_artifact_chars=40
     )
-    print(f"built: {len(mapped.entries)} entries, {len(mapped.relations)} relations")
+    print(f"built: {len(mapped.artifacts)} entries, {len(mapped.relations)} relations")
 
     pool = get_pool()
     try:
@@ -45,7 +45,7 @@ def main() -> None:
                 cur.execute(
                     'SELECT count(*) AS n FROM "Entry" e '
                     'JOIN "Collection" c ON c.id = e."collectionId" WHERE c.slug = %s',
-                    (first["collectionSlug"],),
+                    (first["conceptSlug"],),
                 )
                 row = cur.fetchone()
                 count = row["n"] if row else 0
@@ -57,9 +57,9 @@ def main() -> None:
                 conn.execute(
                     'DELETE FROM "Entry" WHERE "collectionId" = '
                     '(SELECT id FROM "Collection" WHERE slug = %s)',
-                    (first["collectionSlug"],),
+                    (first["conceptSlug"],),
                 )
-                conn.execute('DELETE FROM "Collection" WHERE slug = %s', (first["collectionSlug"],))
+                conn.execute('DELETE FROM "Collection" WHERE slug = %s', (first["conceptSlug"],))
     finally:
         close_pool()
 

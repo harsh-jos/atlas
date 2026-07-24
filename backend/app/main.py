@@ -3,26 +3,22 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy import text
 
 from app.api.imports import router as imports_router
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
-from app.realtime.router import router as realtime_router
-from app.pipeline.db import repository
-from app.pipeline.db.pool import close_pool, get_pool
+from app.db.base import get_engine
 from app.jobs.queue import JobStore, run_worker
 from app.jobs.runner import process_job
+from app.realtime.router import router as realtime_router
 
 logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings = get_settings()
-    with get_pool().connection() as conn:  # warm the pool + ensure our index exists
-        repository.ensure_indexes(conn)
-
-    store = JobStore(settings.jobs_db_path)
+    store = JobStore(get_settings().jobs_db_path)
     app.state.store = store
 
     stop = asyncio.Event()
@@ -32,7 +28,7 @@ async def lifespan(app: FastAPI):
     finally:
         stop.set()
         await worker
-        close_pool()
+        get_engine().dispose()
 
 
 app = FastAPI(title="Atlas", version="0.1.0", lifespan=lifespan)
@@ -43,7 +39,7 @@ app.include_router(imports_router)
 
 @app.get("/healthz")
 def healthz() -> dict[str, bool]:
-    """Liveness + database reachability."""
-    with get_pool().connection() as conn:
-        conn.execute("SELECT 1")
+    """Liveness plus database reachability."""
+    with get_engine().connect() as connection:
+        connection.execute(text("SELECT 1"))
     return {"ok": True}

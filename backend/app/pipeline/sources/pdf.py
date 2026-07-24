@@ -53,5 +53,5 @@ def from_pdf_bytes(
 
     doc = parse_markdown(markdown, fallback_title=title, source_type=source_type)
     return SourceResult(
-        doc=doc, scope=f"pdf:{slugify(title)}", suggested_collection=doc.meta.title
+        doc=doc, scope=f"pdf:{slugify(title)}", suggested_concept=doc.meta.title
     )

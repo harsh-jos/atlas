@@ -52,21 +52,33 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 The Next.js app calls it via `IMPORT_SERVICE_URL` (default `http://localhost:8000`). Use the
 **Import** page in the app, or curl directly:
 
+Imports are owned, so every call needs a bearer token:
+
 ```bash
+# Once
+curl -X POST localhost:8000/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"a-long-enough-password"}'
+
+TOKEN=$(curl -s -X POST localhost:8000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"a-long-enough-password"}' | jq -r .access_token)
+
 # Docs site (lossless via llms-full.txt when available)
 curl -X POST localhost:8000/imports \
-  -H 'Content-Type: application/json' \
-  -d '{"kind":"url","url":"https://adk.dev/","collectionName":"Google ADK"}'
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"kind":"url","url":"https://adk.dev/","conceptName":"Google ADK"}'
 
-# Poll
-curl localhost:8000/imports/<jobId>
+# Poll (another user's job reports 404, not 403)
+curl localhost:8000/imports/<jobId> -H "Authorization: Bearer $TOKEN"
 
 # File upload (PDF or .md)
-curl -X POST localhost:8000/imports/file -F file=@paper.pdf -F collectionName="Papers"
+curl -X POST localhost:8000/imports/file -H "Authorization: Bearer $TOKEN" \
+  -F file=@paper.pdf -F conceptName="Papers"
 ```
 
 `kind` is one of `url` (docs site), `article`, `markdown` (with `text`). Optional:
-`collectionName`, `sourceType` (`BOOK|PAPER|DOCS|TUTORIAL|COURSE|WEBSITE`).
+`conceptName`, `sourceType` (`BOOK|PAPER|DOCS|TUTORIAL|COURSE|WEBSITE`).
 
 ## Use it standalone for Obsidian (no database, no service)
 
@@ -81,7 +93,7 @@ uv run python -m app.scripts.to_obsidian url https://google.github.io/adk-docs/ 
 
 # Other sources
 uv run python -m app.scripts.to_obsidian article https://example.com/post --vault ~/MyVault
-uv run python -m app.scripts.to_obsidian pdf ./book.pdf --vault ~/MyVault --collection "My Book"
+uv run python -m app.scripts.to_obsidian pdf ./book.pdf --vault ~/MyVault --concept "My Book"
 ```
 
 Each import becomes a folder inside the vault (named after the collection). Re-running mirrors

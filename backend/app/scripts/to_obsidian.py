@@ -41,7 +41,7 @@ def main() -> None:
     parser.add_argument("kind", choices=["url", "article", "md", "pdf"])
     parser.add_argument("target", help="URL or file path")
     parser.add_argument("--vault", required=True, help="path to your Obsidian vault folder")
-    parser.add_argument("--collection", help="folder/collection name (default: inferred)")
+    parser.add_argument("--concept", help="folder/concept name (default: inferred)")
     parser.add_argument(
         "--min-chars", type=int, default=600,
         help="merge sections smaller than this into their page (lower = more, smaller notes)",
@@ -55,9 +55,9 @@ def main() -> None:
     result = _load(args.kind, args.target)
     mapped = build_import(
         result.doc,
-        collection_name=args.collection or result.suggested_collection,
+        concept_name=args.concept or result.suggested_concept,
         scope=result.scope,
-        min_entry_chars=args.min_chars,
+        min_artifact_chars=args.min_chars,
         max_split_level=args.max_level,
     )
     summary = write_vault(mapped, args.vault)

@@ -20,4 +20,4 @@ class SourceResult:
 
     doc: StructuredDocument
     scope: str
-    suggested_collection: str
+    suggested_concept: str
