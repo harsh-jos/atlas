@@ -1,6 +1,7 @@
 """Engine, session factory, and the declarative base every model inherits."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager
 from functools import lru_cache
 
 from sqlalchemy import Engine, MetaData, create_engine
@@ -42,3 +43,11 @@ def get_session() -> Iterator[Session]:
     """Request-scoped session; commits on success, rolls back on failure."""
     with get_session_factory().begin() as session:
         yield session
+
+
+SessionScope = Callable[[], AbstractContextManager[Session]]
+
+
+def get_session_scope() -> SessionScope:
+    """A session factory, for long-lived callers that must not hold a connection open."""
+    return get_session_factory().begin

@@ -1,6 +1,7 @@
 """The socket carries job progress, so prove it refuses strangers and survives closed tabs."""
 
 import asyncio
+from contextlib import contextmanager
 from uuid import UUID, uuid4
 
 import pytest
@@ -10,7 +11,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.auth.service import AuthService
 from app.core.security import create_access_token
-from app.db.base import get_session
+from app.db.base import get_session_scope
 from app.realtime.hub import ConnectionHub
 from app.realtime.router import hub
 from app.realtime.router import router as realtime_router
@@ -25,7 +26,12 @@ def client(session):
     """The socket app plus a publish hook, so a job can be simulated on the server's own loop."""
     app = FastAPI()
     app.include_router(realtime_router)
-    app.dependency_overrides[get_session] = lambda: session
+
+    @contextmanager
+    def scope():
+        yield session
+
+    app.dependency_overrides[get_session_scope] = lambda: scope
 
     @app.post("/publish/{user_id}")
     async def publish(user_id: UUID) -> dict[str, int]:
@@ -102,3 +108,23 @@ def test_publish_drops_a_socket_that_cannot_be_written_to():
         return local.count(user_id)
 
     assert asyncio.run(scenario()) == 0
+
+
+def test_the_session_is_released_before_the_socket_loop(session, user, token):
+    """The point of the scope: a socket open for hours must not pin a pooled connection."""
+    events: list[str] = []
+
+    @contextmanager
+    def scope():
+        events.append("enter")
+        try:
+            yield session
+        finally:
+            events.append("exit")
+
+    app = FastAPI()
+    app.include_router(realtime_router)
+    app.dependency_overrides[get_session_scope] = lambda: scope
+
+    with TestClient(app) as socket_client, socket_client.websocket_connect(f"/ws?token={token}"):
+        assert events == ["enter", "exit"]
