@@ -1,5 +1,6 @@
 """The agent's tools must work — and refuse — without any model in the loop."""
 
+import asyncio
 from contextlib import contextmanager
 from uuid import uuid4
 
@@ -47,7 +48,15 @@ def tools(session, user, monkeypatch):
 
     monkeypatch.setattr(toolkit_module, "load_source", fake_load_source)
     monkeypatch.setattr(toolkit_module.get_settings(), "min_artifact_chars", 1, raising=False)
-    search, preview, commit = build_toolkit(scope, user.id)
+
+    def synchronous(tool):
+        def call(*args, **kwargs):
+            return asyncio.run(tool(*args, **kwargs))
+
+        call.__doc__ = tool.__doc__
+        return call
+
+    search, preview, commit = (synchronous(tool) for tool in build_toolkit(scope, user.id))
     return {"search": search, "preview": preview, "commit": commit}
 
 

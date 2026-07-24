@@ -1,14 +1,22 @@
+"""The one home for configuration: every tunable value is defined here.
+
+Anything secret or deployment-specific comes from the environment / `.env`; everything else
+carries a default in this file. Nothing else in the codebase hardcodes a tunable value.
+"""
+
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Schema-bound, so deliberately NOT environment-driven: changing it needs a migration and a
+# full re-embed, which an env var would silently skip.
+EMBEDDING_DIMENSIONS = 1536
 
 
 class Settings(BaseSettings):
     """Service configuration, loaded from the environment / `.env`."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url: str
     host: str = "127.0.0.1"
@@ -23,10 +31,16 @@ class Settings(BaseSettings):
     storage_quota_bytes: int = 500 * 1024 * 1024
 
     # Vertex/Gemini. Credentials come from ADC; only the project is required to enable the agent.
+    # Gemini 3.x is served from the `global` endpoint — regional locations 404 on those models.
     vertex_project: str | None = None
-    vertex_location: str = "us-central1"
-    agent_model: str = "gemini-2.5-flash"
-    agent_search_model: str = "gemini-2.5-flash"
+    vertex_location: str = "global"
+    agent_model: str = "gemini-3.5-flash"
+    agent_search_model: str = "gemini-3.5-flash"
+    agent_app_name: str = "atlas"
+
+    # Full-text search over a user's own artifacts.
+    search_limit: int = 8
+    search_language: str = "english"
 
     # Leaf sections shorter than this merge up into their parent during segmentation, so a
     # page's short steps coalesce into it instead of becoming shallow standalone entries.

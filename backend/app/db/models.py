@@ -20,11 +20,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
+from app.core.config import EMBEDDING_DIMENSIONS
 from app.core.enums import ArtifactFormat, Origin, RelationType, Role, SourceType
 from app.db.base import Base
-
-EMBEDDING_DIMENSIONS = 1536
-
 
 def _enum(python_enum: type) -> Enum:
     return Enum(python_enum, native_enum=False, validate_strings=True)
