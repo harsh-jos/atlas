@@ -112,6 +112,11 @@ class SearchHit(Payload):
     title: str
     summary: str | None
     concept: str
+    concept_color: str | None
+    tags: list[str]
+    source_count: int
+    updated_at: datetime
+    excerpt: str | None
 
 
 class GraphNode(Payload):

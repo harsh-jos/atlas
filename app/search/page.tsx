@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { apiGet } from '@/lib/api';
 import type { SearchHit } from '@/lib/api-types';
-import { cleanTitle } from '@/lib/utils';
+import { cleanTitle, formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,15 +47,35 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               href={`/entries/${result.slug}`}
               className="group block p-5 transition-colors hover:bg-surface-soft"
             >
-              <span className="text-[12px] text-muted">{result.concept}</span>
+              <span className="flex items-center gap-1.5 text-[12px] text-muted">
+                <span
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: result.conceptColor ?? 'var(--faint)' }}
+                />
+                {result.concept}
+              </span>
               <h2 className="mt-2 font-display text-[16px] font-semibold tracking-[-0.02em] text-ink">
                 {cleanTitle(result.title)}
               </h2>
-              {result.summary && (
+              {(result.excerpt || result.summary) && (
                 <p className="mt-1 max-w-3xl break-words text-[13px] leading-6 text-muted">
-                  {result.summary}
+                  {result.excerpt ?? result.summary}
                 </p>
               )}
+              <span className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-faint">
+                {result.tags.slice(0, 4).map((tag) => (
+                  <span key={tag} className="rounded-full bg-surface-soft px-2 py-0.5">
+                    {tag}
+                  </span>
+                ))}
+                {result.sourceCount > 0 && (
+                  <span>
+                    {result.sourceCount} {result.sourceCount === 1 ? 'source' : 'sources'}
+                  </span>
+                )}
+                <span>{formatDate(result.updatedAt)}</span>
+              </span>
             </Link>
           ))}
         </div>

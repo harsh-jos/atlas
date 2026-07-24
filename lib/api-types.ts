@@ -85,6 +85,11 @@ export interface SearchHit {
   title: string;
   summary: string | null;
   concept: string;
+  conceptColor: string | null;
+  tags: string[];
+  sourceCount: number;
+  updatedAt: string;
+  excerpt: string | null;
 }
 
 export interface GraphNode {
