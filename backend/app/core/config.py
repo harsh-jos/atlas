@@ -14,6 +14,14 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
+    # No default: the service must refuse to boot rather than sign tokens with a known secret.
+    jwt_secret: str
+    jwt_algorithm: str = "HS256"
+    access_token_ttl_minutes: int = 60 * 24
+
+    # Per-user ceiling on stored asset + artifact bytes.
+    storage_quota_bytes: int = 500 * 1024 * 1024
+
     # Leaf sections shorter than this merge up into their parent during segmentation, so a
     # page's short steps coalesce into it instead of becoming shallow standalone entries.
     min_entry_chars: int = 600
