@@ -6,10 +6,11 @@ from functools import lru_cache
 
 from google.adk.agents import Agent
 from google.adk.runners import Runner
-from google.adk.sessions import BaseSessionService, InMemorySessionService
+from google.adk.sessions import BaseSessionService, DatabaseSessionService
 from google.genai import types
 
 from app.core.config import get_settings
+from app.db.base import database_url
 
 EventSink = Callable[[dict], Awaitable[None]]
 
@@ -26,8 +27,9 @@ def configure_vertex() -> None:
 
 @lru_cache
 def get_session_service() -> BaseSessionService:
-    """In-memory for now: conversations do not yet survive a restart."""
-    return InMemorySessionService()
+    """Conversations live in the app database, so a restart does not lose them."""
+    # str(URL) masks the password as ***, which silently fails authentication.
+    return DatabaseSessionService(db_url=database_url().render_as_string(hide_password=False))
 
 
 async def ask(

@@ -1,13 +1,22 @@
 """Curation is the product's spine: selecting a subset must not corrupt the graph."""
 
-import pytest
-from sqlalchemy import func, select
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
+import pytest
+from sqlalchemy import func, select, update
+
+from app.core.config import get_settings
 from app.core.enums import SourceType
 from app.db.models import Artifact, Preview, Relation, User
 from app.pipeline.build import build_import
 from app.pipeline.parsing.markdown_parser import parse_markdown
-from app.pipeline.preview import PreviewService, UnknownPreview, select_artifacts
+from app.pipeline.preview import (
+    PreviewService,
+    UnknownPreview,
+    select_artifacts,
+    sweep_expired_previews,
+)
 from app.pipeline.serialization import dump_import, load_import
 
 SAMPLE = """# Vector Search
@@ -115,9 +124,7 @@ def test_selection_drops_edges_pointing_outside_the_cut():
     mapped = _mapped()
     trimmed = select_artifacts(mapped, _keys(mapped)[:1])
     surviving = {a.source_key for a in trimmed.artifacts}
-    assert all(
-        r.from_key in surviving and r.to_key in surviving for r in trimmed.relations
-    )
+    assert all(r.from_key in surviving and r.to_key in surviving for r in trimmed.relations)
 
 
 def test_committing_a_later_subset_keeps_earlier_choices(session, service, user):
@@ -136,8 +143,6 @@ def test_committing_a_later_subset_keeps_earlier_choices(session, service, user)
 
 
 def test_an_unknown_preview_is_refused(service):
-    from uuid import uuid4
-
     with pytest.raises(UnknownPreview):
         service.commit(uuid4())
 
@@ -150,3 +155,37 @@ def test_one_user_cannot_commit_anothers_preview(session, service, user):
 
     with pytest.raises(UnknownPreview):
         PreviewService(session, intruder).commit(preview.id)
+
+
+def _age(session, preview, minutes: int) -> None:
+    session.execute(
+        update(Preview)
+        .where(Preview.id == preview.id)
+        .values(created_at=datetime.now(UTC) - timedelta(minutes=minutes))
+    )
+    session.expire_all()
+
+
+def test_an_expired_preview_is_refused(session, service, user):
+    preview = service.park(_mapped(), scope="test-scope")
+    _age(session, preview, get_settings().preview_ttl_minutes + 1)
+
+    with pytest.raises(UnknownPreview):
+        service.commit(preview.id)
+    assert _count(session, Artifact, user_id=user.id) == 0
+
+
+def test_a_fresh_preview_is_still_committable(session, service, user):
+    preview = service.park(_mapped(), scope="test-scope")
+    _age(session, preview, 1)
+    assert service.commit(preview.id)["artifacts"] > 0
+
+
+def test_the_sweep_removes_only_expired_previews(session, service, user):
+    stale = service.park(_mapped(), scope="stale-scope")
+    fresh = service.park(_mapped(name="Kept"), scope="fresh-scope")
+    _age(session, stale, get_settings().preview_ttl_minutes + 1)
+
+    assert sweep_expired_previews(session) == 1
+    assert _count(session, Preview, user_id=user.id) == 1
+    assert service.previews.get(fresh.id) is not None

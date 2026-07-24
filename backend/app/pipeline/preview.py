@@ -1,11 +1,14 @@
 """Preview: park a built import so the user chooses what enters the knowledge base."""
 
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from typing import TypedDict
 from uuid import UUID
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models import Preview, User
 from app.db.repository import OwnedRepository
 from app.pipeline.models import MappedImport
@@ -15,7 +18,16 @@ from app.storage.quota import QuotaService
 
 
 class UnknownPreview(LookupError):
-    """Raised when a preview id is missing or belongs to another user."""
+    """Raised when a preview id is missing, expired, or belongs to another user."""
+
+
+def _cutoff() -> datetime:
+    return datetime.now(UTC) - timedelta(minutes=get_settings().preview_ttl_minutes)
+
+
+def sweep_expired_previews(session: Session) -> int:
+    """Drop previews nobody committed — an abandoned crawl's payload is not small."""
+    return session.execute(delete(Preview).where(Preview.created_at < _cutoff())).rowcount
 
 
 class PreviewRepository(OwnedRepository[Preview]):
@@ -88,7 +100,7 @@ class PreviewService:
 
     def _preview(self, preview_id: UUID) -> Preview:
         preview = self.previews.get(preview_id)
-        if preview is None:
+        if preview is None or preview.created_at < _cutoff():
             raise UnknownPreview(str(preview_id))
         return preview
 
