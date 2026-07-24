@@ -169,9 +169,13 @@ def get_graph(session: Session, user_id: UUID) -> dict[str, list[dict]]:
         .order_by(asc(Artifact.title))
     ).all()
     links = session.execute(
-        select(Relation.from_id, Relation.to_id, Relation.relation_type, Relation.note).where(
-            Relation.user_id == user_id
-        )
+        select(
+            Relation.from_id,
+            Relation.to_id,
+            Relation.relation_type,
+            Relation.note,
+            Relation.origin,
+        ).where(Relation.user_id == user_id)
     ).all()
     return {
         "nodes": [
@@ -186,7 +190,13 @@ def get_graph(session: Session, user_id: UUID) -> dict[str, list[dict]]:
             for artifact_id, title, slug, summary, concept_name, color in rows
         ],
         "links": [
-            {"source": source, "target": target, "relation_type": kind, "note": note}
-            for source, target, kind, note in links
+            {
+                "source": source,
+                "target": target,
+                "relation_type": kind,
+                "note": note,
+                "origin": origin,
+            }
+            for source, target, kind, note, origin in links
         ],
     }

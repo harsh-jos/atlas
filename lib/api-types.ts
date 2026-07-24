@@ -101,6 +101,7 @@ export interface GraphLink {
   target: string;
   relationType: RelationType;
   note: string | null;
+  origin: Origin;
 }
 
 export interface Graph {
