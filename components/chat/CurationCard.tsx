@@ -1,16 +1,23 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { commitPreview, discardPreview, loadPreview } from '@/app/chat/actions';
-import { Button } from '@/components/ui/Button';
-import type { ImportSummary, PreviewDetail } from '@/lib/api-types';
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  commitPreview,
+  discardPreview,
+  loadPreview,
+  proposeLinks,
+} from "@/app/chat/actions";
+import { Button } from "@/components/ui/Button";
+import type { ImportSummary, LinkReport, PreviewDetail } from "@/lib/api-types";
+import { cn } from "@/lib/utils";
 
 const KILOBYTE = 1024;
 
 function size(bytes: number): string {
-  return bytes < KILOBYTE ? `${bytes} B` : `${(bytes / KILOBYTE).toFixed(1)} kB`;
+  return bytes < KILOBYTE
+    ? `${bytes} B`
+    : `${(bytes / KILOBYTE).toFixed(1)} kB`;
 }
 
 interface CurationCardProps {
@@ -26,6 +33,8 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<ImportSummary | null>(null);
   const [discarded, setDiscarded] = useState(false);
+  const [links, setLinks] = useState<LinkReport | null>(null);
+  const [linking, setLinking] = useState(false);
 
   useEffect(() => {
     void loadPreview(previewId).then((result) => {
@@ -34,7 +43,9 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
         return;
       }
       setPreview(result.value);
-      setChosen(new Set(result.value.artifacts.map((artifact) => artifact.sourceKey)));
+      setChosen(
+        new Set(result.value.artifacts.map((artifact) => artifact.sourceKey)),
+      );
     });
   }, [previewId]);
 
@@ -44,14 +55,61 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
 
   if (saved && preview) {
     return (
-      <div className="rounded-card border-thin bg-surface p-4 text-[14px] shadow-card">
-        <p className="text-ink">
-          Kept {saved.artifacts} {saved.artifacts === 1 ? 'artifact' : 'artifacts'} in{' '}
-          <Link href={`/collections/${saved.conceptSlug}`} className="text-accent hover:underline">
+      <div className="overflow-hidden rounded-card border-thin bg-surface text-[14px] shadow-card">
+        <p className="px-4 py-3 text-ink">
+          Kept {saved.artifacts}{" "}
+          {saved.artifacts === 1 ? "artifact" : "artifacts"} in{" "}
+          <Link
+            href={`/collections/${saved.conceptSlug}`}
+            className="text-accent hover:underline"
+          >
             {preview.conceptName}
           </Link>
           .
         </p>
+
+        {linking && (
+          <p className="border-t-thin px-4 py-2.5 font-mono text-[12px] text-faint">
+            Looking for connections…
+          </p>
+        )}
+
+        {links && links.edges.length > 0 && (
+          <div className="border-t-thin">
+            <p className="px-4 pt-3 text-[12px] text-faint">
+              {links.edges.length} connection
+              {links.edges.length === 1 ? "" : "s"} found
+            </p>
+            <ul className="space-y-1.5 px-4 pb-3 pt-2">
+              {links.edges.map((edge, index) => (
+                <li key={index} className="text-[13px] leading-snug">
+                  <span className="text-ink">{edge.fromTitle}</span>
+                  <span className="mx-1.5 font-mono text-[11px] text-accent">
+                    {edge.relationType.toLowerCase().replace("_", " ")}
+                  </span>
+                  <span className="text-ink">{edge.toTitle}</span>
+                  <span className="block text-[12px] text-faint">
+                    {edge.note}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="border-t-thin px-4 py-2 text-[11px] text-faint">
+              Proposed automatically — every one is labelled and removable from
+              the{" "}
+              <Link href="/graph" className="text-muted hover:text-ink">
+                graph
+              </Link>
+              .
+            </p>
+          </div>
+        )}
+
+        {links && links.edges.length === 0 && !linking && (
+          <p className="border-t-thin px-4 py-2.5 text-[12px] text-faint">
+            No new connections worth proposing.
+          </p>
+        )}
       </div>
     );
   }
@@ -68,35 +126,43 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
       .filter((artifact) => chosen.has(artifact.sourceKey))
       .reduce((total, artifact) => total + artifact.bytes, 0) ?? 0;
 
-  const resolve = async (action: 'keep' | 'discard') => {
+  const resolve = async (action: "keep" | "discard") => {
     if (!preview) return;
     setBusy(true);
     setError(null);
     const result =
-      action === 'keep'
+      action === "keep"
         ? await commitPreview(preview.id, [...chosen])
         : await discardPreview(preview.id);
     setBusy(false);
 
     if (result.error !== undefined) {
       // The agent may have committed it verbally first; that is resolved, not broken.
-      if (result.error.includes('not found')) {
+      if (result.error.includes("not found")) {
         setDiscarded(true);
         return;
       }
       setError(result.error);
       return;
     }
-    if (action === 'discard') {
+    if (action === "discard") {
       setDiscarded(true);
-      onResolved('I discarded that preview — nothing was saved.');
+      onResolved("I discarded that preview — nothing was saved.");
       return;
     }
     const summary = result.value as ImportSummary;
     setSaved(summary);
     onResolved(
-      `I kept ${summary.artifacts} of ${preview.artifacts.length} artifacts from that source.`
+      `I kept ${summary.artifacts} of ${preview.artifacts.length} artifacts from that source.`,
     );
+
+    // Linking calls a model per batch, so it runs after the keep rather than blocking it.
+    setLinking(true);
+    const linked = await proposeLinks(summary.conceptSlug);
+    setLinking(false);
+    if (linked.error === undefined) {
+      setLinks(linked.value);
+    }
   };
 
   if (!preview) {
@@ -111,7 +177,9 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
     <div className="overflow-hidden rounded-card border-thin bg-surface shadow-card">
       <div className="flex items-baseline justify-between gap-3 border-b-thin px-4 py-3">
         <div>
-          <p className="font-display text-[14px] font-[650] text-ink">{preview.conceptName}</p>
+          <p className="font-display text-[14px] font-[650] text-ink">
+            {preview.conceptName}
+          </p>
           <p className="text-[12px] text-faint">
             {preview.artifacts.length} proposed · {size(preview.totalBytes)}
           </p>
@@ -122,19 +190,23 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
             setChosen((current) =>
               current.size === preview.artifacts.length
                 ? new Set()
-                : new Set(preview.artifacts.map((artifact) => artifact.sourceKey))
+                : new Set(
+                    preview.artifacts.map((artifact) => artifact.sourceKey),
+                  ),
             )
           }
           className="shrink-0 text-[12px] text-muted transition-colors hover:text-ink"
         >
-          {chosen.size === preview.artifacts.length ? 'Select none' : 'Select all'}
+          {chosen.size === preview.artifacts.length
+            ? "Select none"
+            : "Select all"}
         </button>
       </div>
 
       {preview.alreadyKnown.length > 0 && (
         <p className="border-b-thin bg-surface-soft px-4 py-2.5 text-[13px] text-muted">
           You already have {preview.alreadyKnown.length} artifact
-          {preview.alreadyKnown.length === 1 ? '' : 's'} on this — including{' '}
+          {preview.alreadyKnown.length === 1 ? "" : "s"} on this — including{" "}
           <span className="text-ink">{preview.alreadyKnown[0].title}</span>.
         </p>
       )}
@@ -146,8 +218,8 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
             <li key={artifact.sourceKey}>
               <label
                 className={cn(
-                  'flex cursor-pointer items-start gap-3 px-4 py-2.5 transition-colors hover:bg-surface-soft',
-                  !picked && 'opacity-55'
+                  "flex cursor-pointer items-start gap-3 px-4 py-2.5 transition-colors hover:bg-surface-soft",
+                  !picked && "opacity-55",
                 )}
               >
                 <input
@@ -157,14 +229,18 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
                   className="mt-1 h-3.5 w-3.5 accent-[var(--action)]"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] text-ink">{artifact.title}</span>
+                  <span className="block truncate text-[14px] text-ink">
+                    {artifact.title}
+                  </span>
                   {artifact.breadcrumb && (
                     <span className="block truncate font-mono text-[11px] text-faint">
                       {artifact.breadcrumb}
                     </span>
                   )}
                 </span>
-                <span className="shrink-0 text-[12px] text-faint">{size(artifact.bytes)}</span>
+                <span className="shrink-0 text-[12px] text-faint">
+                  {size(artifact.bytes)}
+                </span>
               </label>
             </li>
           );
@@ -182,15 +258,20 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
           {chosen.size} selected · {size(selectedBytes)}
         </span>
         <span className="flex gap-2">
-          <Button variant="ghost" size="sm" disabled={busy} onClick={() => void resolve('discard')}>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={busy}
+            onClick={() => void resolve("discard")}
+          >
             Discard
           </Button>
           <Button
             size="sm"
             disabled={busy || chosen.size === 0}
-            onClick={() => void resolve('keep')}
+            onClick={() => void resolve("keep")}
           >
-            {busy ? 'Keeping…' : `Keep ${chosen.size}`}
+            {busy ? "Keeping…" : `Keep ${chosen.size}`}
           </Button>
         </span>
       </div>

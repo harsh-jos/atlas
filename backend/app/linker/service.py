@@ -21,11 +21,20 @@ log = logging.getLogger(__name__)
 Pair = tuple[Artifact, Artifact]
 
 
+class ProposedEdge(TypedDict):
+    fromTitle: str
+    toTitle: str
+    relationType: str
+    note: str
+    confidence: float
+
+
 class LinkReport(TypedDict):
     embedded: int
     considered: int
     proposed: int
     capped: bool
+    edges: list[ProposedEdge]
 
 
 class Linker:
@@ -71,15 +80,16 @@ class Linker:
             log.info("capping linker pairs at %d of %d for cost", limit, len(pairs))
         pairs = pairs[:limit]
 
-        proposed = 0
+        edges: list[ProposedEdge] = []
         batch = self.settings.linker_batch_size
         for start in range(0, len(pairs), batch):
-            proposed += self._write(pairs[start : start + batch])
+            edges.extend(self._write(pairs[start : start + batch]))
         return {
             "embedded": embedded,
             "considered": len(pairs),
-            "proposed": proposed,
+            "proposed": len(edges),
             "capped": capped,
+            "edges": edges,
         }
 
     def _pairs(self, artifact_ids: Sequence[UUID]) -> list[Pair]:
@@ -137,16 +147,26 @@ class Linker:
         ).all()
         return {frozenset({source, target}) for source, target in rows}
 
-    def _write(self, pairs: Sequence[Pair]) -> int:
+    def _write(self, pairs: Sequence[Pair]) -> list[ProposedEdge]:
         floor = self.settings.linker_min_confidence
         judgements = self.judge.type_pairs(pairs)
         self._remember(pairs)
-        rows = []
+        rows: list[dict] = []
+        edges: list[ProposedEdge] = []
         for judgement in judgements:
             if not 0 <= judgement.index < len(pairs) or judgement.confidence < floor:
                 continue
             first, second = pairs[judgement.index]
             source, target = (second, first) if judgement.reversed else (first, second)
+            edges.append(
+                {
+                    "fromTitle": source.title,
+                    "toTitle": target.title,
+                    "relationType": str(judgement.relation_type),
+                    "note": judgement.note,
+                    "confidence": judgement.confidence,
+                }
+            )
             rows.append(
                 {
                     "id": uuid4(),
@@ -160,13 +180,13 @@ class Linker:
                 }
             )
         if not rows:
-            return 0
+            return []
         self.session.execute(
             insert(Relation)
             .values(rows)
             .on_conflict_do_nothing(index_elements=["from_id", "to_id", "relation_type"])
         )
-        return len(rows)
+        return edges
 
 
 def prune_ai_relations(session: Session, user: User) -> int:
