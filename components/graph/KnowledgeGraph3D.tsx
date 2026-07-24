@@ -10,18 +10,18 @@ import ForceGraph3D, {
   type NodeObject,
 } from 'react-force-graph-3d';
 import { ArrowUpRight, Maximize2, Minus, Plus, Search, X } from 'lucide-react';
-import type { KnowledgeGraphData, KnowledgeGraphLink, KnowledgeGraphNode } from '@/lib/graph-data';
+import type { Graph, GraphLink as ApiGraphLink, GraphNode as ApiGraphNode } from '@/lib/api-types';
 import {
   RELATION_COLORS,
   RELATION_INCOMING_LABELS,
   RELATION_OUTGOING_LABELS,
 } from '@/lib/relations';
 
-type GraphNode = NodeObject<KnowledgeGraphNode>;
-type GraphLink = LinkObject<KnowledgeGraphNode, KnowledgeGraphLink>;
+type GraphNode = NodeObject<ApiGraphNode>;
+type GraphLink = LinkObject<ApiGraphNode, ApiGraphLink>;
 
 export interface KnowledgeGraph3DProps {
-  data: KnowledgeGraphData;
+  data: Graph;
 }
 
 // Editorial-light palette — a bright, calm space rather than Obsidian's black.
@@ -38,7 +38,7 @@ function resolveId(end: GraphLink['source']): string {
 
 export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const graphRef = React.useRef<ForceGraphMethods<KnowledgeGraphNode, KnowledgeGraphLink>>(undefined);
+  const graphRef = React.useRef<ForceGraphMethods<ApiGraphNode, ApiGraphLink>>(undefined);
   // Live handles to each node's material + label so we can dim on hover
   // without regenerating the scene.
   const objects = React.useRef(
@@ -89,7 +89,7 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
   );
 
   const nodeById = React.useMemo(() => {
-    const map = new Map<string, KnowledgeGraphNode>();
+    const map = new Map<string, ApiGraphNode>();
     for (const node of data.nodes) map.set(node.id, node);
     return map;
   }, [data.nodes]);
@@ -142,7 +142,7 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
 
       const material = new THREE.SpriteMaterial({
         map: circleTexture ?? undefined,
-        color: node.collectionColor,
+        color: node.conceptColor,
         transparent: true,
         opacity: 1,
         depthWrite: false,
@@ -243,8 +243,8 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
   const selectedNode = selectedId ? nodeById.get(selectedId) ?? null : null;
 
   const selectedRelations = React.useMemo(() => {
-    if (!selectedId) return [] as Array<{ label: string; items: KnowledgeGraphNode[] }>;
-    const groups = new Map<string, KnowledgeGraphNode[]>();
+    if (!selectedId) return [] as Array<{ label: string; items: ApiGraphNode[] }>;
+    const groups = new Map<string, ApiGraphNode[]>();
     const push = (label: string, id: string) => {
       const node = nodeById.get(id);
       if (!node) return;
@@ -266,7 +266,7 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
   const legend = React.useMemo(() => {
     const seen = new Map<string, string>();
     for (const node of data.nodes) {
-      if (!seen.has(node.collectionName)) seen.set(node.collectionName, node.collectionColor);
+      if (!seen.has(node.conceptName)) seen.set(node.conceptName, node.conceptColor);
     }
     return [...seen.entries()].map(([name, color]) => ({ name, color }));
   }, [data.nodes]);
@@ -381,10 +381,10 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
             <span
               aria-hidden="true"
               className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: selectedNode.collectionColor }}
+              style={{ backgroundColor: selectedNode.conceptColor }}
             />
             <span className="truncate font-mono text-[11px] uppercase tracking-[0.1em] text-faint">
-              {selectedNode.collectionName}
+              {selectedNode.conceptName}
             </span>
           </div>
 

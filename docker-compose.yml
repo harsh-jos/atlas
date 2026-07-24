@@ -47,15 +47,8 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-atlas}:${POSTGRES_PASSWORD:-atlas}@db:5432/${POSTGRES_DB:-atlas}
-      IMPORT_SERVICE_URL: http://pipeline:8000
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
-      ASSETS_DIR: /data/assets
-    volumes:
-      - web_assets:/data/assets
+      ATLAS_API_URL: http://pipeline:8000
     depends_on:
-      db:
-        condition: service_healthy
       pipeline:
         condition: service_started
     ports:

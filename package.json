@@ -4,21 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate &&next build",
+    "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:seed": "prisma db seed"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
+    "lint": "eslint"
   },
   "dependencies": {
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/lang-markdown": "^6.5.0",
-    "@prisma/client": "^6.4.1",
     "@uiw/react-codemirror": "^4.25.10",
     "clsx": "^2.1.1",
     "katex": "^0.17.0",
@@ -45,7 +37,6 @@
     "@types/three": "^0.185.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "prisma": "^6.4.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
