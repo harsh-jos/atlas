@@ -33,3 +33,6 @@ class ConnectionHub:
 
     def count(self, user_id: UUID) -> int:
         return len(self._connections.get(user_id, ()))
+
+
+hub = ConnectionHub()

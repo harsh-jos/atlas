@@ -12,8 +12,7 @@ from starlette.websockets import WebSocketDisconnect
 from app.auth.service import AuthService
 from app.core.security import create_access_token
 from app.db.base import get_session_scope
-from app.realtime.hub import ConnectionHub
-from app.realtime.router import hub
+from app.realtime.hub import ConnectionHub, hub
 from app.realtime.router import router as realtime_router
 
 EMAIL = "socket@example.com"

@@ -1,6 +1,7 @@
 """Request-scoped identity: resolve a bearer token to a user, or refuse the request."""
 
 from typing import Annotated
+from uuid import UUID
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -10,10 +11,11 @@ from sqlalchemy.orm import Session
 from app.auth.repository import UserRepository
 from app.core.enums import Role
 from app.core.security import read_access_token
-from app.db.base import get_session
+from app.db.base import SessionScope, get_session, get_session_scope
 from app.db.models import User
 
 SessionDep = Annotated[Session, Depends(get_session)]
+SessionScopeDep = Annotated[SessionScope, Depends(get_session_scope)]
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -43,6 +45,32 @@ def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def resolve_user_id(token: str | None, scope: SessionScope) -> UUID | None:
+    """Token to user id, confirming the row still exists, without holding a session open."""
+    if token is None:
+        return None
+    try:
+        user_id = read_access_token(token)
+    except (jwt.PyJWTError, KeyError, ValueError):
+        return None
+    with scope() as session:
+        return user_id if UserRepository(session).get(user_id) is not None else None
+
+
+def get_current_user_id(
+    scope: SessionScopeDep,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> UUID:
+    """Identifies the caller for long-running routes that must not pin a connection."""
+    user_id = resolve_user_id(credentials.credentials if credentials else None, scope)
+    if user_id is None:
+        raise _unauthorized()
+    return user_id
+
+
+CurrentUserId = Annotated[UUID, Depends(get_current_user_id)]
 
 
 def require_role(*allowed: Role):
