@@ -3,8 +3,10 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.auth.deps import CurrentUser, SessionDep
-from app.auth.schemas import Credentials, TokenResponse, UserResponse
+from app.auth.schemas import Credentials, SocketTicket, TokenResponse, UserResponse
 from app.auth.service import AuthService, EmailTaken, InvalidCredentials
+from app.core.config import get_settings
+from app.core.security import create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -31,3 +33,12 @@ def login(credentials: Credentials, session: SessionDep) -> TokenResponse:
 @router.get("/me", response_model=UserResponse)
 def me(user: CurrentUser) -> UserResponse:
     return UserResponse.model_validate(user)
+
+
+@router.post("/socket-ticket", response_model=SocketTicket)
+def socket_ticket(user: CurrentUser) -> SocketTicket:
+    """Mint a brief token for opening a WebSocket, so the session cookie stays out of the browser."""
+    minutes = get_settings().socket_ticket_ttl_minutes
+    return SocketTicket(
+        ticket=create_access_token(user.id, ttl_minutes=minutes), expires_in=minutes * 60
+    )

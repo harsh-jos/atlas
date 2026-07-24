@@ -94,3 +94,20 @@ def test_me_returns_the_caller(client, registered):
 def test_absent_account_still_costs_a_verification(session):
     assert verify_password("anything", None) is False
     assert verify_password(PASSWORD, hash_password(PASSWORD)) is True
+
+
+def test_socket_ticket_requires_a_session(client):
+    assert client.post("/auth/socket-ticket").status_code == 401
+
+
+def test_socket_ticket_is_short_lived_and_names_the_caller(client, registered):
+    from app.core.config import get_settings
+    from app.core.security import read_access_token
+
+    body = client.post(
+        "/auth/socket-ticket", headers={"Authorization": f"Bearer {_token(client)}"}
+    ).json()
+
+    assert body["expires_in"] == get_settings().socket_ticket_ttl_minutes * 60
+    assert body["expires_in"] < get_settings().access_token_ttl_minutes * 60
+    assert str(read_access_token(body["ticket"])) == registered["id"]
