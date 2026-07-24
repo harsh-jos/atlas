@@ -50,6 +50,17 @@ class Settings(BaseSettings):
     preview_ttl_minutes: int = 120
     preview_sweep_seconds: int = 600
 
+    # The linker. Candidate generation is cheap and generous; LLM typing scales with PAIRS,
+    # so cap what reaches the model rather than what reaches the ranker.
+    embedding_model: str = "gemini-embedding-001"
+    linker_neighbours: int = 5
+    linker_max_pairs: int = 60
+    linker_min_confidence: float = 0.55
+    linker_batch_size: int = 12
+    # Artifacts written before the linker existed have no vector, which would blind the dense
+    # signal for every pair they appear in. Each run backfills a bounded slice.
+    linker_backfill_limit: int = 200
+
     # Full-text search over a user's own artifacts.
     search_limit: int = 8
     search_language: str = "english"

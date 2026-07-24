@@ -264,9 +264,11 @@ one?"* rather than *"are these texts alike?"* — an objective much closer to wh
 means. It is tuned for scientific papers over title+abstract, which is why it loses here today.
 Revisit if the knowledge base ever becomes paper-heavy.
 
-**Flag before anything is embedded:** the schema reserves `vector(1536)`, a dimension inherited
-from OpenAI-era assumptions. Gemini's embedding model exposes several sizes — confirm the
-dimension deliberately, because changing it later means re-embedding the entire knowledge base.
+**Dimension confirmed 2026-07-24: 1536.** `gemini-embedding-001` serves 768, 1536 and 3072 via
+Matryoshka truncation, so the reserved `vector(1536)` column stands and no migration is needed.
+Truncated vectors are renormalised before comparison, as truncation does not preserve unit length.
+Each run also backfills a bounded slice of unembedded artifacts: the dense signal only reaches a
+pair once *both* sides have a vector, so a base predating the linker would stay invisible to it.
 
 ### Properties it must keep
 
@@ -278,6 +280,12 @@ dimension deliberately, because changing it later means re-embedding the entire 
   reaches the model, not what reaches the ranker. Batch the typing calls.
 - **Reversible.** `origin: AI` + confidence on every machine-made edge, so a bad linker run is one
   `DELETE` away rather than a manual cleanup.
+- **Convergent, not ratcheting** *(learned in build, 2026-07-24)*. Verdicts are recorded in
+  `judged_pairs`, including the declines. Without that, every rerun re-judges the pairs it
+  previously turned down and rolls again — so repeated runs walk the graph towards
+  everything-related-to-everything, which is the exact failure this design set out to avoid.
+  Remembering the verdict makes a rerun on an unchanged base a no-op, and stops paying to
+  re-judge the same pair.
 
 Belongs beside the pipeline in the Python service: same DB, same model client, same job queue.
 

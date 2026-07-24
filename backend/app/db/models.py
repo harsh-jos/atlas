@@ -24,6 +24,7 @@ from app.core.config import EMBEDDING_DIMENSIONS
 from app.core.enums import ArtifactFormat, Origin, RelationType, Role, SourceType
 from app.db.base import Base
 
+
 def _enum(python_enum: type) -> Enum:
     return Enum(python_enum, native_enum=False, validate_strings=True)
 
@@ -131,6 +132,23 @@ class Preview(OwnedRecord):
     concept_name: Mapped[str] = mapped_column(String(200))
     scope: Mapped[str] = mapped_column(String(500))
     payload: Mapped[dict] = mapped_column(JSONB)
+
+
+class JudgedPair(OwnedRecord):
+    """A pair the judge has already ruled on.
+
+    Without this the linker ratchets: every rerun re-judges the pairs it previously declined and
+    rolls again, so the graph saturates towards everything-related-to-everything. Recording the
+    verdict makes a rerun on an unchanged base a no-op, and stops re-spending tokens on it.
+    """
+
+    __tablename__ = "judged_pairs"
+    __table_args__ = (UniqueConstraint("user_id", "low_id", "high_id"),)
+
+    low_id: Mapped[UUID] = mapped_column(ForeignKey("artifacts.id", ondelete="CASCADE"), index=True)
+    high_id: Mapped[UUID] = mapped_column(
+        ForeignKey("artifacts.id", ondelete="CASCADE"), index=True
+    )
 
 
 class Source(Record):
