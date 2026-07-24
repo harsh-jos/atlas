@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     agent_search_model: str = "gemini-3.5-flash"
     agent_app_name: str = "atlas"
 
+    # An uncommitted preview holds a whole crawl's payload, so it does not live forever.
+    preview_ttl_minutes: int = 120
+    preview_sweep_seconds: int = 600
+
     # Full-text search over a user's own artifacts.
     search_limit: int = 8
     search_language: str = "english"

@@ -5,7 +5,7 @@ from contextlib import AbstractContextManager
 from functools import lru_cache
 
 from sqlalchemy import Engine, MetaData, create_engine
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import get_settings
@@ -26,12 +26,16 @@ class Base(DeclarativeBase):
 
 
 @lru_cache
-def get_engine() -> Engine:
-    """Process-wide pooled engine, pinned to psycopg3 (bare postgresql:// means psycopg2)."""
+def database_url() -> URL:
+    """The configured URL pinned to psycopg3; a bare postgresql:// would resolve to psycopg2."""
     url = make_url(get_settings().database_url)
-    if url.drivername == "postgresql":
-        url = url.set(drivername="postgresql+psycopg")
-    return create_engine(url, pool_pre_ping=True)
+    return url.set(drivername="postgresql+psycopg") if url.drivername == "postgresql" else url
+
+
+@lru_cache
+def get_engine() -> Engine:
+    """Process-wide pooled engine."""
+    return create_engine(database_url(), pool_pre_ping=True)
 
 
 @lru_cache

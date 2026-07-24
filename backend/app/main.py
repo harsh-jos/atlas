@@ -9,9 +9,10 @@ from app.agent.router import router as agent_router
 from app.api.imports import router as imports_router
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
-from app.db.base import get_engine
+from app.db.base import get_engine, get_session_scope
 from app.jobs.queue import JobStore, run_worker
 from app.jobs.runner import process_job
+from app.jobs.sweeper import run_sweeper
 from app.realtime.router import router as realtime_router
 
 logging.basicConfig(level=logging.INFO)
@@ -23,12 +24,15 @@ async def lifespan(app: FastAPI):
     app.state.store = store
 
     stop = asyncio.Event()
-    worker = asyncio.create_task(run_worker(store, process_job, stop))
+    background = [
+        asyncio.create_task(run_worker(store, process_job, stop)),
+        asyncio.create_task(run_sweeper(get_session_scope(), stop)),
+    ]
     try:
         yield
     finally:
         stop.set()
-        await worker
+        await asyncio.gather(*background)
         get_engine().dispose()
 
 
