@@ -9,28 +9,21 @@ and easy to unit-test; pydantic is reserved for the HTTP boundary (Phase 3).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import StrEnum
 
+from app.core.enums import RelationType, SourceType
 
-class SourceType(StrEnum):
-    """Mirrors the Prisma `SourceType` enum."""
-
-    BOOK = "BOOK"
-    PAPER = "PAPER"
-    DOCS = "DOCS"
-    TUTORIAL = "TUTORIAL"
-    COURSE = "COURSE"
-    WEBSITE = "WEBSITE"
-
-
-class RelationType(StrEnum):
-    """Mirrors the Prisma `RelationType` enum."""
-
-    PART_OF = "PART_OF"
-    USES = "USES"
-    PREREQUISITE = "PREREQUISITE"
-    CONTRASTS = "CONTRASTS"
-    SEE_ALSO = "SEE_ALSO"
+__all__ = [
+    "CollectionSpec",
+    "DocMeta",
+    "EntryDraft",
+    "EntrySpec",
+    "MappedImport",
+    "RelationSpec",
+    "RelationType",
+    "Section",
+    "SourceType",
+    "StructuredDocument",
+]
 
 
 # --- Parsed document (output of [2] parsers) ---------------------------------------------

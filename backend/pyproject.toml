@@ -13,6 +13,12 @@ dependencies = [
     "docling>=2.104.0",
     "trafilatura>=2.1.0",
     "python-multipart>=0.0.32",
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+    "pgvector>=0.3",
+    "pyjwt>=2.10",
+    "pwdlib[argon2]>=0.2",
+    "email-validator>=2.2",
 ]
 
 # This is an application, not a distributable package — don't try to build it.
