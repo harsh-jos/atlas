@@ -1,5 +1,6 @@
 """Phase 2: hermetic tests for source-adapter helpers (no network, no docling)."""
 
+from app.pipeline.sources.article import extract_markdown
 from app.pipeline.models import SourceType
 from app.pipeline.sources import crawl, markdown, website
 
@@ -59,7 +60,9 @@ def test_prefixes_probe_subpath_then_root():
 
 
 def test_doc_title_reads_first_heading():
-    assert website._doc_title("# Agent Development Kit\n\n> intro", "host") == "Agent Development Kit"
+    assert (
+        website._doc_title("# Agent Development Kit\n\n> intro", "host") == "Agent Development Kit"
+    )
     assert website._doc_title("no heading here", "fallback") == "fallback"
 
 
@@ -80,3 +83,52 @@ def test_crawler_keeps_same_prefix_html_links_only():
 def test_crawler_normalize_strips_fragment_and_index():
     assert crawl._normalize("https://x.io/docs/a/index.html#top") == "https://x.io/docs/a/"
     assert crawl._normalize("https://x.io/docs/a#x") == "https://x.io/docs/a"
+
+
+class TestHeadingRecovery:
+    """Headings are what the segmenter splits on; losing them collapses a page to one artifact."""
+
+    CONTENT = (
+        "<h1>Retrieval Notes</h1><p>Overview of how retrieval works and what each method trades "
+        "away to get there, across both lexical and dense approaches to the problem.</p>"
+        "<h2>BM25</h2><p>BM25 descends from the probabilistic relevance framework and saturates "
+        "term frequency, so a word repeated fifty times does not score fifty times higher.</p>"
+        "<h2>Dense embeddings</h2><p>A dense retriever maps passages into a vector space where "
+        "proximity approximates semantic relatedness, matching text sharing no vocabulary.</p>"
+        "<h2>HNSW</h2><p>Hierarchical navigable small worlds builds a layered proximity graph, "
+        "searching coarse layers first and descending into finer ones as it narrows down.</p>"
+    )
+
+    def _page(self, body: str) -> str:
+        return f"<html><head><title>Retrieval Notes</title></head><body>{body}</body></html>"
+
+    def _headings(self, markdown: str | None) -> int:
+        return len([line for line in (markdown or "").splitlines() if line.startswith("#")])
+
+    def test_semantic_markup_keeps_its_headings(self):
+        html = self._page(f"<article>{self.CONTENT}</article>")
+        assert self._headings(extract_markdown(html, "https://example.com/a")) >= 4
+
+    def test_a_bare_page_recovers_its_headings(self):
+        """Without <article>, the precise pass flattens the page; the retry rescues it."""
+        html = self._page(self.CONTENT)
+        assert self._headings(extract_markdown(html, "https://example.com/b")) >= 4
+
+    def test_a_page_with_no_headings_is_left_alone(self):
+        html = self._page("<p>" + "One long unbroken paragraph of prose. " * 12 + "</p>")
+        markdown = extract_markdown(html, "https://example.com/c")
+        assert markdown and self._headings(markdown) == 0
+
+    def test_unrecoverable_flattening_is_reported(self, caplog):
+        """Nav and footer noise defeats the retry, so it must warn rather than fail silently."""
+        html = self._page(
+            "<nav><a href='/'>Home</a><a href='/d'>Docs</a></nav>"
+            f"{self.CONTENT}"
+            "<aside>Subscribe for weekly updates and product news from our team.</aside>"
+            "<footer>Copyright 2026 Example Inc. All rights reserved. Privacy. Terms.</footer>"
+        )
+        with caplog.at_level("WARNING"):
+            markdown = extract_markdown(html, "https://example.com/d")
+
+        if self._headings(markdown) == 0:
+            assert "flattened" in caplog.text
