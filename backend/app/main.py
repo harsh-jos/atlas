@@ -9,6 +9,7 @@ from app.agent.router import router as agent_router
 from app.api.assets import router as assets_router
 from app.api.imports import router as imports_router
 from app.api.library import router as library_router
+from app.api.links import router as links_router
 from app.api.previews import router as previews_router
 from app.api.writes import router as writes_router
 from app.auth.router import router as auth_router
@@ -47,6 +48,7 @@ app.include_router(agent_router)
 app.include_router(library_router)
 app.include_router(writes_router)
 app.include_router(previews_router)
+app.include_router(links_router)
 app.include_router(assets_router)
 app.include_router(imports_router)
 
