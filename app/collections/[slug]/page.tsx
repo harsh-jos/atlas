@@ -75,6 +75,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       />
 
       <CollectionDetailHeader
+        slug={concept.slug}
         name={concept.name}
         description={concept.description}
         color={concept.color}

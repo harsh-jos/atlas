@@ -6,8 +6,10 @@ from fastapi import FastAPI
 from sqlalchemy import text
 
 from app.agent.router import router as agent_router
+from app.api.assets import router as assets_router
 from app.api.imports import router as imports_router
 from app.api.library import router as library_router
+from app.api.writes import router as writes_router
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.db.base import get_engine, get_session_scope
@@ -42,6 +44,8 @@ app.include_router(auth_router)
 app.include_router(realtime_router)
 app.include_router(agent_router)
 app.include_router(library_router)
+app.include_router(writes_router)
+app.include_router(assets_router)
 app.include_router(imports_router)
 
 
