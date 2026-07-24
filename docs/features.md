@@ -33,10 +33,9 @@ overview page, so it is something you can *read*, not just open.
 column, real typography, math, code, images. Plus backlinks and inline citations to source, which
 become non-negotiable the moment a machine writes the text.
 
-**6. One learning mechanic.** Recall prompts embedded in artifacts, resurfaced on a spaced
-schedule (FSRS). Only two techniques are high-utility — practice testing and distributed practice
-— so Atlas needs exactly one mechanic done beautifully. Rendered in Atlas's calm register, never
-as a gamified flashcard.
+**6. ~~One learning mechanic.~~** **Dropped 2026-07-24.** Recall prompts and spaced resurfacing
+are not being built. Reading and curation are the product. Listed here rather than deleted so the
+decision is visible instead of looking like an omission.
 
 **7. Yours to keep.** Provenance on everything: every artifact traceable to its source *and* to
 the conversation that created it; every AI-made edge labelled and reversible in one query.
