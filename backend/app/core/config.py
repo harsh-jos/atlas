@@ -12,6 +12,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # full re-embed, which an env var would silently skip.
 EMBEDDING_DIMENSIONS = 1536
 
+# Assets exist to be embedded in artifact bodies, so only images are ever accepted.
+ALLOWED_ASSET_TYPES = frozenset(
+    {"image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"}
+)
+
 
 class Settings(BaseSettings):
     """Service configuration, loaded from the environment / `.env`."""
@@ -55,6 +60,9 @@ class Settings(BaseSettings):
     # Service-owned job state (no Redis, no extra Postgres tables).
     jobs_db_path: str = "jobs.db"
     uploads_dir: str = "uploads"
+    # Uploaded images, one file per asset id.
+    assets_dir: str = "uploads/assets"
+    max_asset_bytes: int = 10 * 1024 * 1024
 
     # If set, every import is ALSO mirrored into this Obsidian vault (folder of markdown
     # notes) alongside the Postgres write. Leave unset to write only to Atlas.

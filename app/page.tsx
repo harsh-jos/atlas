@@ -1,6 +1,7 @@
 import { apiGet } from '@/lib/api';
 import type { ConceptSummary } from '@/lib/api-types';
 import { CollectionShelf } from '@/components/collection/CollectionShelf';
+import { NewCollectionCard } from '@/components/collection/NewCollectionCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,7 @@ export default async function HomePage() {
             recentEntryTitle={concept.recentArtifactTitle}
           />
         ))}
+        <NewCollectionCard />
       </div>
     </div>
   );

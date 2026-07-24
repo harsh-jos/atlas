@@ -48,17 +48,50 @@ export async function apiGetOrNull<T>(path: string): Promise<T | null> {
   }
 }
 
-/** Unauthenticated POST — used by sign-in, which has no token yet. */
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+type Method = 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+
+/**
+ * Send a mutation. Callable only from Server Actions and Server Components — the session
+ * token is an httpOnly cookie, so the browser can never reach the backend directly.
+ */
+export async function apiSend<T>(method: Method, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json', ...(await authorization()) },
-    body: JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(body),
     cache: 'no-store',
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, `POST ${path} failed: ${response.status}`);
+    throw new ApiError(response.status, await detail(response, `${method} ${path}`));
+  }
+  return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);
+}
+
+/** Upload bytes as multipart; the caller owns the FormData so files stream through untouched. */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: await authorization(),
+    body: form,
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await detail(response, `POST ${path}`));
   }
   return response.json() as Promise<T>;
+}
+
+export const apiPost = <T,>(path: string, body: unknown) => apiSend<T>('POST', path, body);
+
+/** Prefer the backend's own message — it explains quota and validation failures precisely. */
+async function detail(response: Response, label: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    if (typeof body.detail === 'string') return body.detail;
+  } catch {
+    // Not JSON; fall through to the generic message.
+  }
+  return `${label} failed: ${response.status}`;
 }

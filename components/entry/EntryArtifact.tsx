@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ArtifactDetail } from '@/lib/api-types';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ReadingProgressBar } from '@/components/entry/ReadingProgressBar';
@@ -35,14 +36,22 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
       <ReadingProgressBar />
 
       <div className="mx-auto max-w-[40rem] px-5 py-12 sm:px-8">
-        <Breadcrumb
-          className="mb-7"
-          items={[
-            { label: 'Library', href: '/' },
-            { label: artifact.concept.name, href: `/collections/${artifact.concept.slug}` },
-            { label: cleanTitle(artifact.title) },
-          ]}
-        />
+        {/* Quiet top row — orientation + a way out to edit, nothing loud */}
+        <div className="mb-7 flex items-center justify-between gap-4">
+          <Breadcrumb
+            items={[
+              { label: 'Library', href: '/' },
+              { label: artifact.concept.name, href: `/collections/${artifact.concept.slug}` },
+              { label: cleanTitle(artifact.title) },
+            ]}
+          />
+          <Link
+            href={`/entries/${artifact.slug}?edit=true`}
+            className="shrink-0 text-[13px] text-muted transition-colors hover:text-ink"
+          >
+            Edit
+          </Link>
+        </div>
 
         <article className="font-reading">
           <header className="mb-6">
