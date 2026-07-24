@@ -1,4 +1,4 @@
-import type { Source, SourceType } from '@prisma/client';
+import type { Source, SourceType } from '@/lib/api-types';
 import { SectionLabel } from '@/components/entry/SectionLabel';
 import { cleanTitle } from '@/lib/utils';
 
@@ -32,7 +32,7 @@ export function EntrySources({ sources }: EntrySourcesProps) {
             .join(' · ');
 
           return (
-            <li key={source.id} className="flex gap-3 text-[14px] leading-6">
+            <li key={`${source.title}-${index}`} className="flex gap-3 text-[14px] leading-6">
               <span className="shrink-0 pt-px font-mono text-[12px] tabular-nums text-faint">
                 {index + 1}
               </span>

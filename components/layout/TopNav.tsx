@@ -3,7 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, Plus, Loader2 } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { signOut } from '@/app/login/actions';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
@@ -11,34 +12,17 @@ const NAV_LINKS = [
   { href: '/', label: 'Home', match: (p: string) => p === '/' },
   { href: '/graph', label: 'Graph', match: (p: string) => p.startsWith('/graph') },
   { href: '/search', label: 'Search', match: (p: string) => p.startsWith('/search') },
-  { href: '/import', label: 'Import', match: (p: string) => p.startsWith('/import') },
 ];
 
 export function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [isCreating, setIsCreating] = React.useState(false);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
-  const handleCreateNewEntry = async () => {
-    if (isCreating) return;
-    setIsCreating(true);
-    try {
-      const response = await fetch('/api/entries', { method: 'POST' });
-      if (response.ok) {
-        const data = await response.json();
-        router.push(`/entries/${data.slug}?edit=true`);
-        router.refresh();
-      }
-    } finally {
-      setIsCreating(false);
     }
   };
 
@@ -72,7 +56,7 @@ export function TopNav() {
           </nav>
         </div>
 
-        {/* Search + create */}
+        {/* Search + session */}
         <div className="flex items-center gap-3">
           <form onSubmit={handleSearchSubmit} className="relative hidden sm:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
@@ -85,19 +69,11 @@ export function TopNav() {
             />
           </form>
 
-          <Button
-            size="sm"
-            onClick={handleCreateNewEntry}
-            disabled={isCreating}
-            className="h-9 gap-1.5 rounded-lg px-3.5 text-[13px]"
-          >
-            {isCreating ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Plus className="h-3.5 w-3.5" />
-            )}
-            <span>{isCreating ? 'Creating…' : 'New entry'}</span>
-          </Button>
+          <form action={signOut}>
+            <Button type="submit" variant="ghost" size="sm" className="rounded-lg text-[13px]">
+              Sign out
+            </Button>
+          </form>
         </div>
       </div>
     </header>

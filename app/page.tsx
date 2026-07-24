@@ -1,25 +1,11 @@
-import db from '@/lib/db';
+import { apiGet } from '@/lib/api';
+import type { ConceptSummary } from '@/lib/api-types';
 import { CollectionShelf } from '@/components/collection/CollectionShelf';
-import { NewCollectionCard } from '@/components/collection/NewCollectionCard';
 
 export const dynamic = 'force-dynamic';
 
-async function getShelves() {
-  return db.collection.findMany({
-    orderBy: { updatedAt: 'desc' },
-    include: {
-      // One most-recent entry per shelf — surfaced faintly on the spine.
-      entries: {
-        orderBy: { updatedAt: 'desc' },
-        take: 1,
-        select: { title: true },
-      },
-    },
-  });
-}
-
 export default async function HomePage() {
-  const collections = await getShelves();
+  const concepts = await apiGet<ConceptSummary[]>('/concepts');
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8">
@@ -38,24 +24,23 @@ export default async function HomePage() {
         </p>
       </header>
 
-      {collections.length === 0 && (
+      {concepts.length === 0 && (
         <p className="mb-6 text-[14px] text-muted">
-          No shelves yet — create your first one to begin.
+          No shelves yet — import something to begin.
         </p>
       )}
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
-        {collections.map((collection) => (
+        {concepts.map((concept) => (
           <CollectionShelf
-            key={collection.id}
-            name={collection.name}
-            slug={collection.slug}
-            description={collection.description}
-            color={collection.color}
-            recentEntryTitle={collection.entries[0]?.title ?? null}
+            key={concept.id}
+            name={concept.name}
+            slug={concept.slug}
+            description={concept.description}
+            color={concept.color}
+            recentEntryTitle={concept.recentArtifactTitle}
           />
         ))}
-        <NewCollectionCard />
       </div>
     </div>
   );

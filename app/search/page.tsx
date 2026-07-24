@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { Search } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { searchEntries, searchResultExcerpt, SEARCH_RESULT_LIMIT } from '@/lib/search';
-import { cleanTitle, timeAgo } from '@/lib/utils';
+import { apiGet } from '@/lib/api';
+import type { SearchHit } from '@/lib/api-types';
+import { cleanTitle } from '@/lib/utils';
+
+export const dynamic = 'force-dynamic';
 
 interface SearchPageProps {
   searchParams: Promise<{
@@ -14,7 +16,7 @@ interface SearchPageProps {
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q } = await searchParams;
   const query = q?.trim() || '';
-  const results = await searchEntries(query);
+  const results = query ? await apiGet<SearchHit[]>(`/search?q=${encodeURIComponent(query)}`) : [];
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
@@ -22,7 +24,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <h1 className="font-title text-[32px] font-bold leading-none tracking-[-0.03em] text-ink">Search</h1>
         {query && (
           <p className="mt-3 text-[15px] text-muted">
-            {results.length === SEARCH_RESULT_LIMIT ? 'Top ' : ''}
             {results.length} {results.length === 1 ? 'result' : 'results'} for{' '}
             <span className="text-ink">{query}</span>
           </p>
@@ -35,43 +36,26 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <Search className="h-4 w-4" />
           </div>
           <p className="max-w-xl text-[15px] leading-6 text-muted">
-            Search across entry titles, summaries, body content, and tags.
+            Search across entry titles, summaries, and body content.
           </p>
         </div>
       ) : results.length > 0 ? (
         <div className="overflow-hidden rounded-card border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
           {results.map((result) => (
             <Link
-              key={result.id}
+              key={result.slug}
               href={`/entries/${result.slug}`}
               className="group block p-5 transition-colors hover:bg-surface-soft"
             >
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: result.collectionColor || 'var(--faint)' }}
-                />
-                <span className="text-[12px] text-muted">{result.collectionName}</span>
-              </div>
-              <h2 className="font-display text-[16px] font-semibold tracking-[-0.02em] text-ink">
+              <span className="text-[12px] text-muted">{result.concept}</span>
+              <h2 className="mt-2 font-display text-[16px] font-semibold tracking-[-0.02em] text-ink">
                 {cleanTitle(result.title)}
               </h2>
-              <p className="mt-1 max-w-3xl break-words text-[13px] leading-6 text-muted">
-                {searchResultExcerpt(result, query)}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {result.tags.slice(0, 4).map((tag) => (
-                  <Badge key={tag} variant="default" className="text-[10px]">
-                    {tag}
-                  </Badge>
-                ))}
-                <span className="text-[11px] text-faint">
-                  {result.sourceCount} {result.sourceCount === 1 ? 'source' : 'sources'}
-                </span>
-                <span className="font-mono text-[11px] text-faint">
-                  {timeAgo(result.updatedAt)}
-                </span>
-              </div>
+              {result.summary && (
+                <p className="mt-1 max-w-3xl break-words text-[13px] leading-6 text-muted">
+                  {result.summary}
+                </p>
+              )}
             </Link>
           ))}
         </div>

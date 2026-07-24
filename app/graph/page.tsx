@@ -1,10 +1,16 @@
 import { KnowledgeGraphPanel } from '@/components/graph/KnowledgeGraphPanel';
-import { getKnowledgeGraphData } from '@/lib/graph-data';
+import { apiGet } from '@/lib/api';
+import type { Graph } from '@/lib/api-types';
+import { cleanTitle } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 export default async function GraphPage() {
-  const graphData = await getKnowledgeGraphData();
+  const { nodes, links } = await apiGet<Graph>('/graph');
+  const graphData: Graph = {
+    nodes: nodes.map((node) => ({ ...node, title: cleanTitle(node.title) })),
+    links,
+  };
 
   // Full-bleed: fill the viewport below the top nav (and above the mobile bottom nav).
   return (

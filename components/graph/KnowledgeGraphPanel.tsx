@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { Share2 } from 'lucide-react';
-import type { KnowledgeGraphData } from '@/lib/graph-data';
+import type { Graph } from '@/lib/api-types';
 
 const KnowledgeGraph3D = dynamic(
   () => import('@/components/graph/KnowledgeGraph3D').then((mod) => mod.KnowledgeGraph3D),
@@ -17,7 +17,7 @@ const KnowledgeGraph3D = dynamic(
 );
 
 export interface KnowledgeGraphPanelProps {
-  data: KnowledgeGraphData;
+  data: Graph;
 }
 
 export function KnowledgeGraphPanel({ data }: KnowledgeGraphPanelProps) {
