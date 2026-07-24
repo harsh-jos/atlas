@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.imports import router as imports_router
+from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.pipeline.db import repository
 from app.pipeline.db.pool import close_pool, get_pool
@@ -33,7 +34,8 @@ async def lifespan(app: FastAPI):
         close_pool()
 
 
-app = FastAPI(title="Atlas Import Pipeline", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Atlas", version="0.1.0", lifespan=lifespan)
+app.include_router(auth_router)
 app.include_router(imports_router)
 
 

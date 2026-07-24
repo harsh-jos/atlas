@@ -1,14 +1,17 @@
 """Database fixtures: one scratch database per run, one rolled-back transaction per test."""
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.db import models  # noqa: F401  -- importing registers every model on Base.metadata
-from app.db.base import Base
+from app.db.base import Base, get_session
 
 _TEST_DATABASE = "atlas_test"
 
@@ -46,3 +49,13 @@ def session(engine):
         db.close()
         transaction.rollback()
         connection.close()
+
+
+@pytest.fixture
+def client(session):
+    """The routed app on the test session — no lifespan, so the import worker stays out."""
+    app = FastAPI()
+    app.include_router(auth_router)
+    app.dependency_overrides[get_session] = lambda: session
+    with TestClient(app) as test_client:
+        yield test_client
