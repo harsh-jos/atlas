@@ -2,13 +2,13 @@
 
 from app.pipeline.enrich_llm import LLMEnricher, _parse, enricher_from_settings
 from app.core.config import Settings
-from app.pipeline.models import DocMeta, EntryDraft, SourceType
+from app.pipeline.models import DocMeta, ArtifactDraft, SourceType
 
 META = DocMeta(title="Doc", source_type=SourceType.DOCS)
 
 
-def _draft(title: str, body: str) -> EntryDraft:
-    return EntryDraft(source_key=title, title=title, breadcrumb=[title], level=1, body_md=body)
+def _draft(title: str, body: str) -> ArtifactDraft:
+    return ArtifactDraft(source_key=title, title=title, breadcrumb=[title], level=1, body_md=body)
 
 
 def test_parse_tolerates_code_fences_and_dedupes_tags():

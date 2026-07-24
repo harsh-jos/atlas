@@ -1,4 +1,4 @@
-"""[3] Segmenter: StructuredDocument -> EntryDraft list (one per readable section).
+"""[3] Segmenter: StructuredDocument -> ArtifactDraft list (one per readable section).
 
 Deterministic. A heading becomes its own entry only down to `max_split_level`; deeper
 headings are *folded into* their nearest ancestor entry's body (heading preserved as markdown),
@@ -9,7 +9,7 @@ re-imports (scope + breadcrumb path), which is what makes re-imports idempotent.
 
 from __future__ import annotations
 
-from app.pipeline.models import EntryDraft, Section, StructuredDocument
+from app.pipeline.models import ArtifactDraft, Section, StructuredDocument
 from app.core.slugify import slugify
 
 # Split into separate entries down to H2 (pages + major sections); fold H3+ into the
@@ -23,7 +23,7 @@ def _source_key(scope: str, breadcrumb: list[str]) -> str:
     return f"{scope}::{path}"
 
 
-def _find(drafts: list[EntryDraft], key: str) -> EntryDraft | None:
+def _find(drafts: list[ArtifactDraft], key: str) -> ArtifactDraft | None:
     for draft in reversed(drafts):  # parent was added recently
         if draft.source_key == key:
             return draft
@@ -56,10 +56,10 @@ def segment(
     doc: StructuredDocument,
     *,
     scope: str,
-    min_entry_chars: int,
+    min_artifact_chars: int,
     max_split_level: int = DEFAULT_MAX_SPLIT_LEVEL,
-) -> list[EntryDraft]:
-    drafts: list[EntryDraft] = []
+) -> list[ArtifactDraft]:
+    drafts: list[ArtifactDraft] = []
 
     def walk(section: Section, breadcrumb: list[str], parent_key: str | None) -> None:
         title = section.title or doc.meta.title
@@ -78,7 +78,7 @@ def segment(
         body = section.content_md.strip()
 
         # A short leaf merges up into its parent instead of becoming a one-line entry.
-        if not section.children and parent_key is not None and len(body) < min_entry_chars:
+        if not section.children and parent_key is not None and len(body) < min_artifact_chars:
             parent = _find(drafts, parent_key)
             if parent is not None and body:
                 heading = "#" * min(max(section.level, 1), 6)
@@ -87,7 +87,7 @@ def segment(
             return
 
         drafts.append(
-            EntryDraft(
+            ArtifactDraft(
                 source_key=key,
                 title=title,
                 breadcrumb=crumb,
@@ -105,15 +105,15 @@ def segment(
     return _fill_empty(drafts)
 
 
-def _fill_empty(drafts: list[EntryDraft]) -> list[EntryDraft]:
+def _fill_empty(drafts: list[ArtifactDraft]) -> list[ArtifactDraft]:
     """No entry should read blank. Give an empty *hub* a table-of-contents body listing its
     children; drop an empty *leaf* entirely (it carries nothing)."""
-    children: dict[str, list[EntryDraft]] = {}
+    children: dict[str, list[ArtifactDraft]] = {}
     for draft in drafts:
         if draft.parent_key is not None:
             children.setdefault(draft.parent_key, []).append(draft)
 
-    kept: list[EntryDraft] = []
+    kept: list[ArtifactDraft] = []
     for draft in drafts:
         if draft.body_md.strip():
             kept.append(draft)

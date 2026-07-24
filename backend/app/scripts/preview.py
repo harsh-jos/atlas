@@ -38,22 +38,22 @@ def main() -> None:
 
     result = _load(kind, target)
     mapped = build_import(
-        result.doc, collection_name=result.suggested_collection, scope=result.scope
+        result.doc, concept_name=result.suggested_concept, scope=result.scope
     )
     part_of = sum(1 for r in mapped.relations if r.relation_type == RelationType.PART_OF)
     see_also = sum(1 for r in mapped.relations if r.relation_type == RelationType.SEE_ALSO)
 
-    print(f"collection : {result.suggested_collection}")
+    print(f"collection : {result.suggested_concept}")
     print(f"scope      : {result.scope}")
-    print(f"entries    : {len(mapped.entries)}")
+    print(f"entries    : {len(mapped.artifacts)}")
     print(f"relations  : {len(mapped.relations)}  (PART_OF={part_of}, SEE_ALSO={see_also})")
     print("sample entries:")
-    for entry in mapped.entries[:18]:
+    for entry in mapped.artifacts[:18]:
         indent = "  " * entry.metadata["headingLevel"]
         tags = ", ".join(entry.tags)
         print(f"  {indent}- {entry.title}   [tags: {tags}]")
-    if len(mapped.entries) > 18:
-        print(f"  ... ({len(mapped.entries)} total)")
+    if len(mapped.artifacts) > 18:
+        print(f"  ... ({len(mapped.artifacts)} total)")
 
 
 if __name__ == "__main__":

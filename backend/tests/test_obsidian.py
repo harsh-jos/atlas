@@ -21,7 +21,7 @@ Sessions keep conversational state across turns so an agent can remember the con
 
 def _mapped():
     doc = parse_markdown(SAMPLE, fallback_title="Guide", source_type=SourceType.DOCS)
-    return build_import(doc, collection_name="My Guide", scope="guide", min_entry_chars=40)
+    return build_import(doc, concept_name="My Guide", scope="guide", min_artifact_chars=40)
 
 
 def test_writes_one_note_per_entry_in_a_collection_folder(tmp_path):

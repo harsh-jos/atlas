@@ -43,4 +43,4 @@ def from_article_url(url: str, *, source_type: SourceType = SourceType.WEBSITE) 
         if date:
             doc.meta.published_at = str(date)
 
-    return SourceResult(doc=doc, scope=url, suggested_collection=doc.meta.title)
+    return SourceResult(doc=doc, scope=url, suggested_concept=doc.meta.title)

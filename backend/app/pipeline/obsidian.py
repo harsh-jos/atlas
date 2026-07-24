@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 from typing import TypedDict
 
-from app.pipeline.models import EntrySpec, MappedImport, RelationType
+from app.pipeline.models import ArtifactSpec, MappedImport, RelationType
 
 _ILLEGAL = re.compile(r'[\\/:*?"<>|\[\]#^]+')  # filename- and wikilink-hostile characters
 _WS = re.compile(r"\s+")
@@ -42,7 +42,7 @@ def _note_names(mapped: MappedImport) -> dict[str, str]:
     """Assign a unique, filesystem-safe note name per entry (source_key -> name)."""
     used: set[str] = set()
     names: dict[str, str] = {}
-    for entry in mapped.entries:
+    for entry in mapped.artifacts:
         base = _safe_name(entry.title)
         name, suffix = base, 1
         while name.lower() in used:
@@ -58,7 +58,7 @@ def _wikilink(name: str, title: str) -> str:
     return f"[[{name}|{title}]]" if name != title else f"[[{name}]]"
 
 
-def _frontmatter(entry: EntrySpec) -> str:
+def _frontmatter(entry: ArtifactSpec) -> str:
     lines = ["---", f'title: "{entry.title.replace(chr(34), chr(39))}"']
     if entry.tags:
         lines.append("tags:")
@@ -91,7 +91,7 @@ def _related(
     return "\n".join(lines)
 
 
-def _render(entry: EntrySpec, names: dict[str, str], titles: dict[str, str], mapped: MappedImport) -> str:
+def _render(entry: ArtifactSpec, names: dict[str, str], titles: dict[str, str], mapped: MappedImport) -> str:
     parts = [_frontmatter(entry)]
     if entry.summary:
         parts.append(f"> [!abstract]\n> {entry.summary}")
@@ -104,14 +104,14 @@ def _render(entry: EntrySpec, names: dict[str, str], titles: dict[str, str], map
 
 
 def write_vault(mapped: MappedImport, vault_dir: str | Path) -> ObsidianSummary:
-    folder = Path(vault_dir).expanduser() / _safe_name(mapped.collection.name)
+    folder = Path(vault_dir).expanduser() / _safe_name(mapped.concept.name)
     folder.mkdir(parents=True, exist_ok=True)
 
     names = _note_names(mapped)
-    titles = {entry.source_key: entry.title for entry in mapped.entries}
+    titles = {entry.source_key: entry.title for entry in mapped.artifacts}
 
     written: set[str] = set()
-    for entry in mapped.entries:
+    for entry in mapped.artifacts:
         filename = f"{names[entry.source_key]}.md"
         (folder / filename).write_text(_render(entry, names, titles, mapped), encoding="utf-8")
         written.add(filename)
@@ -123,4 +123,4 @@ def write_vault(mapped: MappedImport, vault_dir: str | Path) -> ObsidianSummary:
             existing.unlink()
             removed += 1
 
-    return {"folder": str(folder), "entries": len(mapped.entries), "removed": removed}
+    return {"folder": str(folder), "entries": len(mapped.artifacts), "removed": removed}

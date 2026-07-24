@@ -12,16 +12,17 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from app.core.config import get_settings
-from app.pipeline.db.pool import get_pool
+from app.db.base import get_session_factory
 from app.pipeline.enrich_llm import enricher_from_settings
 from app.pipeline.models import SourceType
 from app.pipeline.obsidian import write_vault
 from app.pipeline.build import build_import
 from app.pipeline.sources import article, markdown, pdf, website
 from app.pipeline.sources.base import SourceResult
-from app.pipeline.writer import ImportSummary, write_import
+from app.pipeline.writer import ImportSummary, ImportWriter
 
 log = logging.getLogger(__name__)
 
@@ -75,17 +76,17 @@ def run_import(kind: str, params: dict[str, Any], on_progress: ProgressFn) -> Im
     on_progress({"stage": "segmenting"})
     mapped = build_import(
         source.doc,
-        collection_name=params.get("collectionName") or source.suggested_collection,
+        concept_name=params.get("conceptName") or source.suggested_concept,
         scope=source.scope,
-        min_entry_chars=settings.min_entry_chars,
+        min_artifact_chars=settings.min_artifact_chars,
         max_split_level=settings.max_split_level,
         enricher=enricher_from_settings(settings),
-        collection_color=params.get("color"),
+        concept_color=params.get("color"),
     )
 
-    on_progress({"stage": "writing", "entries": len(mapped.entries)})
-    with get_pool().connection() as conn:
-        summary = write_import(conn, mapped)
+    on_progress({"stage": "writing", "artifacts": len(mapped.artifacts)})
+    with get_session_factory().begin() as session:
+        summary = ImportWriter(session, UUID(params["userId"])).write(mapped)
 
     if settings.obsidian_vault_dir:
         vault = write_vault(mapped, settings.obsidian_vault_dir)

@@ -24,7 +24,7 @@ def from_markdown_text(
     return SourceResult(
         doc=doc,
         scope=scope or source_url or f"md:{slugify(title)}",
-        suggested_collection=doc.meta.title,
+        suggested_concept=doc.meta.title,
     )
 
 

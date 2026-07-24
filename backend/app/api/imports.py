@@ -14,7 +14,9 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field, model_validator
 
+from app.auth.deps import CurrentUser
 from app.core.config import get_settings
+from app.db.models import User
 from app.jobs.queue import JobStore
 
 router = APIRouter()
@@ -29,7 +31,7 @@ class ImportRequest(BaseModel):
     url: str | None = None
     text: str | None = None
     title: str | None = None
-    collection_name: str | None = Field(default=None, alias="collectionName")
+    concept_name: str | None = Field(default=None, alias="conceptName")
     source_type: str | None = Field(default=None, alias="sourceType")
     color: str | None = None
 
@@ -46,7 +48,7 @@ class ImportRequest(BaseModel):
             "url": self.url,
             "text": self.text,
             "title": self.title,
-            "collectionName": self.collection_name,
+            "conceptName": self.concept_name,
             "sourceType": self.source_type,
             "color": self.color,
         }
@@ -76,15 +78,22 @@ class JobStatus(BaseModel):
         )
 
 
+def _owned_params(params: dict[str, Any], user: User) -> dict[str, Any]:
+    return {**params, "userId": str(user.id)}
+
+
 @router.post("/imports", response_model=JobCreated)
-def create_import(req: ImportRequest, store: JobStore = Depends(get_store)) -> JobCreated:
-    return JobCreated(jobId=store.enqueue(req.kind, req.to_params()))
+def create_import(
+    req: ImportRequest, user: CurrentUser, store: JobStore = Depends(get_store)
+) -> JobCreated:
+    return JobCreated(jobId=store.enqueue(req.kind, _owned_params(req.to_params(), user)))
 
 
 @router.post("/imports/file", response_model=JobCreated)
 async def create_file_import(
+    user: CurrentUser,
     file: UploadFile = File(...),
-    collectionName: str | None = Form(default=None),
+    conceptName: str | None = Form(default=None),
     sourceType: str | None = Form(default=None),
     store: JobStore = Depends(get_store),
 ) -> JobCreated:
@@ -105,15 +114,18 @@ async def create_file_import(
     params = {
         "path": str(saved),
         "filename": filename,
-        "collectionName": collectionName,
+        "conceptName": conceptName,
         "sourceType": sourceType,
     }
-    return JobCreated(jobId=store.enqueue(kind, params))
+    return JobCreated(jobId=store.enqueue(kind, _owned_params(params, user)))
 
 
 @router.get("/imports/{job_id}", response_model=JobStatus)
-def get_import(job_id: str, store: JobStore = Depends(get_store)) -> JobStatus:
+def get_import(
+    job_id: str, user: CurrentUser, store: JobStore = Depends(get_store)
+) -> JobStatus:
     job = store.get(job_id)
-    if job is None:
+    # Another user's job is reported as missing, so ids cannot be probed.
+    if job is None or json.loads(job["params"]).get("userId") != str(user.id):
         raise HTTPException(status_code=404, detail="job not found")
     return JobStatus.from_row(job)

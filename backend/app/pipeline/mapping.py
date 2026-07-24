@@ -1,4 +1,4 @@
-"""[5] Mapper: EntryDraft list -> MappedImport (Atlas Collection/Entry/Source/Relation specs).
+"""[5] Mapper: ArtifactDraft list -> MappedImport (Atlas Collection/Entry/Source/Relation specs).
 
 Relations are expressed in terms of stable `source_key`s; the writer resolves them to row ids
 after the entries are inserted. PART_OF comes from the heading hierarchy (child -> parent).
@@ -8,10 +8,10 @@ SEE_ALSO is a conservative best-effort from internal links that resolve to a kno
 from __future__ import annotations
 
 from app.pipeline.models import (
-    CollectionSpec,
+    ConceptSpec,
     DocMeta,
-    EntryDraft,
-    EntrySpec,
+    ArtifactDraft,
+    ArtifactSpec,
     MappedImport,
     RelationSpec,
     RelationType,
@@ -26,7 +26,7 @@ def _entry_url(meta: DocMeta, anchor: str | None) -> str | None:
     return f"{meta.source_url}#{anchor}" if anchor else meta.source_url
 
 
-def _entry_spec(draft: EntryDraft, meta: DocMeta, scope: str, import_id: str) -> EntrySpec:
+def _artifact_spec(draft: ArtifactDraft, meta: DocMeta, scope: str, import_id: str) -> ArtifactSpec:
     breadcrumb = _BREADCRUMB_SEP.join(draft.breadcrumb)
     metadata = {
         "sourceKey": draft.source_key,
@@ -45,7 +45,7 @@ def _entry_spec(draft: EntryDraft, meta: DocMeta, scope: str, import_id: str) ->
         "author": meta.authors[0] if meta.authors else None,
         "ref": breadcrumb,
     }
-    return EntrySpec(
+    return ArtifactSpec(
         source_key=draft.source_key,
         title=draft.title,
         summary=draft.summary,
@@ -66,7 +66,7 @@ def _fragment(href: str) -> str | None:
     return fragment or None
 
 
-def _relations(drafts: list[EntryDraft]) -> list[RelationSpec]:
+def _relations(drafts: list[ArtifactDraft]) -> list[RelationSpec]:
     relations: list[RelationSpec] = []
 
     # PART_OF: each entry is a component of its parent.
@@ -93,12 +93,12 @@ def _relations(drafts: list[EntryDraft]) -> list[RelationSpec]:
 
 
 def map_import(
-    drafts: list[EntryDraft],
+    drafts: list[ArtifactDraft],
     *,
     meta: DocMeta,
-    collection: CollectionSpec,
+    concept: ConceptSpec,
     scope: str,
     import_id: str,
 ) -> MappedImport:
-    entries = [_entry_spec(draft, meta, scope, import_id) for draft in drafts]
-    return MappedImport(collection=collection, entries=entries, relations=_relations(drafts))
+    artifacts = [_artifact_spec(draft, meta, scope, import_id) for draft in drafts]
+    return MappedImport(concept=concept, artifacts=artifacts, relations=_relations(drafts))
