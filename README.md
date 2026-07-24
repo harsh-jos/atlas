@@ -1,21 +1,26 @@
 # Atlas
 
-> A calm, reading-first personal knowledge base — a "learning home" where you arrive with a link
-> or a PDF *to learn the concept from Atlas itself*.
+> Where curiosity becomes a knowledge base you own — arrive with a question, research the web
+> with an agent, choose what earns a place, and keep it as durable linked artifacts.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
 
-Atlas turns books, papers, docs, and tutorials into a connected library of **entries** — each with
-a beautiful reading view (markdown or hand-authored HTML, math, code, images), typed **relations**
-to other entries, cited **sources**, and a place in a **collection**. Read like a book, search
-across everything, and explore the connections as a graph. A companion Python **import pipeline**
-ingests whole docs sites, articles, PDFs, and markdown into linked entries.
+Atlas combines Obsidian's permanence with NotebookLM's research. You bring a question; an agent
+searches the open web *and* what you already know, then proposes sources — showing you the exact
+**artifacts** each would produce before anything is written. You choose. What you keep gets a
+beautiful reading view (markdown, HTML, or PDF), typed **relations** to other artifacts, cited
+**sources**, and a place in a **concept**. Search across everything and explore it as a graph.
 
-The vision, roadmap, and design system live in [`docs/`](docs/) —
-[vision](docs/vision.md) · [design](docs/design.md) · [learning science](docs/learning-science.md).
+> **Status:** mid-pivot. The agent loop described above is the direction, not yet the code — the
+> app currently ships the pre-pivot library UI over a `Collection`/`Entry` schema. See the
+> roadmap in [vision](docs/vision.md).
+
+The vision, architecture, and design system live in [`docs/`](docs/) — [vision](docs/vision.md) ·
+[architecture](docs/architecture.md) · [design](docs/design.md) ·
+[learning science](docs/learning-science.md).
 
 **Stack:** Next.js 16 (App Router, React 19, Server Components) · TypeScript · Prisma ·
 PostgreSQL + pgvector · Tailwind v4 · a FastAPI + uv import service. Everything runs locally via
