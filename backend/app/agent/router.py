@@ -1,10 +1,14 @@
 """Chat with the agent over HTTP; what it is doing streams to the caller's WebSocket."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.agent.service import AgentUnavailable, run_turn
 from app.auth.deps import CurrentUserId
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -25,4 +29,10 @@ async def chat(request: ChatRequest, user_id: CurrentUserId) -> ChatResponse:
         reply = await run_turn(user_id, request.session_id, request.message)
     except AgentUnavailable as error:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from None
+    except Exception:
+        # One failed turn must not read as a broken app; the trace goes to the log, not the user.
+        log.exception("agent turn failed")
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, "The agent could not finish that turn. Try again."
+        ) from None
     return ChatResponse(reply=reply)

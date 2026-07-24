@@ -23,6 +23,13 @@ def _source_key(scope: str, breadcrumb: list[str]) -> str:
     return f"{scope}::{path}"
 
 
+def _disambiguate(key: str, taken: dict[str, int]) -> str:
+    """Sibling sections may repeat a heading, but the key is the idempotency key — it must be
+    unique. Numbering by occurrence keeps it stable across re-imports of the same document."""
+    taken[key] = taken.get(key, 0) + 1
+    return key if taken[key] == 1 else f"{key}~{taken[key]}"
+
+
 def _find(drafts: list[ArtifactDraft], key: str) -> ArtifactDraft | None:
     for draft in reversed(drafts):  # parent was added recently
         if draft.source_key == key:
@@ -60,11 +67,11 @@ def segment(
     max_split_level: int = DEFAULT_MAX_SPLIT_LEVEL,
 ) -> list[ArtifactDraft]:
     drafts: list[ArtifactDraft] = []
+    taken: dict[str, int] = {}
 
     def walk(section: Section, breadcrumb: list[str], parent_key: str | None) -> None:
         title = section.title or doc.meta.title
         crumb = [*breadcrumb, title]
-        key = _source_key(scope, crumb)
 
         # Too deep to be its own entry: fold the whole subtree into the parent's body.
         if section.level > max_split_level and parent_key is not None:
@@ -86,6 +93,8 @@ def segment(
                 parent.out_links.extend(section.links)
             return
 
+        # Claimed only once a draft is really being made, so folded sections don't consume numbers.
+        key = _disambiguate(_source_key(scope, crumb), taken)
         drafts.append(
             ArtifactDraft(
                 source_key=key,

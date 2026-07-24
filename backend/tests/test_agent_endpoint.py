@@ -73,3 +73,18 @@ def test_chat_returns_the_agents_reply(client, token, monkeypatch):
     response = client.post("/agent/chat", json=BODY, headers=_auth(token))
     assert response.status_code == 200
     assert response.json() == {"reply": "echo:hello"}
+
+
+def test_a_failing_turn_is_reported_not_crashed(client, token, monkeypatch):
+    """A tool blowing up used to surface as a 500 with a traceback."""
+
+    async def explode(user_id, session_id, message):
+        raise RuntimeError("the model went away")
+
+    monkeypatch.setattr("app.agent.router.run_turn", explode)
+
+    response = client.post("/agent/chat", json=BODY, headers=_auth(token))
+
+    assert response.status_code == 502
+    assert "could not finish" in response.json()["detail"]
+    assert "RuntimeError" not in response.text, "internals must not leak to the caller"
