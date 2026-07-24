@@ -107,3 +107,26 @@ export interface Graph {
   nodes: GraphNode[];
   links: GraphLink[];
 }
+
+export interface ProposedArtifact {
+  sourceKey: string;
+  title: string;
+  breadcrumb: string | null;
+  bytes: number;
+}
+
+export interface PreviewDetail {
+  id: string;
+  conceptName: string;
+  artifacts: ProposedArtifact[];
+  totalBytes: number;
+  alreadyKnown: SearchHit[];
+}
+
+export interface ImportSummary {
+  conceptSlug: string;
+  artifacts: number;
+  relations: number;
+  pruned: number;
+  bytes: number;
+}

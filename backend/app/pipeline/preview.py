@@ -52,9 +52,7 @@ def select_artifacts(mapped: MappedImport, source_keys: Sequence[str] | None) ->
         concept=mapped.concept,
         artifacts=artifacts,
         relations=[
-            r
-            for r in mapped.relations
-            if r.from_key in surviving and r.to_key in surviving
+            r for r in mapped.relations if r.from_key in surviving and r.to_key in surviving
         ],
     )
 
@@ -72,6 +70,14 @@ class PreviewService:
             Preview(concept_name=mapped.concept.name, scope=scope, payload=dump_import(mapped))
         )
 
+    def pending(self) -> list[Preview]:
+        """Previews still awaiting a decision, newest first."""
+        fresh = [p for p in self.previews.list() if p.created_at >= _cutoff()]
+        return sorted(fresh, key=lambda preview: preview.created_at, reverse=True)
+
+    def discard(self, preview_id: UUID) -> None:
+        self.previews.delete(self._preview(preview_id))
+
     def outline(self, preview_id: UUID) -> list[OutlineItem]:
         return [
             {
@@ -83,9 +89,7 @@ class PreviewService:
             for artifact in self._mapped(preview_id).artifacts
         ]
 
-    def commit(
-        self, preview_id: UUID, source_keys: Sequence[str] | None = None
-    ) -> ImportSummary:
+    def commit(self, preview_id: UUID, source_keys: Sequence[str] | None = None) -> ImportSummary:
         """Writes the selection; unselected sections stay unwritten but are not treated as gone."""
         preview = self._preview(preview_id)
         mapped = load_import(preview.payload)

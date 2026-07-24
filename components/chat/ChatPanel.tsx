@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { sendTurn, socketTicket } from '@/app/chat/actions';
+import { CurationCard } from '@/components/chat/CurationCard';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
@@ -15,19 +16,34 @@ const TOOL_LABELS: Record<string, string> = {
   commit_artifacts: 'Saving what you chose',
 };
 
-interface Turn {
-  role: 'you' | 'atlas';
-  text: string;
-}
+type Entry =
+  | { kind: 'message'; role: 'you' | 'atlas'; text: string }
+  | { kind: 'curation'; previewId: string };
 
 export function ChatPanel() {
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [activity, setActivity] = useState<string[]>([]);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sessionId = useRef<string>(crypto.randomUUID());
   const bottom = useRef<HTMLDivElement>(null);
+
+  const say = useCallback(async (message: string) => {
+    setError(null);
+    setActivity([]);
+    setEntries((seen) => [...seen, { kind: 'message', role: 'you', text: message }]);
+    setPending(true);
+
+    const result = await sendTurn(sessionId.current, message);
+    setPending(false);
+    setActivity([]);
+    if (result.error !== undefined) {
+      setError(result.error);
+      return;
+    }
+    setEntries((seen) => [...seen, { kind: 'message', role: 'atlas', text: result.value }]);
+  }, []);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -38,9 +54,22 @@ export function ChatPanel() {
       if (cancelled || ticket.error !== undefined) return;
       socket = new WebSocket(`${WS_URL}?token=${encodeURIComponent(ticket.value)}`);
       socket.onmessage = (event) => {
-        const { type, name } = JSON.parse(event.data) as { type: string; name?: string };
-        if (type === 'agent.tool' && name) {
+        const message = JSON.parse(event.data) as {
+          type: string;
+          name?: string;
+          previewId?: string;
+        };
+        if (message.type === 'agent.tool' && message.name) {
+          const name = message.name;
           setActivity((seen) => [...seen, TOOL_LABELS[name] ?? name]);
+        }
+        if (message.type === 'agent.preview' && message.previewId) {
+          const previewId = message.previewId;
+          setEntries((seen) =>
+            seen.some((entry) => entry.kind === 'curation' && entry.previewId === previewId)
+              ? seen
+              : [...seen, { kind: 'curation', previewId }]
+          );
         }
       };
     })();
@@ -53,32 +82,19 @@ export function ChatPanel() {
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [turns, activity]);
+  }, [entries, activity]);
 
-  const send = useCallback(async () => {
+  const submit = useCallback(() => {
     const message = draft.trim();
     if (!message || pending) return;
-
     setDraft('');
-    setError(null);
-    setActivity([]);
-    setTurns((seen) => [...seen, { role: 'you', text: message }]);
-    setPending(true);
-
-    const result = await sendTurn(sessionId.current, message);
-    setPending(false);
-    setActivity([]);
-    if (result.error !== undefined) {
-      setError(result.error);
-      return;
-    }
-    setTurns((seen) => [...seen, { role: 'atlas', text: result.value }]);
-  }, [draft, pending]);
+    void say(message);
+  }, [draft, pending, say]);
 
   return (
     <div className="flex min-h-[70vh] flex-col">
       <div className="flex-1 space-y-5">
-        {turns.length === 0 && !pending && (
+        {entries.length === 0 && !pending && (
           <p className="text-[15px] leading-relaxed text-muted">
             Ask about something you want to understand. Atlas will check what you already know,
             find where to learn it, and show you exactly what it would keep — before it keeps
@@ -86,20 +102,28 @@ export function ChatPanel() {
           </p>
         )}
 
-        {turns.map((turn, index) => (
-          <div key={index} className={cn(turn.role === 'you' && 'flex justify-end')}>
-            <div
-              className={cn(
-                'max-w-[85%] whitespace-pre-wrap text-[15px] leading-relaxed',
-                turn.role === 'you'
-                  ? 'rounded-card bg-surface-soft px-4 py-2.5 text-ink'
-                  : 'text-body'
-              )}
-            >
-              {turn.text}
+        {entries.map((entry, index) =>
+          entry.kind === 'curation' ? (
+            <CurationCard
+              key={entry.previewId}
+              previewId={entry.previewId}
+              onResolved={(note) => void say(note)}
+            />
+          ) : (
+            <div key={index} className={cn(entry.role === 'you' && 'flex justify-end')}>
+              <div
+                className={cn(
+                  'max-w-[85%] whitespace-pre-wrap text-[15px] leading-relaxed',
+                  entry.role === 'you'
+                    ? 'rounded-card bg-surface-soft px-4 py-2.5 text-ink'
+                    : 'text-body'
+                )}
+              >
+                {entry.text}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        )}
 
         {pending && (
           <div className="space-y-1.5" aria-live="polite">
@@ -124,7 +148,7 @@ export function ChatPanel() {
         className="sticky bottom-0 mt-6 flex items-end gap-2 border-t-thin bg-canvas pt-4"
         onSubmit={(event) => {
           event.preventDefault();
-          void send();
+          submit();
         }}
       >
         <textarea
@@ -133,7 +157,7 @@ export function ChatPanel() {
           onKeyDown={(event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
-              void send();
+              submit();
             }
           }}
           rows={2}
