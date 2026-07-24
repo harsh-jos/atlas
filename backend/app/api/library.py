@@ -128,6 +128,7 @@ class GraphLink(Payload):
     target: UUID
     relation_type: RelationType
     note: str | None
+    origin: Origin
 
 
 class Graph(Payload):

@@ -126,3 +126,10 @@ def test_a_stranger_cannot_read_another_users_concept(client, owner, stranger):
 def test_a_stranger_cannot_read_another_users_artifact(client, owner, stranger):
     slug = client.get("/concepts/vector-search", headers=owner).json()["artifacts"][0]["slug"]
     assert client.get(f"/artifacts/{slug}", headers=stranger).status_code == 404
+
+
+def test_graph_links_say_who_drew_them(client, owner):
+    """The graph is where automatic edges get removed, so it must distinguish them."""
+    body = client.get("/graph", headers=owner).json()
+    assert body["links"]
+    assert all(link["origin"] in {"HUMAN", "AI"} for link in body["links"])
