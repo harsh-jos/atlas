@@ -1,15 +1,20 @@
 # Atlas — working notes for agents
 
-Atlas is a calm, reading-first **learning home** — you arrive with a link or PDF *to learn the
-concept from Atlas itself*; the reading experience is the product. Stack: Next.js 16 (App Router)
-+ TypeScript (strict) + Prisma + PostgreSQL/pgvector + Tailwind v4. Server Components by default;
-client components only where interactivity is genuinely needed. Moving to a Dockerized, local-first
-setup (one `docker-compose` for the whole stack).
+Atlas is where **curiosity becomes a knowledge base you own** — you arrive with a question, an
+agent researches the web with you, *you choose* what earns a place, and what you keep becomes
+durable linked **artifacts** you read from Atlas itself. Obsidian's permanence with NotebookLM's
+research. Stack: Next.js 16 (App Router) + TypeScript (strict) + Prisma + PostgreSQL/pgvector +
+Tailwind v4, plus a Python service (FastAPI ingestion pipeline + Google ADK agent on
+Gemini/Vertex). Server Components by default; client components only where interactivity is
+genuinely needed.
 
 ## Vision is the source of truth
-`docs/vision.md` holds what Atlas is and why — product identity, roadmap, and the learning-science
-foundation (`docs/learning-science.md`). **Read `docs/vision.md` before shaping any feature.** When
-intent is unclear, it wins over stale code.
+`docs/vision.md` holds what Atlas is and why — product identity, the object model
+(artifact → concept → graph), and the roadmap. `docs/architecture.md` holds the technical
+direction (agent, pipeline-as-tool, RBAC/storage) and the open questions.
+**Read `docs/vision.md` before shaping any feature.** When intent is unclear, it wins over stale
+code — and the code is currently *behind* the vision: the app still ships the pre-pivot library
+UI and a `Collection`/`Entry` schema that the vision renames to `Concept`/`Artifact`.
 
 ## This is NOT the Next.js you know
 This repo runs a modified Next.js 16 with breaking changes from the public docs — APIs,
