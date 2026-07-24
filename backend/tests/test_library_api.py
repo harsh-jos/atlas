@@ -133,3 +133,13 @@ def test_graph_links_say_who_drew_them(client, owner):
     body = client.get("/graph", headers=owner).json()
     assert body["links"]
     assert all(link["origin"] in {"HUMAN", "AI"} for link in body["links"])
+
+
+def test_search_results_carry_what_a_row_needs_to_render(client, owner):
+    """Migrating to the API stripped these; a bare title and summary is not a result row."""
+    hit = client.get("/search", params={"q": "hierarchical navigable"}, headers=owner).json()[0]
+    assert hit["excerpt"], "the reader should see why a result matched"
+    assert isinstance(hit["tags"], list)
+    assert isinstance(hit["sourceCount"], int)
+    assert hit["updatedAt"]
+    assert "conceptColor" in hit
