@@ -12,7 +12,10 @@ from app.core.config import get_settings
 from app.db.models import Artifact, Concept, Source
 
 
-_HEADLINE = "StartSel=,StopSel=,MaxWords=30,MinWords=14,MaxFragments=1"
+# Delimiters must be quoted to be empty — unquoted `StartSel=` swallows the next option
+# as its value, leaking `,StopSel=` and a default `</b>` into the excerpt. The UI does its
+# own match highlighting, so the excerpt wants no markup at all.
+_HEADLINE = 'StartSel="",StopSel="",MaxWords=30,MinWords=14,MaxFragments=1'
 
 
 class Hit(TypedDict):
