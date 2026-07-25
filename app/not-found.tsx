@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Button } from '@/components/ui/Button';
 
 /** Shown for any `notFound()` — a missing entry, a stale link — instead of a bare 404. */
 export default function NotFound() {
@@ -12,11 +13,8 @@ export default function NotFound() {
         The page you’re after has moved or was never kept. Everything you’ve saved is still in your
         atlas.
       </p>
-      <Link
-        href="/"
-        className="mt-7 inline-flex items-center text-[14px] font-medium text-accent transition-colors hover:text-accent-hover"
-      >
-        Back to your atlas
+      <Link href="/" className="mt-7">
+        <Button size="lg">Back to your library</Button>
       </Link>
     </div>
   );

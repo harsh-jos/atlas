@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { ArtifactDetail } from '@/lib/api-types';
-import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { ReadingProgressBar } from '@/components/entry/ReadingProgressBar';
 import { EntrySummary } from '@/components/entry/EntrySummary';
 import { MarkdownBody } from '@/components/entry/MarkdownBody';
@@ -9,7 +8,7 @@ import { EntrySources } from '@/components/entry/EntrySources';
 import { EntryRelations } from '@/components/entry/EntryRelations';
 import { EntryTags } from '@/components/entry/EntryTags';
 import { EntryMetadata } from '@/components/entry/EntryMetadata';
-import { cleanTitle, formatDate } from '@/lib/utils';
+import { cleanTitle, duplicatesOpening, estimateReadingTime, formatDate } from '@/lib/utils';
 
 export interface EntryArtifactProps {
   artifact: ArtifactDetail;
@@ -31,35 +30,37 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
     artifact.tags.length > 0 ||
     hasDetails(artifact.metadata);
 
+  const body = artifact.bodyHtml || artifact.body;
+  const readingTime = estimateReadingTime(body);
+
   return (
     <>
       <ReadingProgressBar />
 
-      <div className="mx-auto max-w-[40rem] px-5 py-12 sm:px-8">
-        {/* Quiet top row — orientation + a way out to edit, nothing loud */}
-        <div className="mb-7 flex items-center justify-between gap-4">
-          <Breadcrumb
-            items={[
-              { label: 'Library', href: '/' },
-              { label: artifact.concept.name, href: `/collections/${artifact.concept.slug}` },
-              { label: cleanTitle(artifact.title) },
-            ]}
-          />
-          <Link
-            href={`/entries/${artifact.slug}?edit=true`}
-            className="shrink-0 text-[13px] text-muted transition-colors hover:text-ink"
-          >
-            Edit
-          </Link>
-        </div>
-
+      <div className="mx-auto max-w-[43rem] px-5 py-12 sm:px-8">
         <article className="font-reading">
-          <header className="mb-6">
-            <h1 className="font-title text-[30px] font-semibold leading-[1.12] tracking-[-0.02em] text-ink sm:text-[36px] sm:leading-[1.1]">
+          <header className="mb-8">
+            {/* One statement of where you are, and it navigates — the eyebrow does the
+                breadcrumb's job without saying the concept twice. */}
+            <div className="mb-3 flex items-baseline justify-between gap-4">
+              <Link
+                href={`/collections/${artifact.concept.slug}`}
+                className="focus-ring truncate rounded-sm font-mono text-[10.5px] uppercase tracking-[0.16em] text-faint transition-colors hover:text-ink"
+              >
+                {artifact.concept.name}
+              </Link>
+              <Link
+                href={`/entries/${artifact.slug}?edit=true`}
+                className="focus-ring shrink-0 rounded-md text-[13px] text-faint transition-colors hover:text-ink"
+              >
+                Edit
+              </Link>
+            </div>
+            <h1 className="font-title text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink sm:text-[38px] sm:leading-[1.08]">
               {cleanTitle(artifact.title)}
             </h1>
-            <div className="mt-3.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-faint">
-              <span>{artifact.concept.name}</span>
+            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-faint">
+              <span>{readingTime}</span>
               <span aria-hidden="true">·</span>
               <span>{formatDate(artifact.createdAt)}</span>
               {artifact.sources.length > 0 && (
@@ -82,7 +83,9 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
             </div>
           </header>
 
-          <EntrySummary summary={artifact.summary} />
+          {!duplicatesOpening(artifact.summary, body) && (
+            <EntrySummary summary={artifact.summary} />
+          )}
 
           <div className="mt-8">
             {artifact.bodyHtml?.trim() ? (

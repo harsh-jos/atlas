@@ -85,7 +85,7 @@ export function RelationTargetCombobox({
               }
             }}
             placeholder="Search entries…"
-            className="h-9 w-full rounded-lg border-thin bg-surface pl-8 pr-2 text-xs text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
+            className="focus-ring h-9 w-full rounded-lg border-thin bg-surface pl-8 pr-2 text-xs text-ink"
           />
         </div>
       ) : (
@@ -97,7 +97,7 @@ export function RelationTargetCombobox({
             setLoading(true);
             setOpen(true);
           }}
-          className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border-thin bg-surface px-2.5 text-xs text-ink transition-colors hover:bg-surface-soft"
+          className="focus-ring flex h-9 w-full items-center justify-between gap-2 rounded-lg border-thin bg-surface px-2.5 text-xs text-ink transition-colors hover:border-hairline-strong hover:bg-surface-soft"
         >
           <span className="flex min-w-0 items-center gap-2">
             {value.toSlug && (
@@ -127,7 +127,7 @@ export function RelationTargetCombobox({
                 key={candidate.id}
                 type="button"
                 onClick={() => handleSelect(candidate)}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-soft"
+                className="focus-ring flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink transition-colors hover:bg-surface-soft"
               >
                 <span
                   aria-hidden="true"

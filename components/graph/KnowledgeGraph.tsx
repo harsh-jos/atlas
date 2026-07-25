@@ -296,39 +296,39 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         </form>
       </div>
 
-      {/* Bottom-left: legend + zoom controls */}
-      <div className="absolute bottom-3 left-3 flex flex-col gap-2">
-        {legend.length > 0 && (
-          <div className={`px-3 py-2.5 ${panel}`}>
-            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-faint">
-              Collections
-            </p>
-            <ul className="flex flex-col gap-1">
-              {legend.map((item) => (
-                <li key={item.name} className="flex items-center gap-2 text-[12px] text-muted">
-                  <span
-                    aria-hidden="true"
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="truncate">{item.name}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        <div className={`flex items-center gap-1 self-start p-1 ${panel}`}>
-          <ControlButton label="Zoom in" onClick={() => zoomBy(1.35)}>
-            <Plus className="h-4 w-4" />
-          </ControlButton>
-          <ControlButton label="Zoom out" onClick={() => zoomBy(0.74)}>
-            <Minus className="h-4 w-4" />
-          </ControlButton>
-          <ControlButton label="Fit to view" onClick={() => graphRef.current?.zoomToFit(500, 70)}>
-            <Maximize2 className="h-4 w-4" />
-          </ControlButton>
+      {/* Bottom-left: the legend only. Controls live on the right edge, away from the
+          navigation rail this corner sits against. */}
+      {legend.length > 0 && (
+        <div className={`absolute bottom-3 left-3 px-3 py-2.5 ${panel}`}>
+          <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-faint">
+            Collections
+          </p>
+          <ul className="flex flex-col gap-1">
+            {legend.map((item) => (
+              <li key={item.name} className="flex items-center gap-2 text-[12px] text-muted">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="truncate">{item.name}</span>
+              </li>
+            ))}
+          </ul>
         </div>
+      )}
+
+      {/* Bottom-right: zoom controls, above whatever the page stacks below them. */}
+      <div className={`absolute bottom-3 right-3 flex items-center gap-1 p-1 ${panel}`}>
+        <ControlButton label="Zoom in" onClick={() => zoomBy(1.35)}>
+          <Plus className="h-4 w-4" />
+        </ControlButton>
+        <ControlButton label="Zoom out" onClick={() => zoomBy(0.74)}>
+          <Minus className="h-4 w-4" />
+        </ControlButton>
+        <ControlButton label="Fit to view" onClick={() => graphRef.current?.zoomToFit(500, 70)}>
+          <Maximize2 className="h-4 w-4" />
+        </ControlButton>
       </div>
 
       {/* Right: detail panel */}

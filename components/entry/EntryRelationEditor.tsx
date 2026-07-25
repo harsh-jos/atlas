@@ -2,6 +2,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { RelationTargetCombobox } from '@/components/entry/RelationTargetCombobox';
+import { SectionLabel } from '@/components/entry/SectionLabel';
 import type { RelationDraft } from '@/app/entries/actions';
 import type { RelationType } from '@/lib/api-types';
 import { RELATION_OUTGOING_LABELS } from '@/lib/relations';
@@ -31,9 +32,9 @@ export function EntryRelationEditor({
   }
 
   return (
-    <section className="grid gap-3">
+    <section className="grid gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[15px] font-semibold text-ink">Relations</h2>
+        <SectionLabel>Relations</SectionLabel>
         <Button
           type="button"
           variant="secondary"
@@ -61,7 +62,7 @@ export function EntryRelationEditor({
                   onChange={(event) =>
                     updateRelation(index, { relationType: event.target.value as RelationType })
                   }
-                  className="h-9 rounded-lg border-thin bg-surface px-2 text-xs text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
+                  className="focus-ring h-9 rounded-lg border-thin bg-surface px-2 text-xs text-ink transition-colors hover:border-hairline-strong"
                 >
                   {relationTypes.map((relationType) => (
                     <option key={relationType} value={relationType}>
@@ -85,7 +86,7 @@ export function EntryRelationEditor({
                 <button
                   type="button"
                   onClick={() => onChange(relations.filter((_, at) => at !== index))}
-                  className="rounded-md p-2 text-faint transition-colors hover:bg-black/[0.04] hover:text-ink"
+                  className="focus-ring rounded-md p-2 text-faint transition-colors hover:bg-black/[0.04] hover:text-ink"
                   aria-label="Remove relation"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

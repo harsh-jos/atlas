@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { SectionLabel } from '@/components/entry/SectionLabel';
 import type { SourceDraft } from '@/app/entries/actions';
 import type { SourceType } from '@/lib/api-types';
 
@@ -17,9 +18,9 @@ export function EntrySourceEditor({ sources, onChange }: EntrySourceEditorProps)
   }
 
   return (
-    <section className="grid gap-3">
+    <section className="grid gap-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[15px] font-semibold text-ink">Sources</h2>
+        <SectionLabel>Sources</SectionLabel>
         <Button
           type="button"
           variant="secondary"
@@ -47,7 +48,7 @@ export function EntrySourceEditor({ sources, onChange }: EntrySourceEditorProps)
                   onChange={(event) =>
                     updateSource(index, { sourceType: event.target.value as SourceType })
                   }
-                  className="h-8 rounded-lg border-thin bg-surface px-2 text-xs text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
+                  className="focus-ring h-8 rounded-lg border-thin bg-surface px-2 text-xs text-ink transition-colors hover:border-hairline-strong"
                 >
                   {sourceTypes.map((sourceType) => (
                     <option key={sourceType} value={sourceType}>
@@ -58,7 +59,7 @@ export function EntrySourceEditor({ sources, onChange }: EntrySourceEditorProps)
                 <button
                   type="button"
                   onClick={() => onChange(sources.filter((_, at) => at !== index))}
-                  className="rounded-md p-1.5 text-faint transition-colors hover:bg-black/[0.04] hover:text-ink"
+                  className="focus-ring rounded-md p-1.5 text-faint transition-colors hover:bg-black/[0.04] hover:text-ink"
                   aria-label="Remove source"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

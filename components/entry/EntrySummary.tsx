@@ -10,5 +10,9 @@ export function EntrySummary({ summary }: EntrySummaryProps) {
   const text = summary?.trim();
   if (!text) return null;
 
-  return <p className="text-[20px] leading-[1.55] text-muted">{text}</p>;
+  return (
+    <p className="border-l-[3px] border-hairline-strong pl-4 text-[19px] leading-[1.6] text-muted">
+      {text}
+    </p>
+  );
 }

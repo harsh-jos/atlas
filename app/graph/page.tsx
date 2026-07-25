@@ -14,12 +14,13 @@ export default async function GraphPage() {
   };
   const automatic = links.filter((link) => link.origin === 'AI').length;
 
-  // Full-bleed: fill the viewport below the top nav (and above the mobile bottom nav).
   return (
-    <div className="fixed inset-x-0 bottom-14 top-14 md:bottom-0">
+    <div className="relative h-full w-full">
       <KnowledgeGraphPanel data={graphData} />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4">
-        <div className="pointer-events-auto rounded-card border-thin bg-surface/90 px-4 py-2.5 shadow-card backdrop-blur">
+      {/* Stacked above the canvas's own zoom cluster, which owns the bottom-right corner
+          (the rest of its chrome: title/search top-left, legend bottom-left, inspector top-right). */}
+      <div className="pointer-events-none absolute bottom-16 right-3">
+        <div className="pointer-events-auto rounded-[12px] border-thin bg-surface/85 px-4 py-2.5 shadow-card backdrop-blur-md">
           <AutomaticLinkControl count={automatic} />
         </div>
       </div>

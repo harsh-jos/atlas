@@ -47,7 +47,9 @@ export function AutomaticLinkControl({ count }: AutomaticLinkControlProps) {
       </span>
       {confirming ? (
         <>
-          <span className="text-[13px] text-ink">Remove all {count}?</span>
+          <span className="rounded-full border border-warning-line bg-warning-soft px-2.5 py-1 text-[12.5px] font-medium text-warning">
+            Remove all {count}?
+          </span>
           <Button size="sm" variant="danger" disabled={busy} onClick={() => void remove()}>
             {busy ? 'Removing…' : 'Yes, remove'}
           </Button>

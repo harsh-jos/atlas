@@ -166,15 +166,15 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="mb-2">
-            <span className="text-xs text-faint">{artifact.concept.name}</span>
-          </div>
-          <h1 className="font-display text-[22px] font-bold tracking-[-0.025em] text-ink">
+          <p className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.16em] text-faint">
+            {artifact.concept.name}
+          </p>
+          <h1 className="font-title text-[24px] font-semibold tracking-[-0.025em] text-ink">
             Edit entry
           </h1>
-          <p className="mt-1 text-xs text-faint">
+          <p className="mt-1.5 text-xs text-faint">
             {isDirty
               ? 'Unsaved changes'
               : savedAt
@@ -233,7 +233,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
             <select
               value={conceptId}
               onChange={(event) => setConceptId(event.target.value)}
-              className="h-9 rounded-lg border-thin bg-surface px-3 text-sm text-ink focus-visible:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/15"
+              className="focus-ring h-9 rounded-lg border-thin bg-surface px-3 text-sm text-ink transition-colors hover:border-hairline-strong"
             >
               {concepts.map((concept) => (
                 <option key={concept.id} value={concept.id}>
@@ -296,7 +296,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
         </div>
 
         <details className="rounded-xl border-thin bg-surface/60">
-          <summary className="cursor-pointer list-none px-4 py-3 text-[13px] font-medium text-muted">
+          <summary className="focus-ring cursor-pointer list-none rounded-xl px-4 py-3 text-[13px] font-medium text-muted transition-colors hover:text-ink">
             HTML body{' '}
             <span className="text-faint">— optional; replaces the markdown body when set</span>
           </summary>
