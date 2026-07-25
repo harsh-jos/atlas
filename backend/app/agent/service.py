@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from app.agent.root import build_agent
-from app.agent.session import ask
+from app.agent.session import HistoryMessage, ask, read_history
 from app.agent.toolkit import build_toolkit
 from app.core.config import get_settings
 from app.db.base import get_session_scope
@@ -24,3 +24,8 @@ async def run_turn(user_id: UUID, session_id: str, message: str) -> str:
 
     agent = build_agent(build_toolkit(get_session_scope(), user_id))
     return await ask(agent, str(user_id), session_id, message, on_event=publish)
+
+
+async def load_history(user_id: UUID, session_id: str) -> list[HistoryMessage]:
+    """The prior turns of one conversation, so a chat URL reopens where it left off."""
+    return await read_history(str(user_id), session_id)

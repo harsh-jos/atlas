@@ -1,11 +1,13 @@
 """Chat with the agent over HTTP; what it is doing streams to the caller's WebSocket."""
 
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
-from app.agent.service import AgentUnavailable, run_turn
+from app.agent.service import AgentUnavailable, load_history, run_turn
 from app.auth.deps import CurrentUserId
 
 log = logging.getLogger(__name__)
@@ -22,6 +24,19 @@ class ChatResponse(BaseModel):
     reply: str
 
 
+class ChatMessage(BaseModel):
+    role: Literal["you", "atlas"]
+    text: str
+
+
+class ChatHistory(BaseModel):
+    # The frontend reads camelCase, as everywhere else the API is consumed.
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    session_id: str
+    messages: list[ChatMessage]
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, user_id: CurrentUserId) -> ChatResponse:
     """One turn. Connect to /ws first to watch the tool calls arrive live."""
@@ -36,3 +51,13 @@ async def chat(request: ChatRequest, user_id: CurrentUserId) -> ChatResponse:
             status.HTTP_502_BAD_GATEWAY, "The agent could not finish that turn. Try again."
         ) from None
     return ChatResponse(reply=reply)
+
+
+@router.get("/chat/{session_id}", response_model=ChatHistory)
+async def history(session_id: str, user_id: CurrentUserId) -> ChatHistory:
+    """Prior turns for one session — an unknown id is an empty, not-yet-started conversation."""
+    messages = await load_history(user_id, session_id)
+    return ChatHistory(
+        session_id=session_id,
+        messages=[ChatMessage(role=message.role, text=message.text) for message in messages],
+    )
