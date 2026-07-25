@@ -2,34 +2,37 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, Network, Search } from 'lucide-react';
+import { Library, Sparkles, Network, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NAV_ITEMS } from './nav-items';
 
-const NAV_LINKS = [
-  { href: '/', label: 'Home', icon: Home, match: (p: string) => p === '/' },
-  { href: '/chat', label: 'Learn', icon: Sparkles, match: (p: string) => p.startsWith('/chat') },
-  { href: '/graph', label: 'Graph', icon: Network, match: (p: string) => p.startsWith('/graph') },
-  { href: '/search', label: 'Search', icon: Search, match: (p: string) => p.startsWith('/search') },
-];
+const ICONS = { Library, Sparkles, Network, Search } as const;
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/90 backdrop-blur-md border-t-thin px-4 py-2 flex items-center justify-around h-14 pb-safe">
-      {NAV_LINKS.map(({ href, label, icon: Icon, match }) => (
-        <Link
-          key={href}
-          href={href}
-          className={cn(
-            'flex flex-col items-center gap-0.5 transition-colors',
-            match(pathname) ? 'text-accent' : 'text-faint hover:text-ink'
-          )}
-        >
-          <Icon className="h-[18px] w-[18px]" />
-          <span className="text-[10px] font-medium">{label}</span>
-        </Link>
-      ))}
+    <nav className="flex h-[3.75rem] shrink-0 items-stretch justify-around border-t-thin bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
+      {NAV_ITEMS.map(({ href, label, icon, match }) => {
+        const Icon = ICONS[icon];
+        const active = match(pathname);
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+              'flex flex-1 flex-col items-center justify-center gap-1 transition-colors duration-[var(--dur-fast)]',
+              active ? 'text-ink' : 'text-faint'
+            )}
+          >
+            <Icon className={cn('h-[18px] w-[18px]', active && 'text-accent')} />
+            <span className={cn('font-display text-[10px]', active ? 'font-[650]' : 'font-medium')}>
+              {label}
+            </span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

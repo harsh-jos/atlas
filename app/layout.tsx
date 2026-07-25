@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans, Inter, Geist_Mono, Geist } from 'next/font/google';
-import { TopNav } from '@/components/layout/TopNav';
-import { BottomNav } from '@/components/layout/BottomNav';
+import { AppShell } from '@/components/layout/AppShell';
 import './globals.css';
 
 // Voices: Geist = titles/display (globals.css --title); system Helvetica/Arial = reading body
@@ -41,18 +40,8 @@ export default function RootLayout({
       lang="en"
       className={`${title.variable} ${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-canvas text-body font-sans">
-        {/* Global navigation */}
-        <TopNav />
-
-        {/* Main Content Area — clears the fixed bottom nav (h-14) plus the
-            device safe-area inset on mobile so content is never hidden. */}
-        <main className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom)+1rem)] md:pb-6">
-          {children}
-        </main>
-
-        {/* Mobile bottom navigation */}
-        <BottomNav />
+      <body className="h-full overflow-hidden text-body font-sans">
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
