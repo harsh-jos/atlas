@@ -31,6 +31,27 @@
   --action: #202023;
   --action-hover: #090909;
 
+  /* Semantic status — soft tinted pills only (green done, amber attention, blue in-progress). */
+  --success: #0f7a55;
+  --success-soft: #e6f5ee;
+  --success-line: #bfe3d3;
+  --warning: #96601c;
+  --warning-soft: #fdf3e2;
+  --warning-line: #f0dcb6;
+  --info: #2a55c9;
+  --info-soft: #eaefff;
+  --info-line: #ccd9f9;
+
+  /* Shell geometry — one home for the app-frame numbers. */
+  --rail-width: 15.5rem;
+  --frame-inset: 0.625rem;
+  --frame-radius: 22px;
+
+  /* Motion — calm and premium; never bouncy. */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 140ms;
+  --dur: 220ms;
+
   /* Reading body face — system Helvetica/Arial. A plain, named property so a
      future settings switcher can override it; --font-reading in @theme points here. */
   --reading: "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
@@ -57,6 +78,15 @@
   --color-accent-soft: var(--accent-soft);
   --color-action: var(--action);
   --color-action-hover: var(--action-hover);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-line: var(--info-line);
 
   /* One radius for content cards — keeps every card surface in step. */
   --radius-card: 18px;
@@ -72,11 +102,12 @@
 }
 
 body {
-  background-color: var(--canvas);
-  /* Faint violet aura up top — atmosphere, not decoration. Fixed so it stays put. */
+  /* The backdrop sits *behind* the app frame, a shade deeper than the canvas so the
+     frame reads as a floating object. Faint violet aura = atmosphere, not decoration. */
+  background-color: #e9ebf2;
   background-image: radial-gradient(
-    1100px 560px at 50% -8%,
-    rgba(123, 104, 238, 0.07),
+    1100px 620px at 50% -10%,
+    rgba(123, 104, 238, 0.1),
     transparent 70%
   );
   background-attachment: fixed;
@@ -158,6 +189,77 @@ strong,
 b {
   font-weight: 700;
   color: var(--ink);
+}
+
+/* The app frame — one big object floating on the backdrop (the reference gold standard). */
+.shadow-frame {
+  box-shadow:
+    rgba(13, 21, 48, 0.06) 0px 1px 2px 0px,
+    rgba(13, 21, 48, 0.08) 0px 12px 28px -12px,
+    rgba(13, 21, 48, 0.1) 0px 34px 64px -24px;
+}
+
+/* Inputs and quiet raised chips — the smallest step on the elevation scale. */
+.shadow-raise {
+  box-shadow:
+    rgba(13, 21, 48, 0.03) 0px 1px 1px 0px,
+    rgba(13, 21, 48, 0.04) 0px 2px 6px -2px;
+}
+
+/* One focus treatment across every interactive surface — accessibility you can see. */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px rgba(123, 104, 238, 0.45);
+}
+
+/* Halftone dot ground — the restrained signature texture, for hero and empty moments. */
+.dot-grid {
+  background-image: radial-gradient(rgba(9, 12, 29, 0.11) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Inner scroll regions: keep the frame's edges clean. */
+.scroll-region {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Content settles in rather than appearing — 1 gesture, ~1 frame of travel. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-rise {
+  animation: rise-in var(--dur) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Math blocks */
