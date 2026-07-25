@@ -1,4 +1,4 @@
-import type { Source, SourceType } from '@prisma/client';
+import type { Source, SourceType } from '@/lib/api-types';
 import { SectionLabel } from '@/components/entry/SectionLabel';
 import { cleanTitle } from '@/lib/utils';
 
@@ -15,9 +15,19 @@ const sourceLabels: Record<SourceType, string> = {
   WEBSITE: 'Website',
 };
 
+// "https://arxiv.org/abs/1234" -> "arxiv.org" — a quiet host label instead of a raw URL.
+function hostLabel(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Sources rendered as a book's references — a quiet numbered list at the end
- * of the entry, not a card competing with the body.
+ * Sources rendered as a book's references — a quiet numbered, host-labelled
+ * list at the end of the entry, not a card competing with the body.
  */
 export function EntrySources({ sources }: EntrySourcesProps) {
   if (sources.length === 0) return null;
@@ -27,12 +37,17 @@ export function EntrySources({ sources }: EntrySourcesProps) {
       <SectionLabel>Sources</SectionLabel>
       <ol className="space-y-3">
         {sources.map((source, index) => {
-          const detail = [sourceLabels[source.sourceType], source.author, cleanTitle(source.ref ?? '')]
+          const detail = [
+            sourceLabels[source.sourceType],
+            hostLabel(source.url),
+            source.author,
+            cleanTitle(source.ref ?? ''),
+          ]
             .filter(Boolean)
             .join(' · ');
 
           return (
-            <li key={source.id} className="flex gap-3 text-[14px] leading-6">
+            <li key={`${source.title}-${index}`} className="flex gap-3 text-[14px] leading-6">
               <span className="shrink-0 pt-px font-mono text-[12px] tabular-nums text-faint">
                 {index + 1}
               </span>
@@ -42,7 +57,7 @@ export function EntrySources({ sources }: EntrySourcesProps) {
                     href={source.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="font-medium text-ink underline decoration-[var(--hairline)] underline-offset-[3px] transition-colors hover:decoration-accent"
+                    className="focus-ring rounded-sm font-medium text-ink underline decoration-[var(--hairline)] underline-offset-[3px] transition-colors hover:text-accent hover:decoration-accent"
                   >
                     {cleanTitle(source.title)}
                   </a>

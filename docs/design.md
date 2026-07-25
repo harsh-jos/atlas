@@ -63,6 +63,20 @@ Each shot below is here for a specific reason — steal the named quality, not t
 Tokens are the single source of truth in `app/globals.css` (mapped into Tailwind `@theme`) — use
 them, don't hardcode colours.
 
+### The app frame *(added 2026-07-25)*
+Atlas is **one floating object**, not a stack of page chrome. A rounded container
+(`--frame-radius`, inset by `--frame-inset`) floats on a backdrop a shade deeper than the canvas,
+holding a **white left rail** (`--rail-width`) beside a single scrolling content region tinted
+`canvas`. White cards float on that tint. Consequences to respect:
+
+- The **window does not scroll** — `<main>` is the scroll container. Never use `h-screen`,
+  `100vh`, or `fixed` positioning for in-app chrome; use `h-full`, `sticky`, or `absolute`.
+- `/login` renders **without** the frame — it owns the viewport (the split entry moment).
+- Page structure is shared: `PageHeader` (mono eyebrow → display title → one line of intent →
+  actions) inside `PageContainer`. Every route opens the same way; that consistency *is* the
+  finished-product feeling.
+- One focus treatment everywhere: the `.focus-ring` utility. Don't hand-roll focus rings.
+
 ### Canvas & surfaces
 Light and airy. A near-white / very-light warm-grey page; content lives in **white cards that float
 as clean objects** — hairline border **plus** a soft, low, diffuse shadow (never dramatic

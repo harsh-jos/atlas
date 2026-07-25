@@ -1,119 +1,160 @@
 # Atlas — vision & direction
 
-> **About this doc:** the single source of truth for *what Atlas is and why*. Product identity,
-> the learning-science foundation, design direction, and the roadmap. When code and this doc
-> disagree about intent, this doc wins — update it deliberately, don't let it drift.
-> Design mechanics live in [design.md](./design.md); the research behind the learning claims
-> lives in [learning-science.md](./learning-science.md).
+> **About this doc:** the single source of truth for *what Atlas is and why*. **Rewritten
+> 2026-07-24 for a new direction** — the previous vision (a calm library for links and PDFs you
+> already decided to read) is gone; git remembers it. Design mechanics live in
+> [design.md](./design.md), the research behind the learning claims in
+> [learning-science.md](./learning-science.md), and the technical shape in
+> [architecture.md](./architecture.md). The full catalog of candidate features — researched
+> against the field, and deliberately *unsequenced* — is [features.md](./features.md).
+> When code and this doc disagree about intent, this doc wins — update it deliberately, don't
+> let it drift.
 
 ## North star
 
-> **Atlas is a calm, graph-native learning home. You arrive with a link or a PDF *to learn the
-> concept from Atlas itself*; it weaves what you read into a knowledge graph, and resurfaces
-> what's worth revisiting — with hybrid search underneath so you can always find, and
-> eventually *ask*, your own knowledge.**
+> **Atlas is where curiosity becomes a knowledge base you own.**
+>
+> You arrive with nothing but a question. An agent researches the open web *with* you, proposes
+> the sources worth your time, and **you choose** what earns a place. What you keep is ingested
+> into durable, linked, beautifully readable artifacts — permanently yours, permanently connected.
 
-## The reframe that anchors everything
+## The thesis — why this product should exist
 
-Atlas is a **learning surface, not a storage bin.** You are not capturing already-learned
-material for safekeeping — you come here *to do the learning*. The reading and comprehension
-experience **is** the product. Graph, RAG, and resurfacing are in service of that, not the point.
+NotebookLM and Obsidian each hold one half of the thing, and neither will cross the gap.
 
-Consequence: the **reading/learning experience outranks the AI/graph intelligence** in priority.
-A beautiful reader plus one science-backed retrieval mechanic beats a pile of clever features.
+- **NotebookLM** is research and grounded generation: bring sources, get citations, mind maps,
+  study guides, quizzes, audio overviews — and, since Deep Research, it will even find its own
+  sources. But a notebook is a silo. Sources are session-scoped. Nothing compounds. It is
+  brilliant and amnesiac.
+- **Obsidian** is durable, owned, linked markdown that compounds for a decade — wikilinks,
+  backlinks, graph, properties, Bases as a database lens over plain files. But it never *brings*
+  you anything. Every note in it is a note you wrote yourself — and every link is one you drew
+  by hand.
 
-## Product identity — locked decisions
+> **NotebookLM forgets. Obsidian doesn't research.**
+> Atlas is the product that does both: the research power of the first, producing the permanent,
+> linked, owned substrate of the second.
 
-- **Daily loop = discover & resurface.** The home is a calm surface that offers something worth
-  re-reading or a new connection — serendipity, not obligation. No streaks, no due-counts, no
-  cockpit. (See the resurfacing science below — we resurface *retrieval prompts*, not re-reads.)
-- **Local-first, Dockerized.** One `docker-compose` brings up the whole stack (Next.js, Postgres
-  + pgvector, the Python pipeline, asset storage). Neon is dropped. Runs on your machine first;
-  deployment is a later concern.
-- **Graph engine: Postgres-first.** HybridRAG rides on `tsvector` + `pgvector` + recursive-CTE
-  traversal of the existing `Relation` table. A dedicated graph engine (Apache AGE or Neo4j) is a
-  deliberate *later* learning milestone, not a day-one dependency.
-- **AI auto-linking: automatic, but labelled.** AI may create edges directly, but every AI edge
-  carries `origin: AI` + a confidence score so it is distinguishable from hand-drawn edges and
-  **bulk-prunable in one query**. Automatic-but-reversible, never automatic-but-silent.
+**The consequence that governs every decision:** the unit of value is not the conversation — it
+is **what is left behind after the conversation.** A chat that ends without durable artifacts in
+your graph was a waste of your time. Every agent interaction must terminate in something that
+persists, is readable months later, and is connected to what you already knew.
 
-## The learning-science foundation
+## The core loop
 
-Full citations with verified links: [learning-science.md](./learning-science.md). The load-bearing
-findings for Atlas:
+```
+curiosity → converse → research → propose → curate → commit → read
+```
 
-- **Reading alone produces the *feeling* of learning, not learning.** The fluency illusion
-  (Kornell & Bjork) plus Dunlosky's review — which rates rereading/highlighting **low** utility —
-  plus Matuschak's *Why books don't work*. A gorgeous reader, by itself, optimises the wrong thing.
-- **The fix is the *mnemonic medium*** (Matuschak & Nielsen, *Quantum Country*): embed lightweight
-  retrieval prompts *into* the reading, and resurface them on an expanding spaced schedule. This
-  unifies our "discover & resurface" choice with the evidence — **resurface a question (retrieval),
-  never a re-display (rereading).**
-- **Only two techniques are high-utility** (Dunlosky 2013): **practice testing** and **distributed
-  practice**. So Atlas needs essentially **one learning mechanic done beautifully** — embedded
-  recall prompts on a spaced schedule (FSRS) — and everything else is reading-experience polish.
-  This validates the "few features, premium execution" instinct.
+1. **Curiosity.** You arrive with a question ("I want to understand vector databases"), not a
+   link. This is the front door — the chat *is* the home screen.
+2. **Converse.** The agent scopes it with you: how deep, what for, what you already know. It
+   checks your existing knowledge base before it checks the web.
+3. **Research.** It searches the open web and your own graph in parallel.
+4. **Propose.** It comes back with candidate sources and, for each, **the exact artifacts that
+   source would become** and **the connections they would form** — into what you already know,
+   and among themselves. Not a URL and a promise.
+5. **Curate.** You prune both: the artifacts you don't want, and the links that don't belong.
+   Proposals are deliberately generous, because you are the filter.
+6. **Commit.** Only now does anything get written — and artifacts land already connected.
+7. **Read.** What you kept is yours to read, linked into everything around it.
 
-Design instincts, each backed by evidence:
+**Step 5 is the spine of the product.** Atlas never auto-imports and never auto-links. The
+curation moment is what makes the knowledge base *yours* rather than a pile of scraped pages —
+it is the single interaction that separates Atlas from "an agent that fills a folder."
 
-| Instinct | The science | Atlas feature |
+## The object model
+
+The system has one primary object and one grouping above it.
+
+- **Artifact** — the atom, and the primary component of the system. One self-contained thing,
+  bodied as **markdown, HTML, or PDF**. **Deliberately unconstrained** in length, depth, and
+  form: an artifact is free to be a one-line definition, a long explainer, a diagram, or an
+  annotated paper. The only guidance is coherence — if it can't be named without "and", it is
+  probably two artifacts.
+- **Concept** — a group of artifacts that together cover one idea. A concept is **not just a
+  folder**: it has its own readable overview page — a map of content the agent drafts and you
+  edit — so a concept is something you can *read*, not just something you can *open*.
+- **The graph** — typed relations (`PART_OF`, `USES`, `PREREQUISITE`, `CONTRASTS`, `SEE_ALSO`)
+  between artifacts and between concepts. Containment gives structure; links give meaning.
+  Obsidian's lesson applies: folders are weak, links are strong.
+
+Everything else — search, chat, the graph view — is a lens onto artifacts.
+
+## What we take from the field (and what we refuse)
+
+Researched against NotebookLM, Obsidian, and Notion as they stand in mid-2026.
+
+**Take — these are load-bearing:**
+
+| From | What | Why it matters here |
 |---|---|---|
-| Minimal, low-chrome, calm | Cognitive Load Theory (Sweller); Coherence (Mayer) | Single-column reading, no dashboards in the reading flow |
-| Obsess over typography/hierarchy | Signalling (Lorch; Mautone & Mayer) | The custom renderer is a *comprehension tool*, built seriously |
-| Support images/diagrams | Dual coding (Paivio); spatial contiguity (Mayer) | Figures placed *next to* the prose they explain |
-| Great on phone & laptop, no rush | Screen penalty worst under time pressure (Delgado) | Self-paced, no timers, generous measure |
-| "Learn the concept *from* Atlas" | Fluency illusion (Kornell/Bjork); mnemonic medium | Inline recall prompts + spaced resurfacing |
-| Paraphrase, don't hoard | Generation effect (Slamecka); note-taking replications | "In your own words" prompt; nudge summaries over verbatim |
+| NotebookLM | **Grounded citations on everything** | An agent that fills your knowledge base is only trustworthy if every claim points at its source. Non-negotiable. |
+| NotebookLM | Source-grounded chat ("ask my sources") | Becomes "ask *my knowledge base*" — the payoff for accumulating one. |
+| Obsidian | **Wikilinks + backlinks, everywhere** | Compounding value. Every artifact must show what points *at* it. |
+| Obsidian | Local-first, portable files, no lock-in | We already write Obsidian vaults. Export stays a first-class exit door. |
+| Obsidian | Properties as structured metadata | Already have `metadata` jsonb + tags; make them visible and filterable. |
+| Notion | AI autofill of properties | The enricher already does this deterministically — upgrade it with the agent's LLM. |
 
-## Design direction (read from the inspiration references)
+**Refuse — deliberately out of scope:**
 
-Full detail and the annotated reference library live in [design.md](./design.md); the inspiration
-shots are in `docs/design-taste/` (local-only, gitignored). The taste, read from the screenshots:
+- **Audio/video overviews.** NotebookLM's most-loved feature and still not ours: Atlas is
+  reading-first, and a podcast is the fluency illusion with better production values. Revisit
+  only if reading is already excellent.
+- **Blocks-and-databases as a workspace.** We are not rebuilding Notion. An artifact is a
+  document, not a block tree.
+- **Real-time collaboration, comments, sharing.** Single-owner knowledge base first.
+- **Canvas / freeform whiteboard.** The graph is our spatial surface; one is enough.
 
-- **Quiet-luxury editorial — one calm mood everywhere**, in the register of a premium AI-research
-  journal. Light warm-grey canvas, white cards floating under soft low shadows, hairline borders,
-  16–20px radii, generous whitespace. Calm and confident, not minimal-anemic, and **not** playful.
-- **A three-voice type system:** an **editorial serif** for display/titles (the "premium journal"
-  gravitas — the biggest evolution from the stale doc), a **neutral grotesk** for UI/labels, and
-  **monospace** as a technical accent (micro-labels, tags, keyboard hints, code). Lean toward a
-  serif reading face for long-form bodies to match the book-like philosophy.
-- **Near-monochrome with meaningful colour:** one blue-violet brand accent (used for links, focus,
-  brand, and *art* — not button fills), plus a soft semantic status system (green/amber/blue pills).
-  **Carbon/black primary buttons, white-outline secondary.**
-- **Signature motifs:** generative blue-violet data-viz art (particle clouds / point fields) — the
-  natural language for Atlas's **knowledge graph** and hero moments — and faint halftone/dot-matrix
-  texture. Motion is subtle and premium; never celebratory.
+## What the learning science still buys us
 
-**Correction on file:** the `ml_flashcards.html` in the taste folder is **not** the user's taste —
-its gradients, colour pills, confetti, and gamified feel are explicitly rejected. The learning
-mechanic (a retrieval prompt: question → answer → self-graded recall) is still core, but it must be
-rendered in Atlas's calm editorial style, not as a playful flashcard.
+[learning-science.md](./learning-science.md) survives this pivot intact, and the artifact model
+strengthens it. The findings that still bind us:
+
+- **Reading alone produces the *feeling* of learning, not learning** (fluency illusion;
+  Dunlosky rates rereading low-utility). An agent that fills a beautiful library faster than
+  ever makes this *worse*, not better — more to feel good about, no more learned.
+- **Only two techniques are high-utility: practice testing and distributed practice.** Atlas
+  does **not** implement either — see the roadmap. This is a deliberate scope decision, not an
+  oversight, and it is worth being honest that it leaves the fluency-illusion problem unsolved.
+
+What the science still buys us: it is the reason curation is the spine rather than a convenience,
+and the reason provenance is non-negotiable. Choosing what enters your knowledge base is itself
+an act of processing; a pile of auto-scraped pages would not be.
 
 ## Roadmap
 
-Each phase ships something usable. Order reflects the reframe: reading + one retrieval mechanic
-come before the AI/graph intelligence.
+Ordered so each phase ships something usable, and so the riskiest unknown (the agent) is proven
+before the expensive surfaces are built on top of it.
 
-0. **Dockerize, go local-first.** `docker-compose` for Next.js + Postgres(pgvector) + Python
-   pipeline + an asset volume. Drop Neon. Pure unblock, no new features.
-1. **The premium reading experience.** The distinctive markdown/HTML renderer, images with proper
-   placement, mobile-perfect reading. Reading stays on **Inter** for now, but build the reading
-   typography as a swappable token — a reading-font switcher in settings comes later.
-   *Top priority — this is the product.*
-2. **The mnemonic loop.** Inline recall prompts + FSRS-based spaced resurfacing feeding the
-   "Discover" home. Small, and it is what makes Atlas *work*.
-3. **Embeddings + automatic connection detection.** Populate the reserved `vector(1536)` column;
-   propose edges via cosine similarity, optionally type them with an LLM. AI edges labelled + scored.
-4. **HybridRAG.** Fuse keyword + vector + graph traversal with Reciprocal Rank Fusion.
-5. **Graph engine + GraphRAG (later, deliberate).** Apache AGE or Neo4j as a learning milestone,
-   then conversational "ask my knowledge."
+0. **Foundations.** Rename the model to Artifact/Concept. Users, auth, ownership on every row,
+   per-user storage quota. Everything after this assumes a `userId`.
+1. **The agent, end to end.** ADK agent on Vertex/Gemini: converse → web search → propose
+   sources → **preview artifacts and their connections** → user curates → commit. Ugly UI is
+   acceptable here; proving the loop is the point.
+   *Carries a dependency:* connection review is part of the loop, not an add-on, so the
+   **retrieval substrate** the linker needs — embeddings, BM25, rank fusion — gets built here
+   rather than in phase 5. Phase 5 then only builds *surfaces* on top of it.
+2. **The chat home.** The conversation becomes the front door of the app, replacing the library
+   grid. This is where UI/UX effort concentrates — it is the first thing anyone sees.
+3. **The artifact experience.** The reading surface for md/html/pdf artifacts, backlinks,
+   concept overview pages, provenance and citations rendered properly.
+4. ~~**The learning layer.**~~ **Dropped 2026-07-24.** Recall prompts and spaced resurfacing are
+   not being built. The reading and curation experience is the product; the retrieval-practice
+   mechanic is out of scope. [learning-science.md](./learning-science.md) stays on file because
+   it still explains *why* curation and provenance matter, but it no longer implies a roadmap item.
+5. **Retrieval surfaces.** Hybrid search over the substrate laid in phase 1 (tsvector + pgvector
+   + graph traversal, fused), then "ask my knowledge base" grounded chat.
+6. **The graph view, redesigned.** Explicitly deferred — the current 3D view needs to change but
+   the direction isn't articulated yet. Don't touch it until it is.
 
-The **beautiful renderer** is not a phase — it is a thread through all UI work.
+## Non-negotiables
 
-## What exists today (starting point)
-
-A clean, working Next.js 16 + Prisma + Postgres app: library of `Collection`s → `Entry`s (markdown
-body, tags, JSON metadata, a reserved-but-empty embedding column), typed `Relation` edges, `Source`
-provenance, full-text search, a `react-force-graph-2d` explorer, and a deterministic Python
-ingestion pipeline (URLs/docs-sites/articles/PDFs/markdown → segmented, linked entries). The code
-is well-structured — we evolve it toward this vision; we do not rewrite it.
+- **The user curates.** Nothing enters the knowledge base without an explicit human choice.
+- **Everything is grounded.** Every artifact carries provenance; every AI-made claim or edge is
+  labelled as such and bulk-reversible.
+- **Artifacts are readable objects, not chat logs.** The output of research must survive being
+  read six months later by someone who forgot the conversation.
+- **The knowledge base is portable.** Markdown out, Obsidian vault out, no lock-in.
+- **Reading-first, calm, premium.** The design register in [design.md](./design.md) does not
+  change because the product got an agent.
