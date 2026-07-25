@@ -15,23 +15,36 @@ export class ApiError extends Error {
   }
 }
 
+const UNREACHABLE = 'Could not reach Atlas. Is the backend running?';
+
 async function authorization(): Promise<Record<string, string>> {
   const token = (await cookies()).get(TOKEN_COOKIE)?.value;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** One fetch to the backend; a service that is down becomes a typed error, not a raw throw. */
+async function call(path: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(`${API_URL}${path}`, { cache: 'no-store', ...init });
+  } catch {
+    throw new ApiError(0, UNREACHABLE);
+  }
+}
+
+/** A failed response as an ApiError carrying the backend's own explanation when it gives one. */
+async function failure(response: Response, label: string): Promise<ApiError> {
+  return new ApiError(response.status, await detail(response, label));
+}
+
 /** GET a typed payload. An expired or missing session sends the reader to sign in. */
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: await authorization(),
-    cache: 'no-store',
-  });
+  const response = await call(path, { headers: await authorization() });
 
   if (response.status === 401) {
     redirect('/login');
   }
   if (!response.ok) {
-    throw new ApiError(response.status, `GET ${path} failed: ${response.status}`);
+    throw await failure(response, `GET ${path}`);
   }
   return response.json() as Promise<T>;
 }
@@ -55,30 +68,24 @@ type Method = 'POST' | 'PATCH' | 'PUT' | 'DELETE';
  * token is an httpOnly cookie, so the browser can never reach the backend directly.
  */
 export async function apiSend<T>(method: Method, path: string, body?: unknown): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await call(path, {
     method,
     headers: { 'Content-Type': 'application/json', ...(await authorization()) },
     body: body === undefined ? undefined : JSON.stringify(body),
-    cache: 'no-store',
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, await detail(response, `${method} ${path}`));
+    throw await failure(response, `${method} ${path}`);
   }
   return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);
 }
 
 /** Upload bytes as multipart; the caller owns the FormData so files stream through untouched. */
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
-    headers: await authorization(),
-    body: form,
-    cache: 'no-store',
-  });
+  const response = await call(path, { method: 'POST', headers: await authorization(), body: form });
 
   if (!response.ok) {
-    throw new ApiError(response.status, await detail(response, `POST ${path}`));
+    throw await failure(response, `POST ${path}`);
   }
   return response.json() as Promise<T>;
 }

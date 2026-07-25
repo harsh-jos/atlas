@@ -2,7 +2,8 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.agent.router import router as agent_router
@@ -21,6 +22,7 @@ from app.jobs.sweeper import run_sweeper
 from app.realtime.router import router as realtime_router
 
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -42,6 +44,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Atlas", version="0.1.0", lifespan=lifespan)
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
+    """A bug must not leak a traceback to the reader. The trace goes to the log; a plain, honest
+    message goes to the caller — deliberate HTTPExceptions keep their own specific detail."""
+    log.exception("unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Something went wrong on our end."})
+
+
 app.include_router(auth_router)
 app.include_router(realtime_router)
 app.include_router(agent_router)
