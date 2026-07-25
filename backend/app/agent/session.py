@@ -2,6 +2,7 @@
 
 import os
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from functools import lru_cache
 
 from google.adk.agents import Agent
@@ -30,6 +31,42 @@ def get_session_service() -> BaseSessionService:
     """Conversations live in the app database, so a restart does not lose them."""
     # str(URL) masks the password as ***, which silently fails authentication.
     return DatabaseSessionService(db_url=database_url().render_as_string(hide_password=False))
+
+
+@dataclass(frozen=True)
+class HistoryMessage:
+    """One prior turn, in the two voices the chat UI renders: the reader and Atlas."""
+
+    role: str  # "you" | "atlas"
+    text: str
+
+
+async def read_history(user_id: str, session_id: str) -> list[HistoryMessage]:
+    """Replay a persisted conversation as plain messages, so reloading a chat URL restores it.
+
+    Tool calls, tool responses, and any non-final model chatter carry no text worth showing —
+    only the reader's messages and the agent's final replies become visible turns.
+    """
+    sessions = get_session_service()
+    session = await sessions.get_session(
+        app_name=get_settings().agent_app_name, user_id=user_id, session_id=session_id
+    )
+    if session is None:
+        return []
+
+    messages: list[HistoryMessage] = []
+    for event in session.events:
+        content = event.content
+        if content is None or not content.parts:
+            continue
+        text = "".join(part.text for part in content.parts if part.text)
+        if not text:
+            continue
+        if content.role == "user":
+            messages.append(HistoryMessage("you", text))
+        elif event.is_final_response():
+            messages.append(HistoryMessage("atlas", text))
+    return messages
 
 
 def _preview_id(response: types.FunctionResponse) -> str | None:

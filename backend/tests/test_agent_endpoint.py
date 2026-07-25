@@ -88,3 +88,37 @@ def test_a_failing_turn_is_reported_not_crashed(client, token, monkeypatch):
     assert response.status_code == 502
     assert "could not finish" in response.json()["detail"]
     assert "RuntimeError" not in response.text, "internals must not leak to the caller"
+
+
+def test_history_requires_a_token(client):
+    assert client.get("/agent/chat/s1").status_code == 401
+
+
+def test_history_of_an_unknown_session_is_empty(client, token, monkeypatch):
+    async def none(user_id, session_id):
+        return []
+
+    monkeypatch.setattr("app.agent.router.load_history", none)
+
+    response = client.get("/agent/chat/never-started", headers=_auth(token))
+    assert response.status_code == 200
+    assert response.json() == {"sessionId": "never-started", "messages": []}
+
+
+def test_history_replays_prior_turns(client, token, monkeypatch):
+    from app.agent.session import HistoryMessage
+
+    async def stored(user_id, session_id):
+        return [HistoryMessage("you", "what is a monad"), HistoryMessage("atlas", "a burrito")]
+
+    monkeypatch.setattr("app.agent.router.load_history", stored)
+
+    response = client.get("/agent/chat/s1", headers=_auth(token))
+    assert response.status_code == 200
+    assert response.json() == {
+        "sessionId": "s1",
+        "messages": [
+            {"role": "you", "text": "what is a monad"},
+            {"role": "atlas", "text": "a burrito"},
+        ],
+    }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { sendTurn, socketTicket } from '@/app/chat/actions';
 import { CurationCard } from '@/components/chat/CurationCard';
 import { Button } from '@/components/ui/Button';
+import type { ChatMessage } from '@/lib/api-types';
 import { cn } from '@/lib/utils';
 
 const WS_URL = process.env.NEXT_PUBLIC_ATLAS_WS_URL ?? 'ws://localhost:8000/ws';
@@ -20,13 +21,21 @@ type Entry =
   | { kind: 'message'; role: 'you' | 'atlas'; text: string }
   | { kind: 'curation'; previewId: string };
 
-export function ChatPanel() {
-  const [entries, setEntries] = useState<Entry[]>([]);
+export interface ChatPanelProps {
+  /** The session this chat continues — it lives in the URL so a reload reopens the conversation. */
+  sessionId: string;
+  /** Turns already stored for this session, replayed so a reopened URL is not blank. */
+  initialMessages: ChatMessage[];
+}
+
+export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
+  const [entries, setEntries] = useState<Entry[]>(() =>
+    initialMessages.map((message) => ({ kind: 'message', ...message }))
+  );
   const [activity, setActivity] = useState<string[]>([]);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const sessionId = useRef<string>(crypto.randomUUID());
   const bottom = useRef<HTMLDivElement>(null);
 
   const say = useCallback(async (message: string) => {
@@ -35,7 +44,7 @@ export function ChatPanel() {
     setEntries((seen) => [...seen, { kind: 'message', role: 'you', text: message }]);
     setPending(true);
 
-    const result = await sendTurn(sessionId.current, message);
+    const result = await sendTurn(sessionId, message);
     setPending(false);
     setActivity([]);
     if (result.error !== undefined) {
@@ -43,7 +52,7 @@ export function ChatPanel() {
       return;
     }
     setEntries((seen) => [...seen, { kind: 'message', role: 'atlas', text: result.value }]);
-  }, []);
+  }, [sessionId]);
 
   useEffect(() => {
     let socket: WebSocket | null = null;

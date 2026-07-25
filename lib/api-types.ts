@@ -114,6 +114,16 @@ export interface Graph {
   links: GraphLink[];
 }
 
+export interface ChatMessage {
+  role: 'you' | 'atlas';
+  text: string;
+}
+
+export interface ChatHistory {
+  sessionId: string;
+  messages: ChatMessage[];
+}
+
 export interface ProposedArtifact {
   sourceKey: string;
   title: string;
