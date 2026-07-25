@@ -2,87 +2,51 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import * as THREE from 'three';
-import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
-import ForceGraph3D, {
+import ForceGraph2D, {
   type ForceGraphMethods,
   type LinkObject,
   type NodeObject,
-} from 'react-force-graph-3d';
+} from 'react-force-graph-2d';
 import { ArrowUpRight, Maximize2, Minus, Plus, Search, X } from 'lucide-react';
 import type { Graph, GraphLink as ApiGraphLink, GraphNode as ApiGraphNode } from '@/lib/api-types';
-import {
-  RELATION_COLORS,
-  RELATION_INCOMING_LABELS,
-  RELATION_OUTGOING_LABELS,
-} from '@/lib/relations';
+import { RELATION_INCOMING_LABELS, RELATION_OUTGOING_LABELS } from '@/lib/relations';
 
 type GraphNode = NodeObject<ApiGraphNode>;
 type GraphLink = LinkObject<ApiGraphNode, ApiGraphLink>;
+type GraphMethods = ForceGraphMethods<GraphNode, GraphLink>;
 
-export interface KnowledgeGraph3DProps {
+export interface KnowledgeGraphProps {
   data: Graph;
 }
 
-// Editorial-light palette — a bright, calm space rather than Obsidian's black.
+// A single, deliberately light palette — Obsidian's graph in a bright room, never a dark one.
 const BACKGROUND = '#f5f6fa';
-const LABEL_INK = '#3a3f4b';
+const LABEL_INK = '#4a505c';
 const LABEL_INK_FOCUS = '#090c1d';
-const LINK_BASE = '#9aa0af';
-const DIM = 0.12; // opacity of everything not in focus
-const FLY_DISTANCE = 90; // camera stand-off when focusing a node
+const LINK_BASE = 'rgba(120, 128, 145, 0.32)';
+const LINK_ACTIVE = 'rgba(123, 104, 238, 0.75)'; // accent
+const LINK_DIM = 'rgba(120, 128, 145, 0.08)';
+const RING = 'rgba(123, 104, 238, 0.95)';
+const NODE_HALO = '#f5f6fa'; // thin gap that lifts a node off crossing links
+const DIM_ALPHA = 0.16; // how faint an out-of-focus node goes on hover (never invisible)
+const LABEL_ZOOM = 1.15; // labels fade in once the reader has zoomed in past this
+const LABEL_FONT = 12; // px at zoom 1, kept constant on screen by dividing by scale
 
 function resolveId(end: GraphLink['source']): string {
   return typeof end === 'object' && end !== null ? String((end as GraphNode).id) : String(end);
 }
 
-export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
+export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const graphRef = React.useRef<ForceGraphMethods<ApiGraphNode, ApiGraphLink>>(undefined);
-  // Live handles to each node's material + label so we can dim on hover
-  // without regenerating the scene.
-  const objects = React.useRef(
-    new Map<string, { material: THREE.SpriteMaterial; label: HTMLDivElement }>()
-  );
-
-  // A single crisp circle texture, tinted per node — flat billboarded circles
-  // (like Obsidian) instead of shaded spheres, which read softer and heavier.
-  const [circleTexture] = React.useState<THREE.Texture | null>(() => {
-    if (typeof document === 'undefined') return null;
-    const size = 128;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2 - 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fill();
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.minFilter = THREE.LinearMipmapLinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    return texture;
-  });
-
-  // Labels are DOM (CSS2D), not WebGL sprites — they render at the display's
-  // native resolution, so text stays crisp on Retina and constant in size.
-  const [cssRenderer] = React.useState<CSS2DRenderer | null>(() => {
-    if (typeof document === 'undefined') return null;
-    const renderer = new CSS2DRenderer();
-    renderer.domElement.style.position = 'absolute';
-    renderer.domElement.style.top = '0';
-    renderer.domElement.style.left = '0';
-    renderer.domElement.style.pointerEvents = 'none';
-    return renderer;
-  });
+  const graphRef = React.useRef<GraphMethods | undefined>(undefined);
 
   const [dimensions, setDimensions] = React.useState({ width: 800, height: 600 });
   const [hoverId, setHoverId] = React.useState<string | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState('');
 
+  // The engine mutates x/y onto these node objects in place, so they must be copies the parent
+  // never re-creates — otherwise every render would restart the layout.
   const graphData = React.useMemo(
     () => ({ nodes: data.nodes.map((n) => ({ ...n })), links: data.links.map((l) => ({ ...l })) }),
     [data.nodes, data.links]
@@ -94,180 +58,166 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
     return map;
   }, [data.nodes]);
 
+  // Degree drives node size; adjacency drives the hover neighbourhood highlight.
   const { adjacency, degree } = React.useMemo(() => {
     const adj = new Map<string, Set<string>>();
     const deg = new Map<string, number>();
-    const bump = (id: string) => deg.set(id, (deg.get(id) ?? 0) + 1);
-    const connect = (a: string, b: string) => {
+    const link = (a: string, b: string) => {
       if (!adj.has(a)) adj.set(a, new Set());
       adj.get(a)!.add(b);
+      deg.set(a, (deg.get(a) ?? 0) + 1);
     };
-    for (const link of data.links) {
-      const s = resolveId(link.source);
-      const t = resolveId(link.target);
-      connect(s, t);
-      connect(t, s);
-      bump(s);
-      bump(t);
+    for (const edge of data.links) {
+      const s = resolveId(edge.source);
+      const t = resolveId(edge.target);
+      link(s, t);
+      link(t, s);
     }
     return { adjacency: adj, degree: deg };
   }, [data.links]);
 
-  // Circle diameter in world units — smaller than the old spheres.
-  const sizeFor = React.useCallback(
-    (id: string) => Math.min(9, 4.5 + Math.sqrt(degree.get(id) ?? 0) * 1.6),
+  const radiusFor = React.useCallback(
+    (id: string) => Math.min(11, 3.5 + Math.sqrt(degree.get(id) ?? 0) * 1.5),
     [degree]
   );
 
-  // Fill the container, tracking resizes. The CSS2D label layer is sized to match.
+  // Fill the container and track resizes. Guarded so an unchanged size never re-renders.
   React.useEffect(() => {
     const element = containerRef.current;
     if (!element) return;
     const observer = new ResizeObserver(([entry]) => {
       const width = Math.max(320, Math.floor(entry.contentRect.width));
       const height = Math.max(320, Math.floor(entry.contentRect.height));
-      setDimensions({ width, height });
-      cssRenderer?.setSize(width, height);
+      setDimensions((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height }
+      );
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [cssRenderer]);
-
-  // A flat circle + crisp DOM label per node. Registered so hover can dim the rest.
-  const nodeThreeObject = React.useCallback(
-    (node: GraphNode) => {
-      const id = String(node.id);
-      const d = sizeFor(id);
-      const group = new THREE.Group();
-
-      const material = new THREE.SpriteMaterial({
-        map: circleTexture ?? undefined,
-        color: node.conceptColor,
-        transparent: true,
-        opacity: 1,
-        depthWrite: false,
-      });
-      const sprite = new THREE.Sprite(material);
-      sprite.scale.set(d, d, 1);
-      group.add(sprite);
-
-      const el = document.createElement('div');
-      el.textContent = node.title;
-      el.style.cssText = [
-        'font: 600 10px/1 Inter, system-ui, sans-serif',
-        'letter-spacing: -0.01em',
-        `color: ${LABEL_INK}`,
-        'white-space: nowrap',
-        'pointer-events: none',
-        'transform: translateY(-3px)',
-        'text-shadow: 0 1px 3px rgba(245,246,250,0.9), 0 0 2px rgba(245,246,250,0.9)',
-        'opacity: 0', // hidden until its node (or a neighbour) is hovered
-        'transition: opacity 0.15s ease',
-      ].join(';');
-      const label = new CSS2DObject(el);
-      label.position.set(0, d / 2 + 1.5, 0);
-      group.add(label);
-
-      objects.current.set(id, { material, label: el });
-      return group;
-    },
-    [sizeFor, circleTexture]
-  );
-
-  const focusId = hoverId ?? selectedId;
-
-  const linkTouchesFocus = React.useCallback(
-    (link: GraphLink) =>
-      focusId != null && (resolveId(link.source) === focusId || resolveId(link.target) === focusId),
-    [focusId]
-  );
-
-  // Accessor identity is a prop change to the graph, so keep these keyed to what they read.
-  const emptyLabel = React.useCallback(() => '', []);
-  const particleColor = React.useCallback(
-    (link: GraphLink) => RELATION_COLORS[link.relationType],
-    []
-  );
-  const linkColor = React.useCallback(
-    (link: GraphLink) => (focusId != null && !linkTouchesFocus(link) ? '#dcdee6' : LINK_BASE),
-    [focusId, linkTouchesFocus]
-  );
-  const linkWidth = React.useCallback(
-    (link: GraphLink) => (focusId != null && linkTouchesFocus(link) ? 1.6 : 0.9),
-    [focusId, linkTouchesFocus]
-  );
-  const linkParticles = React.useCallback(
-    (link: GraphLink) => (focusId != null && linkTouchesFocus(link) ? 2 : 0),
-    [focusId, linkTouchesFocus]
-  );
-
-  // Dim everything outside the focused node's neighbourhood.
-  React.useEffect(() => {
-    const neighbors = focusId ? adjacency.get(focusId) : null;
-    objects.current.forEach((obj, id) => {
-      const inFocusSet = focusId != null && (id === focusId || (neighbors?.has(id) ?? false));
-      const dimmed = focusId != null && !inFocusSet;
-      obj.material.opacity = dimmed ? DIM : 1;
-      // Labels show only for the focused node and its direct connections.
-      obj.label.style.opacity = inFocusSet ? '1' : '0';
-      obj.label.style.color = id === focusId ? LABEL_INK_FOCUS : LABEL_INK;
-    });
-  }, [focusId, adjacency]);
-
-  // Frame the graph ONCE, when the layout first settles. Refitting on every settle fights the
-  // camera: hovering a node changes linkDirectionalParticles, which restarts the engine, so the
-  // view was being yanked back on every hover — reading as an endless zoom out.
-  const hasFramed = React.useRef(false);
-  const handleEngineStop = React.useCallback(() => {
-    const graph = graphRef.current;
-    if (!graph) return;
-    const scene = graph.scene();
-    if (!scene.fog) scene.fog = new THREE.Fog(BACKGROUND, 600, 1800);
-    if (hasFramed.current) return;
-    hasFramed.current = true;
-    graph.zoomToFit(700, 90);
   }, []);
 
-  const focusNode = React.useCallback((node: GraphNode) => {
+  // A calm, roomy layout: nodes repel, links pull to a short, even distance.
+  React.useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+    graph.d3Force('charge')?.strength(-95);
+    graph.d3Force('link')?.distance(46);
+  }, [graphData]);
+
+  // Frame the whole graph once, when it first settles. Zoom is the reader's after that — nothing
+  // ever moves the camera on its own again.
+  const hasFramed = React.useRef(false);
+  const handleEngineStop = React.useCallback(() => {
+    if (hasFramed.current) return;
+    hasFramed.current = true;
+    graphRef.current?.zoomToFit(500, 70);
+  }, []);
+
+  const neighbors = hoverId ? adjacency.get(hoverId) : undefined;
+
+  const linkActive = React.useCallback(
+    (link: GraphLink) =>
+      hoverId != null && (resolveId(link.source) === hoverId || resolveId(link.target) === hoverId),
+    [hoverId]
+  );
+
+  // Canvas accessors are rendering-only in 2D (no persistent scene objects, no engine reheat),
+  // so reading hover/selection straight from state here is safe and just repaints.
+  const paintNode = React.useCallback(
+    (node: GraphNode, ctx: CanvasRenderingContext2D, scale: number) => {
+      if (node.x == null || node.y == null) return;
+      const id = String(node.id);
+      const r = radiusFor(id);
+      const focused = id === hoverId || id === selectedId;
+      const inFocus = hoverId == null || focused || (neighbors?.has(id) ?? false);
+
+      ctx.globalAlpha = inFocus ? 1 : DIM_ALPHA;
+
+      // A thin background-coloured halo, then the filled circle — Obsidian's clean node look.
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, r + 0.7, 0, 2 * Math.PI);
+      ctx.fillStyle = NODE_HALO;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = node.conceptColor;
+      ctx.fill();
+
+      if (focused) {
+        ctx.lineWidth = 1.6 / scale;
+        ctx.strokeStyle = RING;
+        ctx.stroke();
+      }
+
+      const showLabel = focused || scale > LABEL_ZOOM || (hoverId != null && inFocus);
+      if (showLabel) {
+        const fontSize = LABEL_FONT / scale;
+        ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = focused ? LABEL_INK_FOCUS : LABEL_INK;
+        ctx.fillText(node.title, node.x, node.y + r + 2 / scale);
+      }
+
+      ctx.globalAlpha = 1;
+    },
+    [radiusFor, hoverId, selectedId, neighbors]
+  );
+
+  // The clickable/hoverable area matches the drawn circle (plus a small forgiving margin).
+  const paintPointerArea = React.useCallback(
+    (node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => {
+      if (node.x == null || node.y == null) return;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, radiusFor(String(node.id)) + 2, 0, 2 * Math.PI);
+      ctx.fill();
+    },
+    [radiusFor]
+  );
+
+  const linkColor = React.useCallback(
+    (link: GraphLink) => {
+      if (hoverId == null) return LINK_BASE;
+      return linkActive(link) ? LINK_ACTIVE : LINK_DIM;
+    },
+    [hoverId, linkActive]
+  );
+
+  const linkWidth = React.useCallback(
+    (link: GraphLink) => (hoverId != null && linkActive(link) ? 1.8 : 1),
+    [hoverId, linkActive]
+  );
+
+  // Only ever recenters — zoom stays entirely the reader's, changed nowhere but the controls.
+  const selectNode = React.useCallback((node: GraphNode) => {
     setSelectedId(String(node.id));
     const graph = graphRef.current;
-    if (!graph || node.x == null || node.y == null || node.z == null) return;
-    const distance = Math.hypot(node.x, node.y, node.z) || 1;
-    const ratio = 1 + FLY_DISTANCE / distance;
-    graph.cameraPosition(
-      { x: node.x * ratio, y: node.y * ratio, z: node.z * ratio },
-      { x: node.x, y: node.y, z: node.z },
-      900
-    );
+    if (graph && node.x != null && node.y != null) graph.centerAt(node.x, node.y, 600);
   }, []);
 
   const focusById = React.useCallback(
     (id: string) => {
-      // The engine mutates x/y/z onto these same node objects in place.
       const node = graphData.nodes.find((n) => String(n.id) === id) as GraphNode | undefined;
-      if (node) focusNode(node);
+      if (node) selectNode(node);
     },
-    [graphData, focusNode]
+    [graphData, selectNode]
   );
 
-  function zoomBy(factor: number) {
+  const zoomBy = (factor: number) => {
     const graph = graphRef.current;
     if (!graph) return;
-    const { position } = graph.camera();
-    graph.cameraPosition(
-      { x: position.x * factor, y: position.y * factor, z: position.z * factor },
-      undefined,
-      250
-    );
-  }
+    graph.zoom(graph.zoom() * factor, 250);
+  };
 
-  function handleSearchSubmit(event: React.FormEvent) {
+  const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const q = query.trim().toLowerCase();
     if (!q) return;
     const hit = data.nodes.find((node) => node.title.toLowerCase().includes(q));
     if (hit) focusById(hit.id);
-  }
+  };
 
   const selectedNode = selectedId ? nodeById.get(selectedId) ?? null : null;
 
@@ -304,27 +254,22 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-canvas">
-      <ForceGraph3D<ApiGraphNode, ApiGraphLink>
+      <ForceGraph2D<ApiGraphNode, ApiGraphLink>
         ref={graphRef}
         graphData={graphData}
         width={dimensions.width}
         height={dimensions.height}
         backgroundColor={BACKGROUND}
-        showNavInfo={false}
-        extraRenderers={cssRenderer ? [cssRenderer] : []}
-        nodeThreeObject={nodeThreeObject}
-        nodeLabel={emptyLabel}
+        nodeRelSize={4}
+        nodeCanvasObjectMode={() => 'replace'}
+        nodeCanvasObject={paintNode}
+        nodePointerAreaPaint={paintPointerArea}
         linkColor={linkColor}
         linkWidth={linkWidth}
-        linkOpacity={0.8}
-        linkDirectionalParticles={linkParticles}
-        linkDirectionalParticleWidth={1.6}
-        linkDirectionalParticleColor={particleColor}
-        controlType="orbit"
-        cooldownTicks={120}
+        cooldownTicks={160}
         onEngineStop={handleEngineStop}
         onNodeHover={(node) => setHoverId(node ? String(node.id) : null)}
-        onNodeClick={(node) => focusNode(node as GraphNode)}
+        onNodeClick={(node) => selectNode(node as GraphNode)}
         onBackgroundClick={() => setSelectedId(null)}
       />
 
@@ -351,7 +296,7 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
         </form>
       </div>
 
-      {/* Bottom-left: legend + camera controls */}
+      {/* Bottom-left: legend + zoom controls */}
       <div className="absolute bottom-3 left-3 flex flex-col gap-2">
         {legend.length > 0 && (
           <div className={`px-3 py-2.5 ${panel}`}>
@@ -374,13 +319,13 @@ export function KnowledgeGraph3D({ data }: KnowledgeGraph3DProps) {
         )}
 
         <div className={`flex items-center gap-1 self-start p-1 ${panel}`}>
-          <ControlButton label="Zoom in" onClick={() => zoomBy(0.8)}>
+          <ControlButton label="Zoom in" onClick={() => zoomBy(1.35)}>
             <Plus className="h-4 w-4" />
           </ControlButton>
-          <ControlButton label="Zoom out" onClick={() => zoomBy(1.25)}>
+          <ControlButton label="Zoom out" onClick={() => zoomBy(0.74)}>
             <Minus className="h-4 w-4" />
           </ControlButton>
-          <ControlButton label="Fit to view" onClick={() => graphRef.current?.zoomToFit(600, 60)}>
+          <ControlButton label="Fit to view" onClick={() => graphRef.current?.zoomToFit(500, 70)}>
             <Maximize2 className="h-4 w-4" />
           </ControlButton>
         </div>
