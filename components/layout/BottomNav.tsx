@@ -1,96 +1,38 @@
 'use client';
 
-import * as React from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { Home, Network, Search, Upload, Plus, Loader2 } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Library, Sparkles, Network, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NAV_ITEMS } from './nav-items';
+
+const ICONS = { Library, Sparkles, Network, Search } as const;
 
 export function BottomNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const [isCreating, setIsCreating] = React.useState(false);
-
-  const handleCreateNewEntry = async () => {
-    if (isCreating) return;
-    setIsCreating(true);
-    try {
-      const response = await fetch('/api/entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        router.push(`/entries/${data.slug}?edit=true`);
-        router.refresh();
-      } else {
-        console.error('Failed to create new entry');
-      }
-    } catch (error) {
-      console.error('Error creating entry:', error);
-    } finally {
-      setIsCreating(false);
-    }
-  };
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-canvas/90 backdrop-blur-md border-t-thin px-4 py-2 flex items-center justify-around h-14 pb-safe">
-      <Link
-        href="/"
-        className={cn(
-          'flex flex-col items-center gap-0.5 transition-colors',
-          pathname === '/' ? 'text-accent' : 'text-faint hover:text-ink'
-        )}
-      >
-        <Home className="h-[18px] w-[18px]" />
-        <span className="text-[10px] font-medium">Home</span>
-      </Link>
-
-      <Link
-        href="/graph"
-        className={cn(
-          'flex flex-col items-center gap-0.5 transition-colors',
-          pathname === '/graph' ? 'text-accent' : 'text-faint hover:text-ink'
-        )}
-      >
-        <Network className="h-[18px] w-[18px]" />
-        <span className="text-[10px] font-medium">Graph</span>
-      </Link>
-
-      <Link
-        href="/search"
-        className={cn(
-          'flex flex-col items-center gap-0.5 transition-colors',
-          pathname.startsWith('/search') ? 'text-accent' : 'text-faint hover:text-ink'
-        )}
-      >
-        <Search className="h-[18px] w-[18px]" />
-        <span className="text-[10px] font-medium">Search</span>
-      </Link>
-
-      <Link
-        href="/import"
-        className={cn(
-          'flex flex-col items-center gap-0.5 transition-colors',
-          pathname.startsWith('/import') ? 'text-accent' : 'text-faint hover:text-ink'
-        )}
-      >
-        <Upload className="h-[18px] w-[18px]" />
-        <span className="text-[10px] font-medium">Import</span>
-      </Link>
-
-      <button
-        onClick={handleCreateNewEntry}
-        disabled={isCreating}
-        className="flex flex-col items-center gap-0.5 text-faint hover:text-ink transition-colors disabled:opacity-50 cursor-pointer"
-      >
-        {isCreating ? (
-          <Loader2 className="h-[18px] w-[18px] animate-spin" />
-        ) : (
-          <Plus className="h-[18px] w-[18px]" />
-        )}
-        <span className="text-[10px] font-medium">{isCreating ? 'Creating…' : 'New'}</span>
-      </button>
+    <nav className="flex h-[3.75rem] shrink-0 items-stretch justify-around border-t-thin bg-surface/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
+      {NAV_ITEMS.map(({ href, label, icon, match }) => {
+        const Icon = ICONS[icon];
+        const active = match(pathname);
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+              'flex flex-1 flex-col items-center justify-center gap-1 transition-colors duration-[var(--dur-fast)]',
+              active ? 'text-ink' : 'text-faint'
+            )}
+          >
+            <Icon className={cn('h-[18px] w-[18px]', active && 'text-accent')} />
+            <span className={cn('font-display text-[10px]', active ? 'font-[650]' : 'font-medium')}>
+              {label}
+            </span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

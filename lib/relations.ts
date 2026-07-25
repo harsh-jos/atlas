@@ -1,4 +1,4 @@
-import type { RelationType } from '@prisma/client';
+import type { RelationType } from '@/lib/api-types';
 
 // Outgoing relations read from the entry's own perspective.
 export const RELATION_OUTGOING_LABELS: Record<RelationType, string> = {

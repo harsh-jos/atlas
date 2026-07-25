@@ -2,7 +2,7 @@ import { SectionLabel } from '@/components/entry/SectionLabel';
 import { cleanTitle } from '@/lib/utils';
 
 export interface EntryMetadataProps {
-  metadata: unknown;
+  metadata: Record<string, unknown> | null;
 }
 
 interface MetaRow {
@@ -23,12 +23,12 @@ function humanizeKey(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-function toRows(metadata: unknown): MetaRow[] {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+function toRows(metadata: Record<string, unknown> | null): MetaRow[] {
+  if (!metadata) {
     return [];
   }
 
-  return Object.entries(metadata as Record<string, unknown>)
+  return Object.entries(metadata)
     .map(([key, raw]): MetaRow | null => {
       if (INTERNAL_METADATA_KEYS.has(key)) return null;
       if (raw === null || raw === undefined || raw === '') return null;
