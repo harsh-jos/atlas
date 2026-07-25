@@ -1,12 +1,16 @@
+import { PageContainer } from '@/components/layout/PageHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 
-// Instant fallback while search runs.
+// Instant fallback while search runs — mirrors the header, field, and result rows.
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
-      <Skeleton className="h-8 w-40" />
-      <Skeleton className="mt-3 h-4 w-48" />
-      <div className="mt-7 overflow-hidden rounded-card border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
+    <PageContainer>
+      <Skeleton className="h-[10.5px] w-16" />
+      <Skeleton className="mt-2.5 h-9 w-72" />
+
+      <Skeleton className="mt-6 h-14 w-full rounded-2xl" />
+
+      <div className="mt-8 overflow-hidden rounded-card border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="p-5">
             <Skeleton className="h-3.5 w-28" />
@@ -19,6 +23,6 @@ export default function Loading() {
           </div>
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 }

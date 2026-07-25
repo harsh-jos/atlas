@@ -36,9 +36,9 @@ export default function Error({
         </Button>
         <Link
           href="/"
-          className="text-[14px] font-medium text-muted transition-colors hover:text-ink"
+          className="focus-ring rounded-[6px] text-[14px] font-medium text-muted transition-colors hover:text-ink"
         >
-          Go home
+          Back to your library
         </Link>
       </div>
       {error.digest && (

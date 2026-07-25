@@ -24,7 +24,7 @@ export function EntryCard({
   return (
     <Link
       href={`/entries/${slug}`}
-      className="group flex items-start gap-4 px-5 py-4 transition-colors hover:bg-surface-soft"
+      className="focus-ring group flex items-start gap-4 rounded-[10px] px-5 py-4 transition-colors hover:bg-surface-soft"
     >
       {/* Main content */}
       <div className="flex-1 min-w-0">

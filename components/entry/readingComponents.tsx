@@ -30,12 +30,12 @@ export const readingComponents: Components = {
   p: ({ children }) => <p className="my-5 text-[18px] leading-[1.75] text-body">{children}</p>,
   em: ({ children }) => <em className="italic">{children}</em>,
   ul: ({ children }) => (
-    <ul className="my-5 list-disc space-y-2 pl-5 text-[18px] leading-[1.7] text-body marker:text-faint">
+    <ul className="my-5 list-disc space-y-2.5 pl-5 text-[18px] leading-[1.75] text-body marker:text-faint">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="my-5 list-decimal space-y-2 pl-5 text-[18px] leading-[1.7] text-body marker:text-faint">
+    <ol className="my-5 list-decimal space-y-2.5 pl-5 text-[18px] leading-[1.75] text-body marker:text-faint">
       {children}
     </ol>
   ),
@@ -43,7 +43,7 @@ export const readingComponents: Components = {
   a: ({ children, href }) => (
     <a
       href={href}
-      className="text-accent underline decoration-accent/30 underline-offset-[3px] transition-colors hover:decoration-accent"
+      className="focus-ring rounded-sm text-accent underline decoration-accent/30 underline-offset-[3px] transition-colors hover:decoration-accent"
     >
       {children}
     </a>
@@ -62,7 +62,7 @@ export const readingComponents: Components = {
     </pre>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="my-7 rounded-r-lg border-l-[3px] border-accent/40 bg-surface-soft/60 py-1 pl-5 pr-4 text-[18px] leading-[1.7] text-muted [&>p]:my-2.5">
+    <blockquote className="my-7 rounded-r-lg border-l-[3px] border-hairline-strong bg-surface-soft/60 py-1 pl-5 pr-4 text-[18px] italic leading-[1.7] text-muted [&>p]:my-2.5">
       {children}
     </blockquote>
   ),

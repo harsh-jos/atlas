@@ -6,6 +6,7 @@ import { CollectionDetailHeader } from '@/components/collection/CollectionDetail
 import { EntryCard } from '@/components/entry/EntryCard';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PageContainer } from '@/components/layout/PageHeader';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { apiGetOrNull } from '@/lib/api';
 import type { ConceptPage } from '@/lib/api-types';
@@ -65,7 +66,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   const rangeEnd = Math.min(page * pageSize, matched);
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+    <PageContainer>
       <Breadcrumb
         className="mb-6"
         items={[
@@ -102,7 +103,10 @@ export default async function CollectionPage({ params, searchParams }: Collectio
         <div className="mb-5 flex flex-wrap items-center gap-2">
           <span className="text-[13px] text-faint">Tags</span>
           {tag && (
-            <Link href={collectionFilterHref(concept.slug, { sort })}>
+            <Link
+              href={collectionFilterHref(concept.slug, { sort })}
+              className="focus-ring rounded-full"
+            >
               <Badge variant="secondary">Clear tag</Badge>
             </Link>
           )}
@@ -113,6 +117,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
                 sort,
                 tag: entryTag,
               })}
+              className="focus-ring rounded-full"
             >
               <Badge variant={tag === entryTag ? 'accent' : 'default'}>{entryTag}</Badge>
             </Link>
@@ -189,7 +194,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
           description="Nothing has been added here so far."
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -206,7 +211,7 @@ function FilterLink({
     <Link
       href={href}
       className={cn(
-        'rounded-full px-3 py-1 text-[13px] font-medium transition-colors',
+        'focus-ring rounded-full px-3 py-1 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]',
         active ? 'bg-ink text-white' : 'text-muted hover:bg-black/[0.05] hover:text-ink'
       )}
     >
@@ -225,11 +230,11 @@ function PageLink({
   children: React.ReactNode;
 }) {
   const className =
-    'inline-flex items-center gap-1 rounded-lg border-thin px-3 py-1.5 text-[13px] font-medium transition-colors';
+    'focus-ring inline-flex items-center gap-1 rounded-lg border-thin px-3 py-1.5 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]';
 
   if (disabled) {
     return (
-      <span className={cn(className, 'cursor-not-allowed text-faint opacity-50')} aria-disabled="true">
+      <span className={cn(className, 'cursor-not-allowed select-none text-faint opacity-50')} aria-disabled="true">
         {children}
       </span>
     );

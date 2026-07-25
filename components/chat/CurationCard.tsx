@@ -8,6 +8,7 @@ import {
   loadPreview,
   proposeLinks,
 } from "@/app/chat/actions";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { ImportSummary, LinkReport, PreviewDetail } from "@/lib/api-types";
 import { cn } from "@/lib/utils";
@@ -55,21 +56,26 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
 
   if (saved && preview) {
     return (
-      <div className="overflow-hidden rounded-card border-thin bg-surface text-[14px] shadow-card">
-        <p className="px-4 py-3 text-ink">
-          Kept {saved.artifacts}{" "}
-          {saved.artifacts === 1 ? "artifact" : "artifacts"} in{" "}
-          <Link
-            href={`/collections/${saved.conceptSlug}`}
-            className="text-accent hover:underline"
-          >
-            {preview.conceptName}
-          </Link>
-          .
-        </p>
+      <div className="animate-rise overflow-hidden rounded-card border-thin bg-surface text-[14px] shadow-card">
+        <div className="flex items-center gap-2.5 px-4 py-3">
+          <Badge variant="success">Kept</Badge>
+          <p className="text-ink">
+            {saved.artifacts} {saved.artifacts === 1 ? "artifact" : "artifacts"} in{" "}
+            <Link
+              href={`/collections/${saved.conceptSlug}`}
+              className="focus-ring rounded-[4px] text-accent hover:underline"
+            >
+              {preview.conceptName}
+            </Link>
+          </p>
+        </div>
 
         {linking && (
-          <p className="border-t-thin px-4 py-2.5 font-mono text-[12px] text-faint">
+          <p className="flex items-center gap-2 border-t-thin px-4 py-2.5 font-mono text-[12px] text-faint">
+            <span
+              className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent/70"
+              style={{ animationDuration: "1.4s" }}
+            />
             Looking for connections…
           </p>
         )}
@@ -97,7 +103,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
             <p className="border-t-thin px-4 py-2 text-[11px] text-faint">
               Proposed automatically — every one is labelled and removable from
               the{" "}
-              <Link href="/graph" className="text-muted hover:text-ink">
+              <Link href="/graph" className="focus-ring rounded-[4px] text-muted hover:text-ink">
                 graph
               </Link>
               .
@@ -174,15 +180,20 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
   }
 
   return (
-    <div className="overflow-hidden rounded-card border-thin bg-surface shadow-card">
-      <div className="flex items-baseline justify-between gap-3 border-b-thin px-4 py-3">
-        <div>
+    <div className="animate-rise overflow-hidden rounded-card border-thin bg-surface shadow-card">
+      <div className="flex items-start justify-between gap-3 border-b-thin px-4 py-3">
+        <div className="min-w-0">
           <p className="font-display text-[14px] font-[650] text-ink">
             {preview.conceptName}
           </p>
-          <p className="text-[12px] text-faint">
-            {preview.artifacts.length} proposed · {size(preview.totalBytes)}
-          </p>
+          <div className="mt-1.5 flex items-center gap-2">
+            <Badge variant="secondary">
+              {preview.artifacts.length} proposed
+            </Badge>
+            <span className="text-[12px] text-faint">
+              {size(preview.totalBytes)}
+            </span>
+          </div>
         </div>
         <button
           type="button"
@@ -195,7 +206,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
                   ),
             )
           }
-          className="shrink-0 text-[12px] text-muted transition-colors hover:text-ink"
+          className="focus-ring shrink-0 rounded-[6px] px-1.5 py-1 text-[12px] text-muted transition-colors hover:bg-surface-soft hover:text-ink"
         >
           {chosen.size === preview.artifacts.length
             ? "Select none"
@@ -226,7 +237,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
                   type="checkbox"
                   checked={picked}
                   onChange={() => toggle(artifact.sourceKey)}
-                  className="mt-1 h-3.5 w-3.5 accent-[var(--action)]"
+                  className="focus-ring mt-1 h-3.5 w-3.5 rounded-sm accent-[var(--action)]"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] text-ink">
@@ -259,7 +270,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
         </span>
         <span className="flex gap-2">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             disabled={busy}
             onClick={() => void resolve("discard")}
@@ -267,6 +278,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
             Discard
           </Button>
           <Button
+            variant="primary"
             size="sm"
             disabled={busy || chosen.size === 0}
             onClick={() => void resolve("keep")}

@@ -47,6 +47,44 @@ export function formatDate(date: Date | string | number): string {
   });
 }
 
+const WORDS_PER_MINUTE = 200;
+
+/**
+ * Estimates reading time from a body of markdown or HTML, the way a print
+ * magazine masthead would — strip markup, count words, round up to a minute.
+ */
+export function estimateReadingTime(text: string | null): string {
+  const words = (text ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[#*_`>|-]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+  const minutes = Math.max(1, Math.round(words / WORDS_PER_MINUTE));
+  return `${minutes} min read`;
+}
+
+/** Markup-free, case-folded text — for comparing what a reader actually sees. */
+function readable(text: string | null): string {
+  return (text ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[#*_`>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * True when the summary merely repeats how the body opens — which happens whenever
+ * ingestion lifts the first paragraph as the summary. Showing both puts the same
+ * sentence on screen twice, so the standfirst earns its place only when it differs.
+ */
+export function duplicatesOpening(summary: string | null, body: string | null): boolean {
+  const lead = readable(summary);
+  return lead.length > 0 && readable(body).startsWith(lead);
+}
+
 /**
  * Formats a date into "time ago" format (e.g., "2 hours ago", "3 days ago").
  */
