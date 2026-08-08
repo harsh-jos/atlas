@@ -20,14 +20,15 @@ export interface KnowledgeGraphProps {
 }
 
 // A single, deliberately light palette — Obsidian's graph in a bright room, never a dark one.
-const BACKGROUND = '#f5f6fa';
-const LABEL_INK = '#4a505c';
-const LABEL_INK_FOCUS = '#090c1d';
-const LINK_BASE = 'rgba(120, 128, 145, 0.32)';
-const LINK_ACTIVE = 'rgba(123, 104, 238, 0.75)'; // accent
-const LINK_DIM = 'rgba(120, 128, 145, 0.08)';
-const RING = 'rgba(123, 104, 238, 0.95)';
-const NODE_HALO = '#f5f6fa'; // thin gap that lifts a node off crossing links
+// Canvas can't read CSS variables, so these mirror the tokens in globals.css.
+const BACKGROUND = '#fafafa'; // --canvas
+const LABEL_INK = '#666666'; // --muted
+const LABEL_INK_FOCUS = '#171717'; // --ink
+const LINK_BASE = 'rgba(115, 115, 115, 0.28)';
+const LINK_ACTIVE = 'rgba(37, 99, 235, 0.75)'; // --accent
+const LINK_DIM = 'rgba(115, 115, 115, 0.08)';
+const RING = 'rgba(37, 99, 235, 0.95)'; // --accent
+const NODE_HALO = '#fafafa'; // thin gap that lifts a node off crossing links — matches BACKGROUND
 const DIM_ALPHA = 0.16; // how faint an out-of-focus node goes on hover (never invisible)
 const LABEL_ZOOM = 1.15; // labels fade in once the reader has zoomed in past this
 const LABEL_FONT = 12; // px at zoom 1, kept constant on screen by dividing by scale
@@ -250,7 +251,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     return [...seen.entries()].map(([name, color]) => ({ name, color }));
   }, [data.nodes]);
 
-  const panel = 'rounded-[12px] border-thin bg-surface/85 shadow-card backdrop-blur-md';
+  const panel = 'rounded-[12px] border bg-surface/85 shadow-card backdrop-blur-md';
 
   return (
     <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-canvas">
@@ -276,7 +277,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       {/* Top-left: title + search */}
       <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-2">
         <div className={`pointer-events-auto px-3.5 py-2 ${panel}`}>
-          <h1 className="font-display text-[15px] font-bold leading-none tracking-[-0.02em] text-ink">
+          <h1 className="text-sm font-semibold leading-none tracking-[-0.01em] text-ink">
             Graph
           </h1>
           <p className="mt-1 text-[12px] leading-none text-faint">
@@ -356,7 +357,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
             </span>
           </div>
 
-          <h2 className="font-display text-[18px] font-bold leading-snug tracking-[-0.02em] text-ink">
+          <h2 className="text-[16px] font-semibold leading-snug tracking-[-0.01em] text-ink">
             {selectedNode.title}
           </h2>
 
@@ -365,7 +366,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
           </p>
 
           {selectedRelations.length > 0 && (
-            <div className="mt-4 space-y-3 border-t-thin pt-4">
+            <div className="mt-4 space-y-3 border-t pt-4">
               {selectedRelations.map((group) => (
                 <div key={group.label}>
                   <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-faint">
@@ -377,7 +378,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
                         key={item.id}
                         type="button"
                         onClick={() => focusById(item.id)}
-                        className="max-w-full truncate rounded-full border-thin bg-surface px-2.5 py-1 text-[12px] text-body transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
+                        className="max-w-full truncate rounded-full border bg-surface px-2.5 py-1 text-[12px] text-ink transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
                       >
                         {item.title}
                       </button>
@@ -390,7 +391,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
           <Link
             href={`/entries/${selectedNode.slug}`}
-            className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-accent transition-colors hover:text-accent-hover"
+            className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-accent transition-colors hover:text-ink"
           >
             Open entry
             <ArrowUpRight className="h-3.5 w-3.5" />

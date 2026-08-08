@@ -23,10 +23,13 @@ Next.js code, read the relevant guide in `node_modules/next/dist/docs/`** and he
 deprecation notices. Don't trust training-data assumptions about the App Router.
 
 ## Design
-The design system and philosophy live in `docs/design.md`. Design tokens are the single
-source of truth in `app/globals.css` (mapped into Tailwind `@theme`) — use them, don't
-hardcode colors. `font-display` = Plus Jakarta Sans (headings/UI); the default body font is
-Inter (reading). Note `bg-canvas` is white — use `surface-soft` for hover/inset tints.
+The design system and philosophy live in `docs/design.md` (rebuilt 2026-08-08 — light mode
+only, gray-first, one blue accent). Design tokens are the single source of truth in
+`app/globals.css` (mapped into Tailwind `@theme`) — use them, don't hardcode colors. Two
+font families only: Inter (`font-sans`, everything) and Geist Mono (`font-mono`, code +
+micro-labels). `border` alone renders the hairline token; buttons and pills are fully round;
+`canvas` (#fafafa) is the app ground and sidebar, `surface` (white) is content; hover/inset
+tints use `surface-soft`.
 
 ## Engineering principles
 From the team's engineering rulebook. These are defaults, not law — break one only for a

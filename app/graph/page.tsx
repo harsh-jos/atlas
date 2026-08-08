@@ -20,7 +20,7 @@ export default async function GraphPage() {
       {/* Stacked above the canvas's own zoom cluster, which owns the bottom-right corner
           (the rest of its chrome: title/search top-left, legend bottom-left, inspector top-right). */}
       <div className="pointer-events-none absolute bottom-16 right-3">
-        <div className="pointer-events-auto rounded-[12px] border-thin bg-surface/85 px-4 py-2.5 shadow-card backdrop-blur-md">
+        <div className="pointer-events-auto rounded-[12px] border bg-surface/85 px-4 py-2.5 shadow-card backdrop-blur-md">
           <AutomaticLinkControl count={automatic} />
         </div>
       </div>

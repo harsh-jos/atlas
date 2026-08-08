@@ -51,7 +51,7 @@ export function EntryRelations({ outgoing, incoming }: EntryRelationsProps) {
                 <Link
                   key={chip.slug}
                   href={`/entries/${chip.slug}`}
-                  className="focus-ring rounded-full border-thin bg-surface px-3 py-1 text-[13px] font-medium text-body transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
+                  className="focus-ring rounded-full border bg-surface px-3 py-1 text-[13px] font-medium text-ink transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
                 >
                   {cleanTitle(chip.title)}
                 </Link>

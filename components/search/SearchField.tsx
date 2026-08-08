@@ -42,11 +42,11 @@ export function SearchField({ defaultValue }: SearchFieldProps) {
         placeholder="Search titles, summaries, and body content…"
         autoComplete="off"
         spellCheck={false}
-        className="peer focus-ring h-14 w-full rounded-2xl border-thin bg-surface pl-13 pr-12 font-display text-[16px] text-ink shadow-raise transition-shadow duration-[var(--dur-fast)] placeholder:text-faint"
+        className="peer focus-ring h-12 w-full rounded-full border bg-surface pl-13 pr-12 text-[15px] text-ink shadow-card transition-shadow duration-[var(--dur-fast)] placeholder:text-faint"
       />
       <kbd
         aria-hidden="true"
-        className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 rounded-[6px] border-thin bg-surface-soft px-1.5 py-0.5 font-mono text-[11px] text-faint peer-focus:hidden peer-[:not(:placeholder-shown)]:hidden"
+        className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 rounded-[6px] border bg-surface-soft px-1.5 py-0.5 font-mono text-[11px] text-faint peer-focus:hidden peer-[:not(:placeholder-shown)]:hidden"
       >
         /
       </kbd>

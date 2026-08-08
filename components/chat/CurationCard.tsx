@@ -56,7 +56,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
 
   if (saved && preview) {
     return (
-      <div className="animate-rise overflow-hidden rounded-card border-thin bg-surface text-[14px] shadow-card">
+      <div className="animate-rise overflow-hidden rounded-card border bg-surface text-[14px] shadow-card">
         <div className="flex items-center gap-2.5 px-4 py-3">
           <Badge variant="success">Kept</Badge>
           <p className="text-ink">
@@ -71,7 +71,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
         </div>
 
         {linking && (
-          <p className="flex items-center gap-2 border-t-thin px-4 py-2.5 font-mono text-[12px] text-faint">
+          <p className="flex items-center gap-2 border-t px-4 py-2.5 font-mono text-[12px] text-faint">
             <span
               className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent/70"
               style={{ animationDuration: "1.4s" }}
@@ -81,7 +81,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
         )}
 
         {links && links.edges.length > 0 && (
-          <div className="border-t-thin">
+          <div className="border-t">
             <p className="px-4 pt-3 text-[12px] text-faint">
               {links.edges.length} connection
               {links.edges.length === 1 ? "" : "s"} found
@@ -100,7 +100,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
                 </li>
               ))}
             </ul>
-            <p className="border-t-thin px-4 py-2 text-[11px] text-faint">
+            <p className="border-t px-4 py-2 text-[11px] text-faint">
               Proposed automatically — every one is labelled and removable from
               the{" "}
               <Link href="/graph" className="focus-ring rounded-[4px] text-muted hover:text-ink">
@@ -112,7 +112,7 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
         )}
 
         {links && links.edges.length === 0 && !linking && (
-          <p className="border-t-thin px-4 py-2.5 text-[12px] text-faint">
+          <p className="border-t px-4 py-2.5 text-[12px] text-faint">
             No new connections worth proposing.
           </p>
         )}
@@ -173,17 +173,17 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
 
   if (!preview) {
     return (
-      <p role="alert" className="text-[13px] text-red-600">
+      <p role="alert" className="text-[13px] text-danger">
         {error}
       </p>
     );
   }
 
   return (
-    <div className="animate-rise overflow-hidden rounded-card border-thin bg-surface shadow-card">
-      <div className="flex items-start justify-between gap-3 border-b-thin px-4 py-3">
+    <div className="animate-rise overflow-hidden rounded-card border bg-surface shadow-card">
+      <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
-          <p className="font-display text-[14px] font-[650] text-ink">
+          <p className="text-sm font-semibold text-ink">
             {preview.conceptName}
           </p>
           <div className="mt-1.5 flex items-center gap-2">
@@ -215,14 +215,14 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
       </div>
 
       {preview.alreadyKnown.length > 0 && (
-        <p className="border-b-thin bg-surface-soft px-4 py-2.5 text-[13px] text-muted">
+        <p className="border-b bg-surface-soft px-4 py-2.5 text-[13px] text-muted">
           You already have {preview.alreadyKnown.length} artifact
           {preview.alreadyKnown.length === 1 ? "" : "s"} on this — including{" "}
           <span className="text-ink">{preview.alreadyKnown[0].title}</span>.
         </p>
       )}
 
-      <ul className="max-h-[22rem] divide-y divide-[var(--hairline)] overflow-y-auto">
+      <ul className="max-h-[22rem] divide-y overflow-y-auto">
         {preview.artifacts.map((artifact) => {
           const picked = chosen.has(artifact.sourceKey);
           return (
@@ -259,12 +259,12 @@ export function CurationCard({ previewId, onResolved }: CurationCardProps) {
       </ul>
 
       {error && (
-        <p role="alert" className="px-4 pt-3 text-[13px] text-red-600">
+        <p role="alert" className="px-4 pt-3 text-[13px] text-danger">
           {error}
         </p>
       )}
 
-      <div className="flex items-center justify-between gap-3 border-t-thin px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
         <span className="text-[12px] text-faint">
           {chosen.size} selected · {size(selectedBytes)}
         </span>

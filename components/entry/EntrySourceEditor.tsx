@@ -41,14 +41,14 @@ export function EntrySourceEditor({ sources, onChange }: EntrySourceEditorProps)
       {sources.length > 0 ? (
         <div className="grid gap-3">
           {sources.map((source, index) => (
-            <div key={index} className="rounded-xl border-thin bg-surface p-3">
+            <div key={index} className="rounded-card border bg-surface p-3">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <select
                   value={source.sourceType}
                   onChange={(event) =>
                     updateSource(index, { sourceType: event.target.value as SourceType })
                   }
-                  className="focus-ring h-8 rounded-lg border-thin bg-surface px-2 text-xs text-ink transition-colors hover:border-hairline-strong"
+                  className="focus-ring h-8 rounded-field border bg-surface px-2 text-xs text-ink transition-colors hover:border-hairline-strong"
                 >
                   {sourceTypes.map((sourceType) => (
                     <option key={sourceType} value={sourceType}>
@@ -59,7 +59,7 @@ export function EntrySourceEditor({ sources, onChange }: EntrySourceEditorProps)
                 <button
                   type="button"
                   onClick={() => onChange(sources.filter((_, at) => at !== index))}
-                  className="focus-ring rounded-md p-1.5 text-faint transition-colors hover:bg-black/[0.04] hover:text-ink"
+                  className="focus-ring rounded-md p-1.5 text-faint transition-colors hover:bg-surface-soft hover:text-ink"
                   aria-label="Remove source"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -91,7 +91,7 @@ export function EntrySourceEditor({ sources, onChange }: EntrySourceEditorProps)
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border-thin bg-surface p-4">
+        <div className="rounded-card border bg-surface p-4">
           <p className="text-sm text-muted">No sources yet.</p>
         </div>
       )}

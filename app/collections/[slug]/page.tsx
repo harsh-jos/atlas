@@ -83,7 +83,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
         entryCount={concept.artifactCount}
       />
 
-      <div className="mb-5 flex flex-wrap items-center gap-1.5 border-b-thin py-3.5">
+      <div className="mb-5 flex flex-wrap items-center gap-1.5 border-b py-3.5">
         <span className="text-[13px] text-faint">Sort by</span>
         {sortOptions.map((option) => (
           <FilterLink
@@ -132,7 +132,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
 
       {artifacts.length > 0 ? (
         <>
-          <div className="overflow-hidden rounded-card border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
+          <div className="divide-y overflow-hidden rounded-card border bg-surface shadow-card">
             {artifacts.map((artifact) => (
               <EntryCard
                 key={artifact.id}
@@ -212,7 +212,7 @@ function FilterLink({
       href={href}
       className={cn(
         'focus-ring rounded-full px-3 py-1 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]',
-        active ? 'bg-ink text-white' : 'text-muted hover:bg-black/[0.05] hover:text-ink'
+        active ? 'bg-action text-white' : 'text-muted hover:bg-surface-soft hover:text-ink'
       )}
     >
       {children}
@@ -230,7 +230,7 @@ function PageLink({
   children: React.ReactNode;
 }) {
   const className =
-    'focus-ring inline-flex items-center gap-1 rounded-lg border-thin px-3 py-1.5 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]';
+    'focus-ring inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]';
 
   if (disabled) {
     return (

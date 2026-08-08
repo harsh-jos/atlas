@@ -11,7 +11,7 @@ export interface MarkdownBodyProps {
 export function MarkdownBody({ body }: MarkdownBodyProps) {
   if (!body?.trim()) {
     return (
-      <div className="rounded-card border-thin bg-surface-soft p-6">
+      <div className="rounded-card border bg-surface-soft p-6">
         <p className="text-sm text-muted">No body content has been written yet.</p>
       </div>
     );

@@ -25,7 +25,7 @@ export function SignInForm() {
       {state.error && (
         <p
           role="alert"
-          className="flex items-start gap-2 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] leading-5 text-red-700"
+          className="flex items-start gap-2 rounded-field border border-danger-line bg-danger-soft px-3.5 py-2.5 text-[13px] leading-5 text-danger"
         >
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           {state.error}
