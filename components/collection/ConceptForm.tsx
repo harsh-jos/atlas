@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/Input';
 import type { ConceptDraft } from '@/app/collections/actions';
 import type { ActionResult } from '@/lib/actions';
 
-const SWATCHES = ['#0066cc', '#50e3c2', '#7928ca', '#16a34a', '#d97706', '#db2777', '#64748b'];
+/** Collection colors — dots, graph clusters, search markers all originate here. */
+const SWATCHES = ['#2563eb', '#0d9488', '#7c3aed', '#16a34a', '#d97706', '#db2777', '#64748b'];
 
 export interface ConceptFormProps {
   initial?: { name: string; description: string | null; color: string | null };
@@ -45,7 +46,7 @@ export function ConceptForm({ initial, submitLabel, onSubmit, onClose }: Concept
   return (
     <div className="grid gap-3">
       <div className="grid gap-1.5">
-        <label htmlFor={nameId} className="text-[12px] font-medium text-faint">
+        <label htmlFor={nameId} className="text-xs font-medium text-muted">
           Name
         </label>
         <Input
@@ -62,7 +63,7 @@ export function ConceptForm({ initial, submitLabel, onSubmit, onClose }: Concept
       </div>
 
       <div className="grid gap-1.5">
-        <label htmlFor={descriptionId} className="text-[12px] font-medium text-faint">
+        <label htmlFor={descriptionId} className="text-xs font-medium text-muted">
           Description <span className="text-faint/70">(optional)</span>
         </label>
         <Input
@@ -74,7 +75,7 @@ export function ConceptForm({ initial, submitLabel, onSubmit, onClose }: Concept
       </div>
 
       <div className="grid gap-1.5">
-        <p className="text-[12px] font-medium text-faint">Color</p>
+        <p className="text-xs font-medium text-muted">Color</p>
         <div className="flex items-center gap-2.5 pt-0.5">
           {SWATCHES.map((swatch) => (
             <button
@@ -95,7 +96,7 @@ export function ConceptForm({ initial, submitLabel, onSubmit, onClose }: Concept
       </div>
 
       {error && (
-        <p className="flex items-center gap-1.5 text-xs text-red-600">
+        <p className="flex items-center gap-1.5 text-xs text-danger">
           <AlertCircle className="h-3.5 w-3.5" />
           {error}
         </p>

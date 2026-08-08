@@ -168,10 +168,10 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="mb-2 font-mono text-[10.5px] uppercase tracking-[0.16em] text-faint">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
             {artifact.concept.name}
           </p>
-          <h1 className="font-title text-[24px] font-semibold tracking-[-0.025em] text-ink">
+          <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-ink">
             Edit entry
           </h1>
           <p className="mt-1.5 text-xs text-faint">
@@ -187,7 +187,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
           <Button
             variant="ghost"
             size="sm"
-            className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700"
+            className="gap-1.5 text-danger hover:bg-danger-soft hover:text-danger"
             disabled={isDeleting}
             onClick={remove}
           >
@@ -206,7 +206,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
       </div>
 
       {errorMessage && (
-        <div className="mb-5 flex items-center gap-2 rounded-lg border-thin border-red-200/70 bg-red-50/60 px-3 py-2 text-sm text-red-700">
+        <div className="mb-5 flex items-center gap-2 rounded-field border border-danger-line bg-danger-soft px-3 py-2 text-sm text-danger">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {errorMessage}
         </div>
@@ -233,7 +233,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
             <select
               value={conceptId}
               onChange={(event) => setConceptId(event.target.value)}
-              className="focus-ring h-9 rounded-lg border-thin bg-surface px-3 text-sm text-ink transition-colors hover:border-hairline-strong"
+              className="focus-ring h-9 rounded-field border bg-surface px-3 text-sm text-ink transition-colors hover:border-hairline-strong"
             >
               {concepts.map((concept) => (
                 <option key={concept.id} value={concept.id}>
@@ -257,7 +257,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
           <div className="flex items-center justify-between gap-3">
             <span className="text-[13px] font-medium text-muted">Body</span>
             <div className="flex items-center gap-2">
-              {uploadError && <span className="text-[12px] text-red-600">{uploadError}</span>}
+              {uploadError && <span className="text-[12px] text-danger">{uploadError}</span>}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -278,7 +278,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
               </Button>
             </div>
           </div>
-          <div className="overflow-hidden rounded-xl border-thin bg-surface">
+          <div className="overflow-hidden rounded-card border bg-surface">
             <CodeMirror
               ref={editorRef}
               value={body}
@@ -295,13 +295,13 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
           </div>
         </div>
 
-        <details className="rounded-xl border-thin bg-surface/60">
-          <summary className="focus-ring cursor-pointer list-none rounded-xl px-4 py-3 text-[13px] font-medium text-muted transition-colors hover:text-ink">
+        <details className="rounded-card border bg-surface/60">
+          <summary className="focus-ring cursor-pointer list-none rounded-card px-4 py-3 text-[13px] font-medium text-muted transition-colors hover:text-ink">
             HTML body{' '}
             <span className="text-faint">— optional; replaces the markdown body when set</span>
           </summary>
-          <div className="border-t-thin p-3">
-            <div className="overflow-hidden rounded-lg border-thin bg-surface">
+          <div className="border-t p-3">
+            <div className="overflow-hidden rounded-field border bg-surface">
               <CodeMirror
                 value={bodyHtml}
                 minHeight="240px"

@@ -1,144 +1,114 @@
-# Atlas — design system & philosophy
+# Atlas — design system
 
-> **About this doc:** the creator has strong visual taste but finds it hard to put into words, so
-> this is derived from the inspiration he actually chose — the screenshots in `docs/design-taste/`
-> (local-only, gitignored). When this doc and a token disagree, the tokens in `app/globals.css`
-> win for values; this doc governs *intent*. When in doubt, favour what feels **calm, editorial,
-> and premium** over what is merely minimal.
->
-> **Note (2026-07):** the earlier version of this doc was stale. The `ml_flashcards.html` prototype
-> in the taste folder is **not** the creator's taste — ignore its gradients, colour pills, and
-> playful/gamified feel. The screenshots below are the truth.
+> **About this doc:** the intent behind the tokens. Values live in `app/globals.css`
+> (`:root` + Tailwind `@theme`) and win over any number written here; this doc governs
+> *how to use them*. Rebuilt 2026-08-08 from scratch — light mode only.
 
-## The one-line read
+## Philosophy
 
-**Quiet-luxury editorial, in the register of a premium AI-research journal.** Light and airy,
-confident type, generative data-viz art for the hero moments, and near-monochrome restraint with
-colour used only where it *means* something. Calm and reading-first — an object, not a webpage.
+**Reduction is the design.** Atlas borrows from the Apple/Vercel school: near-white ground,
+near-black ink, a handful of grays, and one accent that only ever means "interactive".
+Nothing decorative, no gradients on chrome, no dark mode. If a surface looks designed,
+remove things until it merely looks *correct* — the calm is the brand, and the reading
+is the product.
 
-## The reference library (`docs/design-taste/`)
+Three rules resolve most decisions:
 
-Each shot below is here for a specific reason — steal the named quality, not the whole thing.
+1. **Gray first.** New UI starts as ink on white with hairline borders. Color enters only
+   as the accent (interactive), a semantic tint (state), or artwork inside a card — never
+   as chrome.
+2. **Borders, not shadows.** Cards are drawn with a hairline plus at most a whisper of
+   shadow (`shadow-card`). Real elevation (`shadow-pop`) is reserved for things that
+   genuinely float: menus, dialogs.
+3. **One way to do each thing.** One focus ring (`.focus-ring`), one hover tint
+   (`surface-soft`), one texture (`.dot-grid`), one accent. Consistency is what makes a
+   small system feel finished.
 
-- **`meridian-onboarding-form.jpeg`** — *the product-surface gold standard.* A very light warm-grey
-  page with one large white rounded container (~20px radius) floating on it under a soft, low
-  shadow. Hairline-bordered sub-cards; a quiet vertical stepper (filled green check = done, green
-  ring = active, hollow grey = upcoming); semantic status pills in soft tints (green "Verified",
-  amber "Action needed", blue "In progress"); grey helper text under every label; keyboard hints
-  (`esc`); dashed margin guides; "…" overflow menus; avatar initials in rounded squares. This is
-  how Atlas's chrome, forms, and list rows should feel.
-- **`neural-node-inspector.png`** — *the soul of the brand.* Tall soft cards on a faint halftone
-  ground. **Editorial serif headlines** ("Real-time cognitive processing. Visualizing active neural
-  pathways…") paired with **monospace micro-labels** ("Node Inspector", "Neural Mapping") and a
-  **generative blue-violet particle cloud** standing in for a knowledge/embedding graph. This is the
-  aesthetic Atlas's graph view and hero moments should aspire to.
-- **`pick-your-plan-serif.png`** — *the display voice.* A high-contrast editorial serif for the big
-  "Pick your Plan" title; a soft segmented pill toggle; iridescent 3D gradient renders used as
-  *imagery inside cards* (never as UI chrome); muted centred captions; generous radii and
-  whitespace. Apple-grade restraint.
-- **`editorial-poster-halftone.png`** — *the type pairing + a signature texture.* A transitional
-  serif headline ("Engineering Systems That Think Clearly.") beside bold grotesk sans ("Turning
-  Complexity into Usable Systems."), with **halftone dot-matrix** topographic texture as art. Serif
-  for gravitas, grotesk for punch, dots for texture.
-- **`kraft-context-marketing.png`** — *on-theme product (a context/memory tool).* Soft rounded
-  feature cards, a single bold gradient hero card used sparingly, a tidy grid of integration icons,
-  small colour-coded feature icons. Confident but calm.
-- **`investor-profile-card.png`** — *the info-card pattern.* A clean white card: header label,
-  avatar, name + verified tick, structured key-value inset ("Past Company", "School"), an "AI
-  Summary" block in grey, then a **carbon/black filled primary button** next to a **white outline
-  secondary**. This is the button hierarchy and the structured-entity card for Atlas.
-- **`clickup-settings-sidebar.jpeg`** — *navigation.* Light sidebar, line icons with small colour
-  accents, count pills (filled dark vs. hollow), a subtly-filled selected row. Calm information
-  density.
-- **`nova-notes-app.png`** — *a notes/second-brain peer.* Minimal left panel, per-project colour
-  dots (Research red, Launch blue, Finance green), colour-picker chips, a small carbon "Add"
-  button, gentle empty states. Colour used as quiet categorisation.
-- **`agent-hub-dashboard.png`** — *restrained data display.* Stat counters and an activity table
-  with small semantic status chips — data shown without a cockpit feeling.
-- **`ai-support-login-split.png`** — *entry moment.* Split layout: a deep, silky blue gradient
-  panel on one side, a clean white form (carbon "Sign In", outline social buttons) on the other.
+## Color
 
-## Visual system
+| Token | Role |
+|---|---|
+| `canvas` | App ground: sidebar, backdrop wells. `#fafafa`. |
+| `surface` | Content, cards, inputs. Pure white. |
+| `surface-soft` | The one inset tint: hover rows, code blocks, empty wells. |
+| `ink` / `muted` / `faint` | Text hierarchy: primary → secondary → placeholder. Three steps, no more. |
+| `hairline` / `hairline-strong` | Borders and dividers. `border` alone renders `hairline` (set globally). |
+| `accent` (+`-soft`, `-line`) | One blue. Links, focus rings, active nav, selected states. **Never a button fill.** |
+| `action` (+`-hover`) | Carbon. Primary buttons are black. |
+| `success` / `warning` / `danger` (+`-soft`, `-line`) | State only, rendered as soft tinted pills or notices: text on `-soft` bg with `-line` border. |
 
-Tokens are the single source of truth in `app/globals.css` (mapped into Tailwind `@theme`) — use
-them, don't hardcode colours.
+Adding a color to this table is a design decision, not a convenience — argue for it in a PR.
 
-### The app frame *(added 2026-07-25)*
-Atlas is **one floating object**, not a stack of page chrome. A rounded container
-(`--frame-radius`, inset by `--frame-inset`) floats on a backdrop a shade deeper than the canvas,
-holding a **white left rail** (`--rail-width`) beside a single scrolling content region tinted
-`canvas`. White cards float on that tint. Consequences to respect:
+## Type
 
-- The **window does not scroll** — `<main>` is the scroll container. Never use `h-screen`,
-  `100vh`, or `fixed` positioning for in-app chrome; use `h-full`, `sticky`, or `absolute`.
-- `/login` renders **without** the frame — it owns the viewport (the split entry moment).
-- Page structure is shared: `PageHeader` (mono eyebrow → display title → one line of intent →
-  actions) inside `PageContainer`. Every route opens the same way; that consistency *is* the
-  finished-product feeling.
-- One focus treatment everywhere: the `.focus-ring` utility. Don't hand-roll focus rings.
+Two families, loaded in `app/layout.tsx`:
 
-### Canvas & surfaces
-Light and airy. A near-white / very-light warm-grey page; content lives in **white cards that float
-as clean objects** — hairline border **plus** a soft, low, diffuse shadow (never dramatic
-elevation). Large containers read at ~16–20px radius, inner cards/inputs ~12px, buttons ~9–10px,
-pills fully round. Generous whitespace is part of the design, not a lack of content. `bg-canvas` is
-effectively white — use `surface-soft` for hover and inset tints.
+- **Inter** (`font-sans`, the default) — everything: UI, headings, reading.
+- **Geist Mono** (`font-mono`) — code, IDs, keyboard hints, and micro-labels.
 
-### Type — the voice system *(decided live, 2026-07)*
-The references leaned editorial-serif for titles, but tried live the creator preferred a **clean
-sans** everywhere. Serif was rejected. The decided system (tokens in `app/globals.css`):
+The scale (Tailwind utilities, no custom tokens):
 
-1. **Geist — titles & display** (`font-title` → `--title`). Headings, entry titles, hero moments.
-   A modern neo-grotesk: confident and clean, not literary. This is the display voice.
-2. **System Helvetica/Arial — reading body** (`font-reading` → `--reading`). Long-form entry bodies
-   (~18px, ~1.75 line-height). Chosen by eye over Inter/Geist/Poppins.
-3. **Inter — UI default**, **Plus Jakarta Sans — UI chrome** (`font-display`) for nav, buttons,
-   labels, metadata, chips.
-4. **Geist Mono — technical accent** (`font-mono`) for code, micro-labels, tags, keyboard hints, IDs.
+| Use | Recipe |
+|---|---|
+| Page title | `text-2xl font-semibold tracking-[-0.02em]` |
+| Section title | `text-lg font-semibold tracking-[-0.01em]` |
+| Card title / row title | `text-sm font-medium text-ink` |
+| UI body | `text-sm text-ink` (secondary: `text-muted`) |
+| Small / meta | `text-[13px] text-muted`, timestamps `text-faint` |
+| Caption | `text-xs text-muted` |
+| Micro-label (eyebrow) | `font-mono text-[11px] uppercase tracking-[0.08em] text-faint` |
+| Reading body (artifacts) | `text-[17px] leading-[1.7]`, measure ~68ch, headings step down from `text-2xl` |
 
-Both `--title` and `--reading` are plain, overridable properties so a **reading/title-font switcher
-in app settings** can be added later without touching components. Don't mix faces within one view.
+Weights: 400 default, 500 for emphasis and titles-in-rows, 600 for headings and buttons.
+Nothing above 600.
 
-### Colour & status
-Near-monochrome by default: ink descending from near-black → slate → steel on white/light-grey.
-**One brand accent** in the blue-violet family (current violet `#7b68ee` fits the research-shot
-palette) — used for links, focus rings, brand marks, and *generative art*, not as a generic fill.
-A small, meaningful **semantic status system** rendered as soft tinted pills:
+## Space, radius, elevation
 
-- **green** — success / verified / mastered
-- **amber** — warning / action needed
-- **blue** — info / in progress
+- **Spacing:** 4px grid. Page gutters 24–32px; cards pad 16–20px; related things 8px apart,
+  separate things 24px+.
+- **Radius:** cards and wells `rounded-card` (12px), inputs `rounded-field` (10px),
+  **buttons and pills are fully round** (`rounded-full`), avatars/icon chips 8px.
+- **Elevation:** `shadow-card` (whisper) on cards; `shadow-card-hover` on interactive cards'
+  hover; `shadow-pop` on menus/dialogs. Nothing else casts shadow.
 
-Per-collection **category colours** appear as quiet dots and graph-cluster tints (as in Nova /
-ClickUp), never as loud backgrounds.
+## Core recipes
 
-### Buttons
-**Primary = carbon/black filled** (~9–10px radius or pill). **Secondary = white with a hairline
-border.** Tertiary = quiet ghost. Never gradient-filled buttons; the signature accent does not
-become button chrome.
+- **Primary button** — carbon pill: `rounded-full bg-action text-white hover:bg-action-hover`,
+  `h-9 px-4 text-sm font-medium` (small: `h-8 px-3.5 text-[13px]`).
+- **Secondary button** — white pill with hairline: `rounded-full border bg-surface
+  hover:bg-surface-soft`.
+- **Ghost button** — `rounded-full text-muted hover:bg-surface-soft hover:text-ink`.
+- **Destructive** — ghost or secondary in `danger` text; never a red fill.
+- **Input** — `rounded-field border border-hairline-strong bg-surface px-3 text-sm
+  placeholder:text-faint`, focus via `.focus-ring`.
+- **Card** — `rounded-card border bg-surface shadow-card`; interactive cards add
+  `transition-shadow hover:shadow-card-hover`.
+- **Status pill** — `rounded-full border px-2 py-0.5 text-xs font-medium` in one semantic
+  triad, e.g. `border-success-line bg-success-soft text-success`.
+- **Nav row** — `h-8 rounded-[8px] px-2.5 text-sm`; active = `bg-surface border shadow-card
+  text-ink font-medium` on the canvas sidebar; inactive = `text-muted hover:bg-surface-soft`.
+- **Empty state** — centered in a `dot-grid` well: icon chip, one-line what, one-line how,
+  optionally one primary action.
 
-### Signature motifs *(new — this is what makes Atlas *Atlas*)*
-- **Generative data-viz art** — blue-violet particle clouds / point fields / soft ink blotches
-  representing neural pathways, latent space, and — for Atlas — the **knowledge graph itself**. The
-  graph view is the natural home for this; render it as a beautiful particle field, not a boxy
-  node-diagram. Reserve for graph, hero, and empty-state moments.
-- **Halftone / dot-matrix texture** — faint dotted grounds and topographic dot fields as background
-  texture and art. A recurring, restrained motif.
-- **Iridescent/tactile gradient renders** — allowed only as *imagery inside cards* (à la Pick-your-
-  Plan), never on UI chrome.
+## The app frame
 
-### Motion & micro-details
-Motion is **subtle and premium** — gentle fades and soft hovers, never bouncy or celebratory (no
-confetti, no flashy flips). Sweat the details the references sweat: keyboard hints (`esc`, `/`),
-dashed layout guides, "…" overflow menus, avatar initials in rounded squares, refined empty states,
-and mono micro-labels above serif headings.
+A plain, full-viewport split: a `canvas`-tinted rail (`--rail-width`) with a hairline
+divider, and a white content region. **The window never scrolls** — `<main>` is the scroll
+container (`.scroll-region`); use `h-full`/`sticky`, never `h-screen`/`fixed`, for in-app
+chrome. `/login` renders without the frame. Every page opens the same way: an eyebrow
+micro-label, a page title, one line of intent, actions on the right.
+
+## Motion
+
+Fades and small translations only: `--dur-fast` (120ms) for hovers, `--dur` (200ms) for
+content entering (`.animate-rise`). Nothing bounces, nothing celebrates, and everything
+respects `prefers-reduced-motion`.
 
 ## Don'ts
 
-- Don't bring dashboards/metrics/streaks or dense SaaS-cockpit layouts into the reading flow.
-- Don't treat `ml_flashcards.html` as a target: no rainbow category/difficulty pills, no
-  gradient text, no gradient buttons, no confetti or gamified celebration.
-- Don't use the accent as a generic button fill (carbon does that); don't add new accent colours
-  beyond the one brand accent + the three semantic statuses.
-- Don't let motion get playful. Calm and confident is the whole brand.
-- Remember `bg-canvas` is white — use `surface-soft` for hover and inset tints.
+- No dark mode, no theme switching.
+- No gradients, glows, or tinted auras on UI chrome; imagery lives *inside* cards.
+- No accent-filled buttons; carbon owns primary actions.
+- No new fonts, no new grays, no fourth semantic color.
+- No dense dashboard layouts in the reading flow; artifacts read like documents,
+  not consoles.

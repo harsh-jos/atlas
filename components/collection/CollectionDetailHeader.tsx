@@ -41,9 +41,9 @@ export function CollectionDetailHeader({
 
   if (isEditing) {
     return (
-      <div className="animate-rise mb-8 rounded-card border-thin bg-surface p-5 shadow-card">
+      <div className="animate-rise mb-8 rounded-card border bg-surface p-5 shadow-card">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-[15px] font-bold text-ink">Edit collection</h2>
+          <h2 className="text-sm font-semibold text-ink">Edit collection</h2>
           <button
             type="button"
             onClick={() => setIsEditing(false)}
@@ -69,24 +69,22 @@ export function CollectionDetailHeader({
   return (
     <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <div className="mb-2.5 flex items-center gap-2">
+        <div className="mb-2 flex items-center gap-2">
           <span
             aria-hidden="true"
             className="h-1.5 w-1.5 shrink-0 rounded-full"
             style={{ backgroundColor: color || 'var(--faint)' }}
           />
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-faint">
+          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
             {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
           </p>
         </div>
-        <h1 className="font-title text-[32px] font-extrabold leading-[1.1] tracking-[-0.035em] text-ink sm:text-[38px]">
-          {name}
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{name}</h1>
         {description && (
-          <p className="mt-2.5 max-w-xl text-[15px] leading-6 text-muted">{description}</p>
+          <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">{description}</p>
         )}
         {error && (
-          <p className="mt-2.5 flex items-center gap-1.5 text-[13px] text-red-600">
+          <p className="mt-2.5 flex items-center gap-1.5 text-[13px] text-danger">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
             {error}
           </p>
@@ -106,7 +104,7 @@ export function CollectionDetailHeader({
         <Button
           variant="ghost"
           size="sm"
-          className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
+          className="gap-1.5 text-danger hover:bg-danger-soft hover:text-danger disabled:opacity-40"
           onClick={remove}
           disabled={isDeleting || entryCount > 0}
           title={entryCount > 0 ? 'Move or delete its entries first' : 'Delete collection'}

@@ -6,8 +6,9 @@ import { MobileBar } from './MobileBar';
 import { BottomNav } from './BottomNav';
 
 /**
- * The app frame: one rounded container floating on the backdrop, holding the rail and a
- * single scrolling content region. The entry moment (`/login`) is full-bleed — no chrome.
+ * The app frame: a canvas-tinted rail beside a white content region. The window
+ * never scrolls — <main> is the scroll container. The entry moment (`/login`)
+ * is full-bleed, no chrome.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,12 +16,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (pathname.startsWith('/login')) return <>{children}</>;
 
   return (
-    <div className="fixed inset-0 flex overflow-hidden border-thin bg-surface md:inset-[var(--frame-inset)] md:rounded-[var(--frame-radius)] md:shadow-frame">
+    <div className="flex h-full">
       <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col bg-surface">
         <MobileBar />
-        {/* Canvas tint here, white cards above it — the rail stays white so the two read apart. */}
-        <main className="scroll-region min-h-0 flex-1 bg-canvas">{children}</main>
+        <main className="scroll-region min-h-0 flex-1">{children}</main>
         <BottomNav />
       </div>
     </div>
