@@ -29,6 +29,8 @@ export function slugify(text: string): string {
  */
 export function cleanTitle(text: string): string {
   return text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // [text](url) links — keep the text
+    .replace(/¶/g, '') // pilcrows left by heading anchors
     .replace(/`/g, '') // inline code backticks
     .replace(/\*\*/g, '') // **bold** markers
     .replace(/^#{1,6}\s+/, '') // leading heading hashes
