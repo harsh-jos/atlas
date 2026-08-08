@@ -7,7 +7,9 @@ import ForceGraph2D, {
   type LinkObject,
   type NodeObject,
 } from 'react-force-graph-2d';
+import { forceCollide } from 'd3-force-3d';
 import { ArrowUpRight, Maximize2, Minus, Plus, Search, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { Graph, GraphLink as ApiGraphLink, GraphNode as ApiGraphNode } from '@/lib/api-types';
 import { RELATION_INCOMING_LABELS, RELATION_OUTGOING_LABELS } from '@/lib/relations';
 
@@ -19,24 +21,42 @@ export interface KnowledgeGraphProps {
   data: Graph;
 }
 
-// A single, deliberately light palette — Obsidian's graph in a bright room, never a dark one.
-// Canvas can't read CSS variables, so these mirror the tokens in globals.css.
+// Canvas can't read CSS variables, so this palette mirrors the tokens in globals.css.
 const BACKGROUND = '#fafafa'; // --canvas
+const GRID_DOT = 'rgba(0, 0, 0, 0.05)';
+const NODE_HALO = '#fafafa'; // gap that lifts a node off crossing links — matches BACKGROUND
 const LABEL_INK = '#666666'; // --muted
 const LABEL_INK_FOCUS = '#171717'; // --ink
-const LINK_BASE = 'rgba(115, 115, 115, 0.28)';
-const LINK_ACTIVE = 'rgba(37, 99, 235, 0.75)'; // --accent
-const LINK_DIM = 'rgba(115, 115, 115, 0.08)';
+const LABEL_HALO = 'rgba(250, 250, 250, 0.92)'; // keeps text crisp over edges
+const LINK_BASE = 'rgba(115, 115, 115, 0.25)';
+const LINK_ACTIVE = 'rgba(37, 99, 235, 0.7)'; // --accent
+const LINK_DIM = 'rgba(115, 115, 115, 0.06)';
 const RING = 'rgba(37, 99, 235, 0.95)'; // --accent
-const NODE_HALO = '#fafafa'; // thin gap that lifts a node off crossing links — matches BACKGROUND
-const DIM_ALPHA = 0.16; // how faint an out-of-focus node goes on hover (never invisible)
-const LABEL_ZOOM = 1.15; // labels fade in once the reader has zoomed in past this
-const LABEL_FONT = 12; // px at zoom 1, kept constant on screen by dividing by scale
+const GLOW = 'rgba(37, 99, 235, 0.3)'; // soft halo under the focused node
+const DIM_ALPHA = 0.12; // out-of-focus nodes on hover or collection focus — faint, never gone
+
+const HUB_LABELS = 8; // the N most-connected nodes keep their labels at any zoom
+const LABEL_FADE_START = 1.05; // zoom where every label starts fading in…
+const LABEL_FADE_END = 1.6; // …and where it reaches full strength
+const LABEL_FONT = 11.5; // px on screen, constant across zoom
+const LABEL_MAX_CHARS = 36;
+
+const GRID_SPACING = 36; // graph units between ground dots
+const GRID_MIN_PX = 18; // spacing doubles until dots sit at least this far apart on screen
 
 function resolveId(end: GraphLink['source']): string {
   return typeof end === 'object' && end !== null ? String((end as GraphNode).id) : String(end);
 }
 
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+/**
+ * The knowledge graph as a spatial surface: a dotted ground that pans and zooms
+ * with the graph, collection-colored nodes sized by connectedness, and labels
+ * that come to you — hubs always, everything else as you zoom or hover.
+ */
 export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const graphRef = React.useRef<GraphMethods | undefined>(undefined);
@@ -44,6 +64,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
   const [dimensions, setDimensions] = React.useState({ width: 800, height: 600 });
   const [hoverId, setHoverId] = React.useState<string | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [focusedConcept, setFocusedConcept] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState('');
 
   // The engine mutates x/y onto these node objects in place, so they must be copies the parent
@@ -59,7 +80,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     return map;
   }, [data.nodes]);
 
-  // Degree drives node size; adjacency drives the hover neighbourhood highlight.
+  // Degree drives node size and hub labels; adjacency drives the hover neighbourhood.
   const { adjacency, degree } = React.useMemo(() => {
     const adj = new Map<string, Set<string>>();
     const deg = new Map<string, number>();
@@ -76,6 +97,21 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     }
     return { adjacency: adj, degree: deg };
   }, [data.links]);
+
+  const hubIds = React.useMemo(() => {
+    const ranked = [...degree.entries()].sort((a, b) => b[1] - a[1]);
+    return new Set(ranked.slice(0, HUB_LABELS).map(([id]) => id));
+  }, [degree]);
+
+  const legend = React.useMemo(() => {
+    const counts = new Map<string, { color: string; count: number }>();
+    for (const node of data.nodes) {
+      const entry = counts.get(node.conceptName);
+      if (entry) entry.count += 1;
+      else counts.set(node.conceptName, { color: node.conceptColor, count: 1 });
+    }
+    return [...counts.entries()].map(([name, { color, count }]) => ({ name, color, count }));
+  }, [data.nodes]);
 
   const radiusFor = React.useCallback(
     (id: string) => Math.min(11, 3.5 + Math.sqrt(degree.get(id) ?? 0) * 1.5),
@@ -97,16 +133,20 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     return () => observer.disconnect();
   }, []);
 
-  // A calm, roomy layout: nodes repel, links pull to a short, even distance.
+  // A calm, roomy layout: nodes repel, links pull short and even, and a collision
+  // radius keeps circles (and their labels) from piling onto each other.
   React.useEffect(() => {
     const graph = graphRef.current;
     if (!graph) return;
-    graph.d3Force('charge')?.strength(-95);
-    graph.d3Force('link')?.distance(46);
-  }, [graphData]);
+    graph.d3Force('charge')?.strength(-110);
+    graph.d3Force('link')?.distance(50);
+    graph.d3Force(
+      'collide',
+      forceCollide((node) => radiusFor(String(node.id)) + 4)
+    );
+  }, [graphData, radiusFor]);
 
-  // Frame the whole graph once, when it first settles. Zoom is the reader's after that — nothing
-  // ever moves the camera on its own again.
+  // Frame the whole graph once, when it first settles. The camera is the reader's after that.
   const hasFramed = React.useRef(false);
   const handleEngineStop = React.useCallback(() => {
     if (hasFramed.current) return;
@@ -116,25 +156,54 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
   const neighbors = hoverId ? adjacency.get(hoverId) : undefined;
 
-  const linkActive = React.useCallback(
-    (link: GraphLink) =>
-      hoverId != null && (resolveId(link.source) === hoverId || resolveId(link.target) === hoverId),
-    [hoverId]
+  const isConceptDimmed = React.useCallback(
+    (conceptName: string) => focusedConcept != null && conceptName !== focusedConcept,
+    [focusedConcept]
   );
 
-  // Canvas accessors are rendering-only in 2D (no persistent scene objects, no engine reheat),
-  // so reading hover/selection straight from state here is safe and just repaints.
+  // The ground: a dot field fixed in graph space, so it pans and zooms with the
+  // graph and the surface reads as a place rather than a picture. Spacing doubles
+  // as you zoom out so the field stays airy at every distance.
+  const paintGrid = React.useCallback(
+    (ctx: CanvasRenderingContext2D, scale: number) => {
+      const graph = graphRef.current;
+      if (!graph) return;
+      let spacing = GRID_SPACING;
+      while (spacing * scale < GRID_MIN_PX) spacing *= 2;
+      const topLeft = graph.screen2GraphCoords(0, 0);
+      const bottomRight = graph.screen2GraphCoords(dimensions.width, dimensions.height);
+      const r = 0.9 / scale; // ~1px on screen at any zoom
+      const x0 = Math.floor(topLeft.x / spacing) * spacing;
+      const y0 = Math.floor(topLeft.y / spacing) * spacing;
+      ctx.fillStyle = GRID_DOT;
+      for (let x = x0; x <= bottomRight.x + spacing; x += spacing) {
+        for (let y = y0; y <= bottomRight.y + spacing; y += spacing) {
+          ctx.fillRect(x - r, y - r, r * 2, r * 2);
+        }
+      }
+    },
+    [dimensions]
+  );
+
+  // Canvas accessors are rendering-only in 2D (no persistent scene objects, no engine
+  // reheat), so reading hover/selection straight from state here is safe and just repaints.
   const paintNode = React.useCallback(
     (node: GraphNode, ctx: CanvasRenderingContext2D, scale: number) => {
       if (node.x == null || node.y == null) return;
       const id = String(node.id);
       const r = radiusFor(id);
       const focused = id === hoverId || id === selectedId;
-      const inFocus = hoverId == null || focused || (neighbors?.has(id) ?? false);
+      const inHoverFocus = hoverId == null || focused || (neighbors?.has(id) ?? false);
+      const dimmed = !inHoverFocus || isConceptDimmed(node.conceptName);
 
-      ctx.globalAlpha = inFocus ? 1 : DIM_ALPHA;
+      ctx.globalAlpha = dimmed ? DIM_ALPHA : 1;
 
-      // A thin background-coloured halo, then the filled circle — Obsidian's clean node look.
+      if (focused) {
+        ctx.shadowColor = GLOW;
+        ctx.shadowBlur = 14;
+      }
+
+      // A thin background-coloured halo, then the filled circle — the clean node look.
       ctx.beginPath();
       ctx.arc(node.x, node.y, r + 0.7, 0, 2 * Math.PI);
       ctx.fillStyle = NODE_HALO;
@@ -144,6 +213,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
       ctx.fillStyle = node.conceptColor;
       ctx.fill();
+      ctx.shadowBlur = 0;
 
       if (focused) {
         ctx.lineWidth = 1.6 / scale;
@@ -151,19 +221,32 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         ctx.stroke();
       }
 
-      const showLabel = focused || scale > LABEL_ZOOM || (hoverId != null && inFocus);
-      if (showLabel) {
+      // Labels come to you: hubs always, neighbours on hover, everything as you zoom in.
+      let alpha = Math.min(
+        1,
+        Math.max(0, (scale - LABEL_FADE_START) / (LABEL_FADE_END - LABEL_FADE_START))
+      );
+      if (focused || (hoverId != null && inHoverFocus)) alpha = 1;
+      else if (hubIds.has(id)) alpha = Math.max(alpha, 0.9);
+
+      if (alpha > 0.02 && !dimmed) {
         const fontSize = LABEL_FONT / scale;
-        ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+        ctx.font = `500 ${fontSize}px Inter, system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
+        ctx.globalAlpha = alpha;
+        const label = truncate(node.title, LABEL_MAX_CHARS);
+        const y = node.y + r + 3 / scale;
+        ctx.lineWidth = 3 / scale;
+        ctx.strokeStyle = LABEL_HALO;
+        ctx.strokeText(label, node.x, y);
         ctx.fillStyle = focused ? LABEL_INK_FOCUS : LABEL_INK;
-        ctx.fillText(node.title, node.x, node.y + r + 2 / scale);
+        ctx.fillText(label, node.x, y);
       }
 
       ctx.globalAlpha = 1;
     },
-    [radiusFor, hoverId, selectedId, neighbors]
+    [radiusFor, hoverId, selectedId, neighbors, hubIds, isConceptDimmed]
   );
 
   // The clickable/hoverable area matches the drawn circle (plus a small forgiving margin).
@@ -178,12 +261,24 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     [radiusFor]
   );
 
+  const linkActive = React.useCallback(
+    (link: GraphLink) =>
+      hoverId != null && (resolveId(link.source) === hoverId || resolveId(link.target) === hoverId),
+    [hoverId]
+  );
+
   const linkColor = React.useCallback(
     (link: GraphLink) => {
+      if (focusedConcept != null) {
+        const s = nodeById.get(resolveId(link.source));
+        const t = nodeById.get(resolveId(link.target));
+        if (s?.conceptName !== focusedConcept && t?.conceptName !== focusedConcept)
+          return LINK_DIM;
+      }
       if (hoverId == null) return LINK_BASE;
       return linkActive(link) ? LINK_ACTIVE : LINK_DIM;
     },
-    [hoverId, linkActive]
+    [hoverId, linkActive, focusedConcept, nodeById]
   );
 
   const linkWidth = React.useCallback(
@@ -220,7 +315,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     if (hit) focusById(hit.id);
   };
 
-  const selectedNode = selectedId ? nodeById.get(selectedId) ?? null : null;
+  const selectedNode = selectedId ? (nodeById.get(selectedId) ?? null) : null;
 
   const selectedRelations = React.useMemo(() => {
     if (!selectedId) return [] as Array<{ label: string; items: ApiGraphNode[] }>;
@@ -243,24 +338,21 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     return [...groups.entries()].map(([label, items]) => ({ label, items }));
   }, [selectedId, data.links, nodeById]);
 
-  const legend = React.useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const node of data.nodes) {
-      if (!seen.has(node.conceptName)) seen.set(node.conceptName, node.conceptColor);
-    }
-    return [...seen.entries()].map(([name, color]) => ({ name, color }));
-  }, [data.nodes]);
-
-  const panel = 'rounded-[12px] border bg-surface/85 shadow-card backdrop-blur-md';
+  const glass = 'rounded-card border bg-surface/90 shadow-card backdrop-blur-md';
 
   return (
-    <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-canvas">
+    <div
+      ref={containerRef}
+      className="relative h-full w-full overflow-hidden bg-canvas"
+      style={{ cursor: hoverId ? 'pointer' : 'default' }}
+    >
       <ForceGraph2D<ApiGraphNode, ApiGraphLink>
         ref={graphRef}
         graphData={graphData}
         width={dimensions.width}
         height={dimensions.height}
         backgroundColor={BACKGROUND}
+        onRenderFramePre={paintGrid}
         nodeRelSize={4}
         nodeCanvasObjectMode={() => 'replace'}
         nodeCanvasObject={paintNode}
@@ -276,51 +368,68 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
       {/* Top-left: title + search */}
       <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-2">
-        <div className={`pointer-events-auto px-3.5 py-2 ${panel}`}>
-          <h1 className="text-sm font-semibold leading-none tracking-[-0.01em] text-ink">
-            Graph
-          </h1>
+        <div className={`pointer-events-auto px-3.5 py-2 ${glass}`}>
+          <h1 className="text-sm font-semibold leading-none tracking-[-0.01em] text-ink">Graph</h1>
           <p className="mt-1 text-[12px] leading-none text-faint">
             {data.nodes.length} entries · {data.links.length} relations
           </p>
         </div>
 
-        <form onSubmit={handleSearchSubmit} className={`pointer-events-auto relative ${panel}`}>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
+        <form
+          onSubmit={handleSearchSubmit}
+          className={`pointer-events-auto relative ${glass} !rounded-full`}
+        >
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
           <input
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Find an entry"
-            className="h-9 w-44 rounded-[12px] bg-transparent pl-9 pr-3 text-[13px] text-ink placeholder:text-faint focus:outline-none lg:w-56"
+            className="h-9 w-44 rounded-full bg-transparent pl-9 pr-4 text-[13px] text-ink placeholder:text-faint focus:outline-none lg:w-56"
           />
         </form>
       </div>
 
-      {/* Bottom-left: the legend only. Controls live on the right edge, away from the
-          navigation rail this corner sits against. */}
+      {/* Bottom-left: the legend, and a quiet filter — click a collection to spotlight it. */}
       {legend.length > 0 && (
-        <div className={`absolute bottom-3 left-3 px-3 py-2.5 ${panel}`}>
-          <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-faint">
+        <div className={`absolute bottom-3 left-3 px-2 py-2 ${glass}`}>
+          <p className="mb-1 px-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-faint">
             Collections
           </p>
-          <ul className="flex flex-col gap-1">
-            {legend.map((item) => (
-              <li key={item.name} className="flex items-center gap-2 text-[12px] text-muted">
-                <span
-                  aria-hidden="true"
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="truncate">{item.name}</span>
-              </li>
-            ))}
+          <ul className="flex flex-col">
+            {legend.map((item) => {
+              const active = focusedConcept === item.name;
+              return (
+                <li key={item.name}>
+                  <button
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setFocusedConcept(active ? null : item.name)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-[7px] px-1.5 py-1 text-left text-[12px] transition-colors duration-[var(--dur-fast)]',
+                      active ? 'bg-surface-soft text-ink' : 'text-muted hover:text-ink',
+                      focusedConcept != null && !active && 'opacity-50'
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="max-w-[11rem] truncate">{item.name}</span>
+                    <span className="ml-auto pl-2 font-mono text-[10px] tabular-nums text-faint">
+                      {item.count}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
 
-      {/* Bottom-right: zoom controls, above whatever the page stacks below them. */}
-      <div className={`absolute bottom-3 right-3 flex items-center gap-1 p-1 ${panel}`}>
+      {/* Bottom-right: zoom cluster */}
+      <div className={`absolute bottom-3 right-3 flex items-center gap-0.5 p-1 ${glass} !rounded-full`}>
         <ControlButton label="Zoom in" onClick={() => zoomBy(1.35)}>
           <Plus className="h-4 w-4" />
         </ControlButton>
@@ -332,10 +441,10 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         </ControlButton>
       </div>
 
-      {/* Right: detail panel */}
+      {/* Right: inspector */}
       {selectedNode && (
         <aside
-          className={`absolute inset-x-3 bottom-3 max-h-[55%] overflow-auto p-4 shadow-card-hover sm:inset-x-auto sm:bottom-auto sm:right-3 sm:top-3 sm:max-h-[calc(100%-1.5rem)] sm:w-[340px] ${panel}`}
+          className={`absolute inset-x-3 bottom-3 max-h-[55%] overflow-auto p-4 !shadow-pop sm:inset-x-auto sm:bottom-auto sm:right-3 sm:top-3 sm:max-h-[calc(100%-1.5rem)] sm:w-[340px] ${glass}`}
         >
           <button
             type="button"
@@ -352,7 +461,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ backgroundColor: selectedNode.conceptColor }}
             />
-            <span className="truncate font-mono text-[11px] uppercase tracking-[0.1em] text-faint">
+            <span className="truncate font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
               {selectedNode.conceptName}
             </span>
           </div>
@@ -369,7 +478,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
             <div className="mt-4 space-y-3 border-t pt-4">
               {selectedRelations.map((group) => (
                 <div key={group.label}>
-                  <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-faint">
+                  <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-faint">
                     {group.label}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -378,7 +487,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
                         key={item.id}
                         type="button"
                         onClick={() => focusById(item.id)}
-                        className="max-w-full truncate rounded-full border bg-surface px-2.5 py-1 text-[12px] text-ink transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
+                        className="max-w-full truncate rounded-full border bg-surface px-2.5 py-1 text-[12px] text-ink transition-colors hover:border-accent-line hover:bg-accent-soft hover:text-accent"
                       >
                         {item.title}
                       </button>
@@ -391,7 +500,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
           <Link
             href={`/entries/${selectedNode.slug}`}
-            className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-accent transition-colors hover:text-ink"
+            className="focus-ring mt-4 flex h-8 items-center justify-center gap-1.5 rounded-full border bg-surface text-[13px] font-medium text-ink transition-colors hover:bg-surface-soft"
           >
             Open entry
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -417,7 +526,7 @@ function ControlButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-soft hover:text-ink"
+      className="rounded-full p-2 text-muted transition-colors hover:bg-surface-soft hover:text-ink"
     >
       {children}
     </button>

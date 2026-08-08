@@ -18,11 +18,3 @@ export const RELATION_INCOMING_LABELS: Partial<Record<RelationType, string>> = {
   CONTRASTS: 'Contrasts with',
 };
 
-// Edge colors in the knowledge graph, one per relation type.
-export const RELATION_COLORS: Record<RelationType, string> = {
-  PART_OF: '#71717a',
-  USES: '#2563eb',
-  PREREQUISITE: '#16a34a',
-  CONTRASTS: '#b45309',
-  SEE_ALSO: '#8b5cf6',
-};
