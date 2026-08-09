@@ -1,19 +1,7 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, Inter, Geist_Mono, Geist } from 'next/font/google';
+import { Inter, Geist_Mono } from 'next/font/google';
 import { AppShell } from '@/components/layout/AppShell';
 import './globals.css';
-
-// Voices: Geist = titles/display (globals.css --title); system Helvetica/Arial = reading body
-// (--reading); Inter = UI default; Plus Jakarta Sans = UI chrome; Geist Mono = code.
-const title = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const display = Plus_Jakarta_Sans({
-  variable: '--font-plus-jakarta',
-  subsets: ['latin'],
-});
 
 const sans = Inter({
   variable: '--font-inter',
@@ -36,11 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${title.variable} ${display.variable} ${sans.variable} ${mono.variable} h-full antialiased`}
-    >
-      <body className="h-full overflow-hidden text-body font-sans">
+    <html lang="en" className={`${sans.variable} ${mono.variable} h-full antialiased`}>
+      <body className="h-full overflow-hidden font-sans text-ink">
         <AppShell>{children}</AppShell>
       </body>
     </html>

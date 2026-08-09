@@ -12,8 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // The import pipeline is a separate Python service — not part of the JS lint surface.
+    // The import pipeline and backend are separate Python services — not part of the JS
+    // lint surface (backend/.venv vendors thousands of minified JS files).
     "import-pipeline/**",
+    "backend/**",
   ]),
 ]);
 

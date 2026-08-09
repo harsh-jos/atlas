@@ -55,14 +55,14 @@ export function EntryRelationEditor({
       {relations.length > 0 ? (
         <div className="grid gap-3">
           {relations.map((relation, index) => (
-            <div key={index} className="rounded-xl border-thin bg-surface p-3">
+            <div key={index} className="rounded-card border bg-surface p-3">
               <div className="grid gap-3 sm:grid-cols-[160px_1fr_auto]">
                 <select
                   value={relation.relationType}
                   onChange={(event) =>
                     updateRelation(index, { relationType: event.target.value as RelationType })
                   }
-                  className="focus-ring h-9 rounded-lg border-thin bg-surface px-2 text-xs text-ink transition-colors hover:border-hairline-strong"
+                  className="focus-ring h-9 rounded-field border bg-surface px-2 text-xs text-ink transition-colors hover:border-hairline-strong"
                 >
                   {relationTypes.map((relationType) => (
                     <option key={relationType} value={relationType}>
@@ -86,7 +86,7 @@ export function EntryRelationEditor({
                 <button
                   type="button"
                   onClick={() => onChange(relations.filter((_, at) => at !== index))}
-                  className="focus-ring rounded-md p-2 text-faint transition-colors hover:bg-black/[0.04] hover:text-ink"
+                  className="focus-ring rounded-md p-2 text-faint transition-colors hover:bg-surface-soft hover:text-ink"
                   aria-label="Remove relation"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -102,7 +102,7 @@ export function EntryRelationEditor({
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border-thin bg-surface p-4">
+        <div className="rounded-card border bg-surface p-4">
           <p className="text-sm text-muted">No outgoing relations yet.</p>
         </div>
       )}

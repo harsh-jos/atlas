@@ -8,9 +8,9 @@ export default function Loading() {
       <Skeleton className="h-[10.5px] w-16" />
       <Skeleton className="mt-2.5 h-9 w-72" />
 
-      <Skeleton className="mt-6 h-14 w-full rounded-2xl" />
+      <Skeleton className="mt-6 h-12 w-full rounded-full" />
 
-      <div className="mt-8 overflow-hidden rounded-card border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
+      <div className="mt-8 overflow-hidden rounded-card border bg-surface shadow-card divide-y divide-[var(--hairline)]">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="p-5">
             <Skeleton className="h-3.5 w-28" />

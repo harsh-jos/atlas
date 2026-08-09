@@ -38,14 +38,14 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
       <ReadingProgressBar />
 
       <div className="mx-auto max-w-[43rem] px-5 py-12 sm:px-8">
-        <article className="font-reading">
+        <article className="">
           <header className="mb-8">
             {/* One statement of where you are, and it navigates — the eyebrow does the
                 breadcrumb's job without saying the concept twice. */}
             <div className="mb-3 flex items-baseline justify-between gap-4">
               <Link
                 href={`/collections/${artifact.concept.slug}`}
-                className="focus-ring truncate rounded-sm font-mono text-[10.5px] uppercase tracking-[0.16em] text-faint transition-colors hover:text-ink"
+                className="focus-ring truncate rounded-sm font-mono text-[11px] uppercase tracking-[0.08em] text-faint transition-colors hover:text-ink"
               >
                 {artifact.concept.name}
               </Link>
@@ -56,7 +56,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
                 Edit
               </Link>
             </div>
-            <h1 className="font-title text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink sm:text-[38px] sm:leading-[1.08]">
+            <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.02em] text-ink sm:text-[32px]">
               {cleanTitle(artifact.title)}
             </h1>
             <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-faint">
@@ -96,7 +96,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
           </div>
 
           {hasEndMatter && (
-            <footer className="mt-16 space-y-11 border-t-thin pt-10">
+            <footer className="mt-16 space-y-11 border-t pt-10">
               <EntrySources sources={artifact.sources} />
               <EntryRelations outgoing={artifact.relationsFrom} incoming={artifact.relationsTo} />
               <EntryTags tags={artifact.tags} />

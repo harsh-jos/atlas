@@ -11,7 +11,7 @@ export function EntrySummary({ summary }: EntrySummaryProps) {
   if (!text) return null;
 
   return (
-    <p className="border-l-[3px] border-hairline-strong pl-4 text-[19px] leading-[1.6] text-muted">
+    <p className="border-l-2 border-hairline-strong pl-4 text-[18px] leading-[1.65] text-muted">
       {text}
     </p>
   );
