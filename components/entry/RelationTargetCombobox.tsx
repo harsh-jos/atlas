@@ -85,7 +85,7 @@ export function RelationTargetCombobox({
               }
             }}
             placeholder="Search entries…"
-            className="focus-ring h-9 w-full rounded-lg border-thin bg-surface pl-8 pr-2 text-xs text-ink"
+            className="focus-ring h-9 w-full rounded-field border bg-surface pl-8 pr-2 text-xs text-ink"
           />
         </div>
       ) : (
@@ -97,7 +97,7 @@ export function RelationTargetCombobox({
             setLoading(true);
             setOpen(true);
           }}
-          className="focus-ring flex h-9 w-full items-center justify-between gap-2 rounded-lg border-thin bg-surface px-2.5 text-xs text-ink transition-colors hover:border-hairline-strong hover:bg-surface-soft"
+          className="focus-ring flex h-9 w-full items-center justify-between gap-2 rounded-field border bg-surface px-2.5 text-xs text-ink transition-colors hover:border-hairline-strong hover:bg-surface-soft"
         >
           <span className="flex min-w-0 items-center gap-2">
             {value.toSlug && (
@@ -116,7 +116,7 @@ export function RelationTargetCombobox({
       )}
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-lg border-thin bg-surface py-1 shadow-card-hover">
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-field border bg-surface py-1 shadow-pop">
           {loading ? (
             <p className="px-3 py-2 text-xs text-faint">Searching…</p>
           ) : results.length === 0 ? (

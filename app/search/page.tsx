@@ -42,7 +42,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             description="Search across entry titles, summaries, and body content."
           />
         ) : results.length > 0 ? (
-          <ul className="overflow-hidden rounded-card border-thin bg-surface shadow-card divide-y divide-[var(--hairline)]">
+          <ul className="overflow-hidden rounded-card border bg-surface shadow-card divide-y">
             {results.map((result) => (
               <li key={result.slug}>
                 <Link
@@ -57,7 +57,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     />
                     {result.concept}
                   </span>
-                  <h2 className="mt-2 font-display text-[16px] font-semibold tracking-[-0.02em] text-ink">
+                  <h2 className="mt-2 text-[15px] font-semibold tracking-[-0.01em] text-ink">
                     {highlightMatch(cleanTitle(result.title), query)}
                   </h2>
                   {(result.excerpt || result.summary) && (

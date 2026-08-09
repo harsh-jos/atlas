@@ -131,7 +131,7 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
             {pending && <ThinkingIndicator activity={activity} />}
 
             {error && (
-              <p role="alert" className="text-[13px] text-red-600">
+              <p role="alert" className="text-[13px] text-danger">
                 {error}
               </p>
             )}
@@ -149,7 +149,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   if (role === 'you') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[75%] whitespace-pre-wrap rounded-card bg-surface-soft px-4 py-2.5 text-[15px] leading-relaxed text-ink shadow-raise">
+        <div className="max-w-[75%] whitespace-pre-wrap rounded-card bg-surface-soft px-4 py-2.5 text-[15px] leading-relaxed text-ink">
           {text}
         </div>
       </div>
@@ -161,7 +161,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-ink font-mono text-[9.5px] font-semibold text-white">
         A
       </span>
-      <p className="min-w-0 flex-1 whitespace-pre-wrap text-[15.5px] leading-[1.75] text-body">
+      <p className="min-w-0 flex-1 whitespace-pre-wrap text-[15px] leading-[1.7] text-ink">
         {text}
       </p>
     </div>
@@ -203,11 +203,11 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
       <div className="animate-rise relative max-w-lg">
         <div className="mb-3 flex items-center justify-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-accent">
+          <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-accent">
             New session
           </span>
         </div>
-        <h1 className="font-title text-[30px] font-extrabold leading-[1.15] tracking-[-0.03em] text-ink sm:text-[34px]">
+        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.02em] text-ink sm:text-[30px]">
           What are you curious about?
         </h1>
         <p className="mx-auto mt-3 max-w-sm text-[14.5px] leading-relaxed text-muted">
@@ -221,7 +221,7 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
               key={prompt}
               type="button"
               onClick={() => onPick(prompt)}
-              className="focus-ring rounded-card border-thin bg-surface px-4 py-3.5 text-left shadow-raise transition-all duration-[var(--dur-fast)] hover:-translate-y-0.5 hover:border-accent/30 hover:shadow-card"
+              className="focus-ring rounded-card border bg-surface px-4 py-3.5 text-left shadow-card transition-colors duration-[var(--dur-fast)] hover:bg-canvas"
             >
               <span className="text-[13.5px] leading-snug text-ink">{prompt}</span>
             </button>
@@ -248,7 +248,7 @@ function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
         onSubmit();
       }}
     >
-      <div className="flex items-end gap-2 rounded-card border-thin bg-surface p-2 pl-4 shadow-raise transition-shadow duration-[var(--dur-fast)] focus-within:border-accent/40 focus-within:shadow-card">
+      <div className="flex items-end gap-2 rounded-card border bg-surface p-2 pl-4 shadow-card transition-shadow duration-[var(--dur-fast)] focus-within:border-accent/40 focus-within:shadow-card">
         <textarea
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
@@ -264,7 +264,7 @@ function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
         />
         <div className="flex shrink-0 items-center gap-2.5 pb-1">
           <span className="hidden items-center gap-1 font-mono text-[11px] text-faint sm:flex">
-            <kbd className="rounded-[4px] border-thin bg-surface-soft px-1.5 py-0.5">⏎</kbd>
+            <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">⏎</kbd>
             to send
           </span>
           <Button

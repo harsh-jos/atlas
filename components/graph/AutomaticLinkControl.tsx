@@ -63,7 +63,7 @@ export function AutomaticLinkControl({ count }: AutomaticLinkControlProps) {
         </Button>
       )}
       {error && (
-        <span role="alert" className="text-[13px] text-red-600">
+        <span role="alert" className="text-[13px] text-danger">
           {error}
         </span>
       )}

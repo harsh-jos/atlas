@@ -2,80 +2,66 @@
 @import "katex/dist/katex.min.css";
 
 :root {
-  /* ClickUp-derived system, adapted for a calm reading home.
-     A single violet signature used sparingly; carbon for primary actions. */
+  /* Atlas tokens — the single source of truth. Light mode only.
+     Gray-first: color is the exception, and every value here is a decision.
+     Neutrals carry the interface; one blue accent means "interactive or ours";
+     carbon fills primary actions; three semantic tints carry state. */
 
-  /* Surfaces — soft cool-tinted canvas so pure-white cards float above it. */
-  --canvas: #f5f6fa;        /* page — faint cool tint, never stark white */
-  --surface: #ffffff;       /* cards — lifted off the canvas by shadow + tint */
-  --surface-soft: #eef0f6;  /* paper — inset panels, summary block, code */
-  --surface-band: #e6e9f1;  /* linen — alternating section bands */
+  /* Surfaces */
+  --canvas: #fafafa;       /* app ground: sidebar, wells behind content */
+  --surface: #ffffff;      /* content, cards, inputs */
+  --surface-soft: #f4f4f4; /* inset tints: hover rows, code, empty wells */
 
-  /* Text */
-  --ink: #090c1d;     /* midnight ink — headings + primary text */
-  --body: #090c1d;    /* reading body */
-  --muted: #646464;   /* slate — secondary text */
-  --faint: #7c828d;   /* steel — tertiary, timestamps */
+  /* Ink */
+  --ink: #171717;   /* headings + primary text */
+  --muted: #666666; /* secondary text */
+  --faint: #a3a3a3; /* placeholders, timestamps, disabled */
 
   /* Lines */
-  --hairline: #e8e8e8;        /* cloud — card borders */
-  --hairline-soft: #f0f0f2;
-  --hairline-strong: #d9d9d9; /* mist — dividers */
+  --hairline: #e8e8e8;        /* borders, dividers */
+  --hairline-strong: #d9d9d9; /* input borders needing a firmer edge */
 
-  /* Accent — brand violet (logo, links, active states, brand moments) */
-  --accent: #7b68ee;
-  --accent-hover: #6647f0;
-  --accent-soft: #efecfe;
+  /* Accent — one blue. Links, focus, active states. Never a button fill. */
+  --accent: #2563eb;
+  --accent-soft: #eff4ff;
+  --accent-line: #c7d9fb;
 
-  /* Action — neutral carbon (primary buttons trust neutral over chromatic) */
-  --action: #202023;
-  --action-hover: #090909;
+  /* Action — carbon. Primary buttons are black, not chromatic. */
+  --action: #171717;
+  --action-hover: #000000;
 
-  /* Semantic status — soft tinted pills only (green done, amber attention, blue in-progress). */
-  --success: #0f7a55;
-  --success-soft: #e6f5ee;
-  --success-line: #bfe3d3;
-  --warning: #96601c;
-  --warning-soft: #fdf3e2;
-  --warning-line: #f0dcb6;
-  --info: #2a55c9;
-  --info-soft: #eaefff;
-  --info-line: #ccd9f9;
+  /* Semantic state — text / soft tint / tint border. Pills and notices only. */
+  --success: #157347;
+  --success-soft: #ecf8f1;
+  --success-line: #c2e5d2;
+  --warning: #9a5b13;
+  --warning-soft: #fdf5e5;
+  --warning-line: #f0ddb4;
+  --danger: #d4302f;
+  --danger-soft: #fdf0ef;
+  --danger-line: #f6cbc9;
 
-  /* Shell geometry — one home for the app-frame numbers. */
-  --rail-width: 15.5rem;
-  --frame-inset: 0.625rem;
-  --frame-radius: 22px;
+  /* Geometry */
+  --rail-width: 15rem;
 
-  /* Motion — calm and premium; never bouncy. */
+  /* Motion — quick fades, nothing bouncy. */
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --dur-fast: 140ms;
-  --dur: 220ms;
-
-  /* Reading body face — system Helvetica/Arial. A plain, named property so a
-     future settings switcher can override it; --font-reading in @theme points here. */
-  --reading: "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
-
-  /* Title/display face — Geist. A plain, named property so a future settings switcher
-     can override it; --font-title in @theme points here. */
-  --title: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --dur-fast: 120ms;
+  --dur: 200ms;
 }
 
 @theme inline {
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-surface-soft: var(--surface-soft);
-  --color-surface-band: var(--surface-band);
   --color-ink: var(--ink);
-  --color-body: var(--body);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-hairline: var(--hairline);
-  --color-hairline-soft: var(--hairline-soft);
   --color-hairline-strong: var(--hairline-strong);
   --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-line: var(--accent-line);
   --color-action: var(--action);
   --color-action-hover: var(--action-hover);
   --color-success: var(--success);
@@ -84,34 +70,31 @@
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-warning-line: var(--warning-line);
-  --color-info: var(--info);
-  --color-info-soft: var(--info-soft);
-  --color-info-line: var(--info-line);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
 
-  /* One radius for content cards — keeps every card surface in step. */
-  --radius-card: 18px;
+  /* Radius steps: cards 12, inputs 10, buttons are pills. */
+  --radius-card: 12px;
+  --radius-field: 10px;
 
-  /* Voices — see app/layout.tsx. title = Geist (display/titles); reading = long-form body
-     (both swappable via plain properties for a future settings switcher);
-     display/sans = UI chrome; mono = code + technical labels. */
-  --font-title: var(--title);
-  --font-reading: var(--reading);
+  /* Two families total. Inter is the voice; mono is for code and micro-labels. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: var(--font-plus-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+@layer base {
+  /* Borders default to the hairline token, so `border` alone is correct. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--hairline);
+  }
+}
+
 body {
-  /* The backdrop sits *behind* the app frame, a shade deeper than the canvas so the
-     frame reads as a floating object. Faint violet aura = atmosphere, not decoration. */
-  background-color: #e9ebf2;
-  background-image: radial-gradient(
-    1100px 620px at 50% -10%,
-    rgba(123, 104, 238, 0.1),
-    transparent 70%
-  );
-  background-attachment: fixed;
-  color: var(--body);
+  background-color: var(--canvas);
+  color: var(--ink);
   font-family: var(--font-sans);
   font-weight: 400;
   letter-spacing: -0.011em;
@@ -124,52 +107,43 @@ body {
   color: #ffffff;
 }
 
-/* 1px hairline helpers, driven by the hairline token. */
-.border-thin {
-  border-width: 1px;
-  border-style: solid;
-  border-color: var(--hairline);
-}
-.border-t-thin {
-  border-top-width: 1px;
-  border-style: solid;
-  border-color: var(--hairline);
-}
-.border-b-thin {
-  border-bottom-width: 1px;
-  border-style: solid;
-  border-color: var(--hairline);
-}
-.border-l-thin {
-  border-left-width: 1px;
-  border-style: solid;
-  border-color: var(--hairline);
-}
-.border-r-thin {
-  border-right-width: 1px;
-  border-style: solid;
-  border-color: var(--hairline);
-}
-
-/* Layered, diffuse shadows so white cards float off the tinted canvas. */
+/* Elevation is rare. Cards are drawn with borders; shadow marks the few
+   things that truly float (menus, dialogs) plus a whisper under cards. */
 .shadow-card {
-  box-shadow:
-    rgba(13, 21, 48, 0.04) 0px 1px 2px 0px,
-    rgba(13, 21, 48, 0.05) 0px 5px 14px -4px,
-    rgba(13, 21, 48, 0.04) 0px 14px 34px -10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
-/* Hover lift carries a soft violet glow — the signature, doing brand work. */
 .shadow-card-hover {
   box-shadow:
-    rgba(13, 21, 48, 0.05) 0px 2px 4px 0px,
-    rgba(18, 43, 165, 0.1) 0px 14px 28px -8px,
-    rgba(123, 104, 238, 0.16) 0px 26px 52px -14px;
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.06);
 }
-.shadow-btn {
-  box-shadow: rgba(13, 21, 48, 0.04) 0px 4px 4px 0px;
+.shadow-pop {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 28px rgba(0, 0, 0, 0.1);
 }
 
-/* Scrollbar */
+/* One focus treatment everywhere. */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px rgba(37, 99, 235, 0.4);
+}
+
+/* Halftone dot ground — the one texture, for the graph and empty moments. */
+.dot-grid {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+/* Inner scroll regions: the window itself never scrolls. */
+.scroll-region {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -178,53 +152,17 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(9, 12, 29, 0.16);
+  background: rgba(0, 0, 0, 0.14);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(9, 12, 29, 0.28);
+  background: rgba(0, 0, 0, 0.26);
 }
 
 strong,
 b {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
-}
-
-/* The app frame — one big object floating on the backdrop (the reference gold standard). */
-.shadow-frame {
-  box-shadow:
-    rgba(13, 21, 48, 0.06) 0px 1px 2px 0px,
-    rgba(13, 21, 48, 0.08) 0px 12px 28px -12px,
-    rgba(13, 21, 48, 0.1) 0px 34px 64px -24px;
-}
-
-/* Inputs and quiet raised chips — the smallest step on the elevation scale. */
-.shadow-raise {
-  box-shadow:
-    rgba(13, 21, 48, 0.03) 0px 1px 1px 0px,
-    rgba(13, 21, 48, 0.04) 0px 2px 6px -2px;
-}
-
-/* One focus treatment across every interactive surface — accessibility you can see. */
-.focus-ring:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 4px rgba(123, 104, 238, 0.45);
-}
-
-/* Halftone dot ground — the restrained signature texture, for hero and empty moments. */
-.dot-grid {
-  background-image: radial-gradient(rgba(9, 12, 29, 0.11) 1px, transparent 1px);
-  background-size: 16px 16px;
-}
-
-/* Inner scroll regions: keep the frame's edges clean. */
-.scroll-region {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
 }
 
 @keyframes shimmer {
@@ -236,11 +174,11 @@ b {
   }
 }
 
-/* Content settles in rather than appearing — 1 gesture, ~1 frame of travel. */
+/* Content settles in rather than appearing. */
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;

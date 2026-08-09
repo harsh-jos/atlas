@@ -4,34 +4,32 @@ export const dynamic = 'force-dynamic';
 
 export default function LoginPage() {
   return (
-    <div className="flex h-screen overflow-y-auto bg-canvas">
-      <div className="relative hidden w-1/2 shrink-0 flex-col justify-between overflow-hidden bg-gradient-to-br from-[#241a5e] via-[#4b3aa8] to-accent px-12 py-10 lg:flex">
+    <div className="flex h-screen overflow-y-auto bg-surface">
+      <div className="relative hidden w-1/2 shrink-0 flex-col justify-between overflow-hidden bg-action px-12 py-10 lg:flex">
         <div
-          className="dot-grid pointer-events-none absolute inset-0 opacity-[0.18] [mask-image:radial-gradient(900px_640px_at_25%_15%,black,transparent_75%)]"
+          className="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:14px_14px] [mask-image:radial-gradient(900px_640px_at_25%_15%,black,transparent_75%)]"
           aria-hidden="true"
         />
         <div className="relative flex items-center gap-2.5">
           <span
-            className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-white/15 font-display text-[14px] font-bold text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-white/20 bg-white/10 text-[13px] font-semibold text-white"
             aria-hidden="true"
           >
             A
           </span>
-          <span className="font-display text-[17px] font-bold tracking-[-0.03em] text-white">
-            Atlas
-          </span>
+          <span className="text-[15px] font-semibold tracking-[-0.01em] text-white">Atlas</span>
         </div>
 
         <div className="relative max-w-sm">
-          <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55">
+          <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.08em] text-white/50">
             Your knowledge, kept
           </p>
-          <p className="font-title text-[30px] font-semibold leading-[1.25] tracking-[-0.02em] text-white">
+          <p className="text-[28px] font-semibold leading-[1.25] tracking-[-0.02em] text-white">
             Curiosity becomes a knowledge base you own.
           </p>
         </div>
 
-        <p className="relative text-[12.5px] text-white/45">
+        <p className="relative text-[13px] text-white/45">
           A research companion that reads with you — and keeps what matters.
         </p>
       </div>
@@ -40,21 +38,17 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="mb-3 flex items-center gap-2 lg:hidden">
             <span
-              className="flex h-7 w-7 items-center justify-center rounded-[9px] bg-accent font-display text-[13px] font-bold text-white"
+              className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-action text-[12px] font-semibold text-white"
               aria-hidden="true"
             >
               A
             </span>
-            <span className="font-display text-[15px] font-bold tracking-[-0.03em] text-ink">
-              Atlas
-            </span>
+            <span className="text-sm font-semibold tracking-[-0.01em] text-ink">Atlas</span>
           </div>
 
           <div className="mb-8">
-            <h1 className="font-title text-[30px] font-extrabold leading-tight tracking-[-0.03em] text-ink">
-              Sign in
-            </h1>
-            <p className="mt-2.5 text-[14px] leading-6 text-muted">
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">Sign in</h1>
+            <p className="mt-2 text-sm leading-6 text-muted">
               Your knowledge base is yours alone — everything here is scoped to your account.
             </p>
           </div>

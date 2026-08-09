@@ -30,7 +30,7 @@ export function EntryCard({
       <div className="flex-1 min-w-0">
         {/* Title row */}
         <div className="flex items-center gap-2 mb-1">
-          <span className="font-display text-[15px] font-semibold tracking-[-0.02em] text-ink truncate">
+          <span className="truncate text-sm font-medium tracking-[-0.01em] text-ink">
             {cleanTitle(title)}
           </span>
         </div>
