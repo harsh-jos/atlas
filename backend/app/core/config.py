@@ -102,6 +102,16 @@ class Settings(BaseSettings):
     meta_model: str = "Llama-4-Maverick-17B-128E-Instruct-FP8"
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_model: str = "llama3.1"
+    # OpenRouter: one key, any model on their roster; the default lets them route.
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "openrouter/auto"
+    # LiteLLM proxy: self-hosted, so enabling it means naming your deployment.
+    # The model must match one of the proxy's own aliases — there is no sane
+    # universal default, hence empty until configured.
+    litellm_base_url: str | None = None
+    litellm_api_key: str | None = None
+    litellm_model: str = ""
 
     # KB pipeline (app/kb_pipeline): docs URL -> learning knowledge base.
     kb_max_pages: int = 120

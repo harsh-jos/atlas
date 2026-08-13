@@ -22,13 +22,35 @@ def make_settings(**overrides) -> Settings:
 # --- factory gating ---------------------------------------------------------
 
 def test_providers_report_configuration():
-    settings = make_settings(deepseek_api_key="sk-x")
+    settings = make_settings(deepseek_api_key="sk-x", openrouter_api_key="sk-or")
     info = {p.id: p for p in available_providers(settings)}
-    assert set(info) == {"gemini", "deepseek", "meta", "ollama"}
+    assert set(info) == {"gemini", "deepseek", "meta", "ollama", "openrouter", "litellm"}
     assert info["deepseek"].configured is True
     assert info["gemini"].configured is False       # no vertex_project
     assert info["meta"].configured is False          # no key
     assert info["ollama"].configured is True         # local: always offered
+    assert info["openrouter"].configured is True
+    assert info["litellm"].configured is False       # no base_url named
+
+
+def test_openrouter_defaults_to_auto_routing():
+    settings = make_settings(openrouter_api_key="sk-or")
+    client = create_llm("openrouter", settings=settings)
+    assert client.provider == "openrouter"
+    assert client.model == "openrouter/auto"
+
+
+def test_litellm_requires_base_url_and_model():
+    with pytest.raises(ProviderNotConfigured):
+        create_llm("litellm", settings=make_settings())  # no deployment named
+    with_url = make_settings(litellm_base_url="http://localhost:4000")
+    with pytest.raises(ProviderNotConfigured):
+        create_llm("litellm", settings=with_url)  # deployment but no model alias
+    client = create_llm("litellm", model="team-gpt", settings=with_url)
+    assert client.model == "team-gpt"
+    assert create_llm("litellm", settings=make_settings(
+        litellm_base_url="http://localhost:4000", litellm_model="default-alias",
+    )).model == "default-alias"
 
 
 def test_create_llm_refuses_unconfigured_provider():
