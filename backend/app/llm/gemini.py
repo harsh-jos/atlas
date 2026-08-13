@@ -22,7 +22,17 @@ class GeminiClient:
         meta = getattr(response, "usage_metadata", None)
         if meta is not None:
             self.usage["input_tokens"] += meta.prompt_token_count or 0
-            self.usage["output_tokens"] += meta.candidates_token_count or 0
+            # Gemini 3.x thinks before answering; thought tokens are billed and
+            # drawn from max_output_tokens, so they belong in the accounting.
+            thoughts = getattr(meta, "thoughts_token_count", 0) or 0
+            self.usage["output_tokens"] += (meta.candidates_token_count or 0) + thoughts
+
+    @staticmethod
+    def _truncated(response) -> bool:
+        candidates = getattr(response, "candidates", None) or []
+        if not candidates:
+            return False
+        return "MAX_TOKENS" in str(getattr(candidates[0], "finish_reason", ""))
 
     def parse(
         self, *, system: str, user: str, schema: type[SchemaT], max_tokens: int = 8192
@@ -53,6 +63,12 @@ class GeminiClient:
             config={"system_instruction": system, "max_output_tokens": max_tokens},
         )
         self._track(response)
+        if self._truncated(response):
+            # a silently chopped article is worse than a failed one
+            raise LLMError(
+                "Gemini hit max_output_tokens mid-answer (thinking tokens count "
+                "against it) — retry with a larger max_tokens"
+            )
         if not response.text:
             raise LLMError("Gemini returned an empty response")
         return response.text
