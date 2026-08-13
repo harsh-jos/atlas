@@ -91,6 +91,35 @@ class Settings(BaseSettings):
     llm_max_entries: int = 60  # cost cap: only the largest N entries get an LLM summary
     llm_timeout: float = 30.0
 
+    # Pluggable LLM providers (app/llm). A provider is offered in the UI only when its
+    # credentials below are present; `llm_provider` names the default selection.
+    llm_provider: str = "gemini"
+    gemini_model: str = "gemini-3.6-flash"  # via Vertex; reuses vertex_project/location + ADC
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-chat"
+    meta_api_key: str | None = None
+    meta_base_url: str = "https://api.llama.com/compat/v1"
+    meta_model: str = "Llama-4-Maverick-17B-128E-Instruct-FP8"
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model: str = "llama3.1"
+    # OpenRouter: one key, any model on their roster; the default lets them route.
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "openrouter/auto"
+    # LiteLLM proxy: self-hosted, so enabling it means naming your deployment.
+    # The model must match one of the proxy's own aliases — there is no sane
+    # universal default, hence empty until configured.
+    litellm_base_url: str | None = None
+    litellm_api_key: str | None = None
+    litellm_model: str = ""
+
+    # KB pipeline (app/kb_pipeline): docs URL -> learning knowledge base.
+    kb_max_pages: int = 120
+    kb_max_articles: int = 10
+    kb_keep_threshold: int = 3  # minimum triage relevance (1-5) to keep a page
+    kb_crawl_delay: float = 0.3  # politeness gap between requests to one host
+    kb_llm_timeout: float = 240.0  # article generation is the long pole
+
 
 @lru_cache
 def get_settings() -> Settings:
