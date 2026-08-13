@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Library, Sparkles, Network, Search, Plus, LogOut } from 'lucide-react';
+import { Library, Sparkles, Hammer, Network, Search, Plus, LogOut } from 'lucide-react';
 import { signOut } from '@/app/login/actions';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-items';
 
-const ICONS = { Library, Sparkles, Network, Search } as const;
+const ICONS = { Library, Sparkles, Hammer, Network, Search } as const;
 
 /**
  * The persistent left rail: canvas-tinted, one carbon primary action, quiet rows.

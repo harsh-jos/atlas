@@ -162,3 +162,27 @@ export interface LinkReport {
   capped: boolean;
   edges: ProposedEdge[];
 }
+
+/** One selectable LLM backend; `configured` gates it in the Build form. */
+export interface LlmProvider {
+  id: string;
+  label: string;
+  configured: boolean;
+  defaultModel: string;
+  isDefault: boolean;
+}
+
+export interface KbBuildStarted {
+  id: string;
+}
+
+export type KbBuildState = 'running' | 'done' | 'error';
+
+export interface KbBuildStatus {
+  id: string;
+  url: string;
+  status: KbBuildState;
+  log: string[];
+  conceptSlug: string | null;
+  error: string | null;
+}
