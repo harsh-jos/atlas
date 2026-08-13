@@ -61,6 +61,21 @@ def _ollama(settings: Settings, model: str) -> LLMClient:
     )
 
 
+def _openrouter(settings: Settings, model: str) -> LLMClient:
+    return OpenAICompatClient(
+        provider="openrouter", base_url=settings.openrouter_base_url, model=model,
+        api_key=settings.openrouter_api_key, timeout=settings.kb_llm_timeout,
+    )
+
+
+def _litellm(settings: Settings, model: str) -> LLMClient:
+    assert settings.litellm_base_url is not None
+    return OpenAICompatClient(
+        provider="litellm", base_url=settings.litellm_base_url, model=model,
+        api_key=settings.litellm_api_key, timeout=settings.kb_llm_timeout,
+    )
+
+
 _REGISTRY: dict[str, _Provider] = {
     p.id: p
     for p in (
@@ -78,6 +93,12 @@ _REGISTRY: dict[str, _Provider] = {
         _Provider("ollama", "Ollama (local)",
                   lambda s: True,
                   lambda s: s.ollama_model, _ollama),
+        _Provider("openrouter", "OpenRouter",
+                  lambda s: s.openrouter_api_key is not None,
+                  lambda s: s.openrouter_model, _openrouter),
+        _Provider("litellm", "LiteLLM proxy",
+                  lambda s: s.litellm_base_url is not None,
+                  lambda s: s.litellm_model, _litellm),
     )
 }
 
@@ -112,4 +133,11 @@ def create_llm(
         raise ProviderNotConfigured(
             f"{spec.label} is not configured — set its credentials in the environment"
         )
-    return spec.build(settings, model or spec.default_model(settings))
+    resolved = model or spec.default_model(settings)
+    if not resolved:
+        # proxies (LiteLLM) expose deployment-specific aliases, so there is no
+        # default to fall back on — the caller must name one
+        raise ProviderNotConfigured(
+            f"{spec.label}: no model named — pass one, or set its default in the environment"
+        )
+    return spec.build(settings, resolved)
