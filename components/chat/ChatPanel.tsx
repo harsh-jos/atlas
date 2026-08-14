@@ -1,12 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Check, ChevronRight, Copy } from 'lucide-react';
 import { sendTurn, socketTicket } from '@/app/chat/actions';
-import { CurationCard } from '@/components/chat/CurationCard';
+import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
+import { CurationReceipt, type ReceiptData } from '@/components/chat/CurationReceipt';
+import { CurationReviewModal } from '@/components/chat/CurationReviewModal';
 import { Button } from '@/components/ui/Button';
 import type { ChatMessage } from '@/lib/api-types';
 
 const WS_URL = process.env.NEXT_PUBLIC_ATLAS_WS_URL ?? 'ws://localhost:8000/ws';
+const COPY_RESET_MS = 1500;
+const COMPOSER_MAX_HEIGHT = 160;
 
 /** What each tool call is called while the reader waits — the agent's work, made legible. */
 const TOOL_LABELS: Record<string, string> = {
@@ -26,7 +31,7 @@ const STARTER_PROMPTS = [
 
 type Entry =
   | { kind: 'message'; role: 'you' | 'atlas'; text: string }
-  | { kind: 'curation'; previewId: string };
+  | { kind: 'receipt'; receipt: ReceiptData };
 
 export interface ChatPanelProps {
   /** The session this chat continues — it lives in the URL so a reload reopens the conversation. */
@@ -43,7 +48,10 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const bottom = useRef<HTMLDivElement>(null);
+  const [pendingPreviewIds, setPendingPreviewIds] = useState<string[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const didMountRef = useRef(false);
 
   const say = useCallback(async (message: string) => {
     setError(null);
@@ -60,6 +68,33 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
     }
     setEntries((seen) => [...seen, { kind: 'message', role: 'atlas', text: result.value }]);
   }, [sessionId]);
+
+  /** A resolved review batch reports itself as a receipt, then the agent narrates what happens next. */
+  const resolveCuration = useCallback(async (note: string, receipt: ReceiptData) => {
+    setError(null);
+    setActivity([]);
+    setEntries((seen) => [...seen, { kind: 'receipt', receipt }]);
+    setPending(true);
+
+    const result = await sendTurn(sessionId, note);
+    setPending(false);
+    setActivity([]);
+    if (result.error !== undefined) {
+      setError(result.error);
+      return;
+    }
+    setEntries((seen) => [...seen, { kind: 'message', role: 'atlas', text: result.value }]);
+  }, [sessionId]);
+
+  const handleReviewDone = useCallback(
+    (note: string, receipt: ReceiptData, resolvedIds: string[]) => {
+      const remaining = pendingPreviewIds.filter((id) => !resolvedIds.includes(id));
+      setPendingPreviewIds(remaining);
+      if (remaining.length === 0) setReviewOpen(false);
+      if (resolvedIds.length > 0) void resolveCuration(note, receipt);
+    },
+    [pendingPreviewIds, resolveCuration]
+  );
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -81,11 +116,7 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
         }
         if (message.type === 'agent.preview' && message.previewId) {
           const previewId = message.previewId;
-          setEntries((seen) =>
-            seen.some((entry) => entry.kind === 'curation' && entry.previewId === previewId)
-              ? seen
-              : [...seen, { kind: 'curation', previewId }]
-          );
+          setPendingPreviewIds((seen) => (seen.includes(previewId) ? seen : [...seen, previewId]));
         }
       };
     })();
@@ -96,8 +127,12 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
     };
   }, []);
 
+  // Scrolls only this container — never the app-wide scroll region above it.
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: didMountRef.current ? 'smooth' : 'auto' });
+    didMountRef.current = true;
   }, [entries, activity]);
 
   const submit = useCallback(() => {
@@ -111,18 +146,14 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
 
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 sm:px-6">
-      <div className="scroll-region min-h-0 flex-1">
+      <div ref={scrollRef} className="scroll-region min-h-0 flex-1">
         {isEmpty ? (
           <EmptyState onPick={(prompt) => void say(prompt)} />
         ) : (
-          <div className="space-y-7 py-8">
+          <div className="space-y-6 pb-4 pt-6">
             {entries.map((entry, index) =>
-              entry.kind === 'curation' ? (
-                <CurationCard
-                  key={entry.previewId}
-                  previewId={entry.previewId}
-                  onResolved={(note) => void say(note)}
-                />
+              entry.kind === 'receipt' ? (
+                <CurationReceipt key={index} receipt={entry.receipt} />
               ) : (
                 <MessageRow key={index} role={entry.role} text={entry.text} />
               )
@@ -135,12 +166,39 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
                 {error}
               </p>
             )}
-            <div ref={bottom} />
           </div>
         )}
       </div>
 
+      {pendingPreviewIds.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setReviewOpen(true)}
+          className="focus-ring animate-rise mb-3 flex shrink-0 items-center justify-between gap-3 rounded-card border border-accent-line bg-accent-soft px-4 py-3 text-left transition-colors duration-[var(--dur-fast)] hover:bg-accent-soft/70"
+        >
+          <span className="flex items-center gap-2.5">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-white">
+              {pendingPreviewIds.length}
+            </span>
+            <span className="text-[13.5px] font-medium text-ink">
+              Source{pendingPreviewIds.length === 1 ? '' : 's'} ready to review
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-accent">
+            Review
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+        </button>
+      )}
+
       <Composer draft={draft} pending={pending} onDraftChange={setDraft} onSubmit={submit} />
+
+      <CurationReviewModal
+        open={reviewOpen}
+        previewIds={pendingPreviewIds}
+        onClose={() => setReviewOpen(false)}
+        onDone={handleReviewDone}
+      />
     </div>
   );
 }
@@ -157,14 +215,33 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   }
 
   return (
-    <div className="flex items-start gap-3">
+    <div className="group flex items-start gap-3">
       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-ink font-mono text-[9.5px] font-semibold text-white">
         A
       </span>
-      <p className="min-w-0 flex-1 whitespace-pre-wrap text-[15px] leading-[1.7] text-ink">
-        {text}
-      </p>
+      <div className="min-w-0 flex-1">
+        <ChatMarkdown text={text} />
+        <CopyButton text={text} />
+      </div>
     </div>
+  );
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), COPY_RESET_MS);
+      }}
+      className="focus-ring -ml-1.5 flex items-center gap-1 rounded-[6px] px-1.5 py-1 text-[11.5px] text-faint opacity-0 transition-opacity duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink group-hover:opacity-100"
+    >
+      {copied ? <Check className="h-3 w-3" aria-hidden="true" /> : <Copy className="h-3 w-3" aria-hidden="true" />}
+      {copied ? 'Copied' : 'Copy'}
+    </button>
   );
 }
 
@@ -240,6 +317,15 @@ interface ComposerProps {
 }
 
 function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
+  }, [draft]);
+
   return (
     <form
       className="shrink-0 pb-6 pt-4"
@@ -250,6 +336,7 @@ function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
     >
       <div className="flex items-end gap-2 rounded-card border bg-surface p-2 pl-4 shadow-card transition-shadow duration-[var(--dur-fast)] focus-within:border-accent/40 focus-within:shadow-card">
         <textarea
+          ref={textareaRef}
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => {
@@ -258,9 +345,9 @@ function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
               onSubmit();
             }
           }}
-          rows={2}
+          rows={1}
           placeholder="What do you want to understand?"
-          className="flex-1 resize-none bg-transparent py-2 text-[15px] text-ink placeholder:text-faint focus:outline-none"
+          className="max-h-40 flex-1 resize-none overflow-y-auto bg-transparent py-2 text-[15px] text-ink placeholder:text-faint focus:outline-none"
         />
         <div className="flex shrink-0 items-center gap-2.5 pb-1">
           <span className="hidden items-center gap-1 font-mono text-[11px] text-faint sm:flex">
