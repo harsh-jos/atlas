@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { type AuthState, signIn } from '@/app/login/actions';
 
 export function SignInForm() {
@@ -18,7 +19,7 @@ export function SignInForm() {
 
       <label className="block space-y-1.5">
         <span className="text-[13px] font-medium text-ink">Password</span>
-        <Input name="password" type="password" autoComplete="current-password" required />
+        <PasswordInput name="password" autoComplete="current-password" required />
         <span className="block text-[12px] text-faint">At least 12 characters.</span>
       </label>
 
