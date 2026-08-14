@@ -124,6 +124,12 @@ export interface ChatHistory {
   messages: ChatMessage[];
 }
 
+export interface ChatSessionSummary {
+  sessionId: string;
+  firstMessage: string | null;
+  updatedAt: string;
+}
+
 export interface ProposedArtifact {
   sourceKey: string;
   title: string;

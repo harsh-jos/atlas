@@ -3,11 +3,14 @@
 import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
 
 from google.adk.agents import Agent
+from google.adk.events.event import Event
 from google.adk.runners import Runner
 from google.adk.sessions import BaseSessionService, DatabaseSessionService
+from google.adk.sessions.session import Session
 from google.genai import types
 
 from app.core.config import get_settings
@@ -41,6 +44,15 @@ class HistoryMessage:
     text: str
 
 
+def _event_text(event: Event) -> str | None:
+    """The visible text of one event, or None when it carries none (tool calls, etc.)."""
+    content = event.content
+    if content is None or not content.parts:
+        return None
+    text = "".join(part.text for part in content.parts if part.text)
+    return text or None
+
+
 async def read_history(user_id: str, session_id: str) -> list[HistoryMessage]:
     """Replay a persisted conversation as plain messages, so reloading a chat URL restores it.
 
@@ -56,17 +68,57 @@ async def read_history(user_id: str, session_id: str) -> list[HistoryMessage]:
 
     messages: list[HistoryMessage] = []
     for event in session.events:
-        content = event.content
-        if content is None or not content.parts:
+        text = _event_text(event)
+        if text is None:
             continue
-        text = "".join(part.text for part in content.parts if part.text)
-        if not text:
-            continue
-        if content.role == "user":
+        if event.content.role == "user":
             messages.append(HistoryMessage("you", text))
         elif event.is_final_response():
             messages.append(HistoryMessage("atlas", text))
     return messages
+
+
+@dataclass(frozen=True)
+class SessionSummary:
+    """One past conversation: enough to list it in a sidebar and reopen it."""
+
+    session_id: str
+    first_message: str | None
+    updated_at: datetime
+
+
+def _first_user_message(session: Session) -> str | None:
+    """The opening line of a conversation, for a title — the earliest event is always it."""
+    for event in session.events:
+        if event.content and event.content.role == "user":
+            text = _event_text(event)
+            if text:
+                return text
+    return None
+
+
+async def list_chat_sessions(user_id: str) -> list[SessionSummary]:
+    """Every session for this user, most recently active first.
+
+    `list_sessions` doesn't attach events, so the opening message of each is fetched
+    separately — the same cost `read_history` already pays to open a single chat.
+    """
+    sessions = get_session_service()
+    app_name = get_settings().agent_app_name
+    listed = await sessions.list_sessions(app_name=app_name, user_id=user_id)
+
+    summaries: list[SessionSummary] = []
+    for bare in listed.sessions:
+        full = await sessions.get_session(app_name=app_name, user_id=user_id, session_id=bare.id)
+        summaries.append(
+            SessionSummary(
+                session_id=bare.id,
+                first_message=_first_user_message(full) if full else None,
+                updated_at=datetime.fromtimestamp(bare.last_update_time, tz=timezone.utc),
+            )
+        )
+    summaries.sort(key=lambda summary: summary.updated_at, reverse=True)
+    return summaries
 
 
 def _preview_id(response: types.FunctionResponse) -> str | None:
