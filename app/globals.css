@@ -21,10 +21,11 @@
   --hairline: #e8e8e8;        /* borders, dividers */
   --hairline-strong: #d9d9d9; /* input borders needing a firmer edge */
 
-  /* Accent — one blue. Links, focus, active states. Never a button fill. */
-  --accent: #2563eb;
-  --accent-soft: #eff4ff;
-  --accent-line: #c7d9fb;
+  /* Accent — one blue, matching the /atlas brand navy. Links, focus, active states.
+     Never a button fill. */
+  --accent: #2e4a85;
+  --accent-soft: #e7ecf5;
+  --accent-line: #cbd2e1;
 
   /* Action — carbon. Primary buttons are black, not chromatic. */
   --action: #171717;
@@ -128,7 +129,7 @@ body {
   outline: none;
   box-shadow:
     0 0 0 2px var(--surface),
-    0 0 0 4px rgba(37, 99, 235, 0.4);
+    0 0 0 4px rgba(46, 74, 133, 0.4);
 }
 
 /* Halftone dot ground — the one texture, for the graph and empty moments. */

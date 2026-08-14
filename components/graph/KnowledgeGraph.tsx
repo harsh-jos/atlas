@@ -29,10 +29,10 @@ const LABEL_INK = '#666666'; // --muted
 const LABEL_INK_FOCUS = '#171717'; // --ink
 const LABEL_HALO = 'rgba(250, 250, 250, 0.92)'; // keeps text crisp over edges
 const LINK_BASE = 'rgba(115, 115, 115, 0.25)';
-const LINK_ACTIVE = 'rgba(37, 99, 235, 0.7)'; // --accent
+const LINK_ACTIVE = 'rgba(46, 74, 133, 0.7)'; // --accent
 const LINK_DIM = 'rgba(115, 115, 115, 0.06)';
-const RING = 'rgba(37, 99, 235, 0.95)'; // --accent
-const GLOW = 'rgba(37, 99, 235, 0.3)'; // soft halo under the focused node
+const RING = 'rgba(46, 74, 133, 0.95)'; // --accent
+const GLOW = 'rgba(46, 74, 133, 0.3)'; // soft halo under the focused node
 const DIM_ALPHA = 0.12; // out-of-focus nodes on hover or collection focus — faint, never gone
 
 const HUB_LABELS = 8; // the N most-connected nodes keep their labels at any zoom

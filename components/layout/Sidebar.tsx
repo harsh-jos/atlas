@@ -6,6 +6,7 @@ import { Library, Sparkles, Hammer, Network, Search, Plus, LogOut } from 'lucide
 import { signOut } from '@/app/login/actions';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-items';
+import { Logo } from '@/components/ui/Logo';
 
 const ICONS = { Library, Sparkles, Hammer, Network, Search } as const;
 
@@ -18,14 +19,8 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-[var(--rail-width)] shrink-0 flex-col border-r bg-canvas md:flex">
-      <div className="flex items-center gap-2 px-4 pb-5 pt-5">
-        <span
-          className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-action text-[12px] font-semibold text-white"
-          aria-hidden="true"
-        >
-          A
-        </span>
-        <span className="text-sm font-semibold tracking-[-0.01em] text-ink">Atlas</span>
+      <div className="px-5 pb-6 pt-7">
+        <Logo className="text-xl" />
       </div>
 
       <div className="px-3">
