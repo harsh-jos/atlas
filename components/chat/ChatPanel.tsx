@@ -278,12 +278,6 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
         }}
       />
       <div className="animate-rise relative max-w-lg">
-        <div className="mb-3 flex items-center justify-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-          <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-accent">
-            New session
-          </span>
-        </div>
         <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.02em] text-ink sm:text-[30px]">
           What are you curious about?
         </h1>

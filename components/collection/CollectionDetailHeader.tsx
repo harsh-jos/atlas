@@ -69,17 +69,17 @@ export function CollectionDetailHeader({
   return (
     <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <div className="mb-2 flex items-center gap-2">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{name}</h1>
+        <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-faint">
           <span
             aria-hidden="true"
             className="h-1.5 w-1.5 shrink-0 rounded-full"
             style={{ backgroundColor: color || 'var(--faint)' }}
           />
-          <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
+          <span>
             {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
-          </p>
+          </span>
         </div>
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{name}</h1>
         {description && (
           <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">{description}</p>
         )}

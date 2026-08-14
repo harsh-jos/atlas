@@ -13,11 +13,7 @@ export default async function HomePage() {
 
   return (
     <PageContainer>
-      <PageHeader
-        eyebrow="Your library"
-        title="Library"
-        description="Everything you’re learning, on one shelf."
-      />
+      <PageHeader title="Library" description="Everything you’re learning, on one shelf." />
 
       {concepts.length === 0 && (
         <EmptyState

@@ -40,12 +40,10 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
       <div className="mx-auto max-w-[43rem] px-5 py-12 sm:px-8">
         <article className="">
           <header className="mb-8">
-            {/* One statement of where you are, and it navigates — the eyebrow does the
-                breadcrumb's job without saying the concept twice. */}
             <div className="mb-3 flex items-baseline justify-between gap-4">
               <Link
                 href={`/collections/${artifact.concept.slug}`}
-                className="focus-ring truncate rounded-sm font-mono text-[11px] uppercase tracking-[0.08em] text-faint transition-colors hover:text-ink"
+                className="focus-ring truncate rounded-sm text-[13px] text-faint transition-colors hover:text-ink"
               >
                 {artifact.concept.name}
               </Link>
