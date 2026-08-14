@@ -5,7 +5,10 @@ import { type ActionResult, attempt } from '@/lib/actions';
 import { apiGet, apiSend } from '@/lib/api';
 import type { ImportSummary, LinkReport, PreviewDetail } from '@/lib/api-types';
 
-/** One turn with the agent. A turn can commit artifacts, so the library is revalidated after. */
+/**
+ * One turn with the agent. A turn can commit artifacts and always touches the session's
+ * place in the sidebar history, so the whole layout is revalidated after.
+ */
 export async function sendTurn(sessionId: string, message: string): Promise<ActionResult<string>> {
   const result = await attempt(async () => {
     const { reply } = await apiSend<{ reply: string }>('POST', '/agent/chat', {
@@ -16,7 +19,7 @@ export async function sendTurn(sessionId: string, message: string): Promise<Acti
   });
 
   if (result.error === undefined) {
-    revalidatePath('/');
+    revalidatePath('/', 'layout');
   }
   return result;
 }

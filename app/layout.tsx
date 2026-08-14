@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Geist_Mono } from 'next/font/google';
 import { AppShell } from '@/components/layout/AppShell';
+import { ChatHistory } from '@/components/layout/ChatHistory';
 import './globals.css';
 
 const sans = Inter({
@@ -26,7 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable} h-full antialiased`}>
       <body className="h-full overflow-hidden font-sans text-ink">
-        <AppShell>{children}</AppShell>
+        <AppShell chatHistory={<ChatHistory />}>{children}</AppShell>
       </body>
     </html>
   );

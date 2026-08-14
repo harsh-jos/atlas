@@ -3,7 +3,7 @@
 from uuid import UUID
 
 from app.agent.root import build_agent
-from app.agent.session import HistoryMessage, ask, read_history
+from app.agent.session import HistoryMessage, SessionSummary, ask, list_chat_sessions, read_history
 from app.agent.toolkit import build_toolkit
 from app.core.config import get_settings
 from app.db.base import get_session_scope
@@ -29,3 +29,8 @@ async def run_turn(user_id: UUID, session_id: str, message: str) -> str:
 async def load_history(user_id: UUID, session_id: str) -> list[HistoryMessage]:
     """The prior turns of one conversation, so a chat URL reopens where it left off."""
     return await read_history(str(user_id), session_id)
+
+
+async def load_chat_sessions(user_id: UUID) -> list[SessionSummary]:
+    """Every conversation this user has had, most recently active first."""
+    return await list_chat_sessions(str(user_id))

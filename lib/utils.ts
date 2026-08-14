@@ -87,6 +87,11 @@ export function duplicatesOpening(summary: string | null, body: string | null): 
   return lead.length > 0 && readable(body).startsWith(lead);
 }
 
+/** Cuts text to a maximum length, marking the cut with an ellipsis. */
+export function truncate(text: string, maxLength: number): string {
+  return text.length > maxLength ? `${text.slice(0, maxLength).trimEnd()}…` : text;
+}
+
 /**
  * Formats a date into "time ago" format (e.g., "2 hours ago", "3 days ago").
  */
