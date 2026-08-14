@@ -167,12 +167,10 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
   return (
     <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8">
       <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
-            {artifact.concept.name}
-          </p>
-          <h1 className="text-[24px] font-semibold tracking-[-0.025em] text-ink">
-            Edit entry
+        <div className="min-w-0">
+          <p className="mb-1 truncate text-[13px] text-faint">{artifact.concept.name}</p>
+          <h1 className="truncate text-[24px] font-semibold tracking-[-0.025em] text-ink">
+            {cleanTitle(title) || 'Untitled entry'}
           </h1>
           <p className="mt-1.5 text-xs text-faint">
             {isDirty

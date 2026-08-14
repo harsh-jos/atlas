@@ -16,9 +16,6 @@ export default function LoginPage() {
         </div>
 
         <div className="relative max-w-sm">
-          <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.08em] text-white/50">
-            Your knowledge, kept
-          </p>
           <p className="text-[28px] font-semibold leading-[1.25] tracking-[-0.02em] text-white">
             Curiosity becomes a knowledge base you own.
           </p>

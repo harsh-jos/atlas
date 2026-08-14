@@ -1,8 +1,6 @@
 import type * as React from 'react';
 
 export interface PageHeaderProps {
-  /** Mono micro-label above the title. */
-  eyebrow: string;
   title: string;
   description?: string;
   /** Buttons or controls, right-aligned on desktop. */
@@ -10,16 +8,13 @@ export interface PageHeaderProps {
 }
 
 /**
- * Every page opens the same way: mono eyebrow, title, one line of intent.
+ * Every page opens the same way: title, one line of intent.
  * A single header component is what makes the pages feel like one product.
  */
-export function PageHeader({ eyebrow, title, description, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
     <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
-          {eyebrow}
-        </p>
         <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{title}</h1>
         {description && (
           <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">{description}</p>

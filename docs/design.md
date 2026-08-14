@@ -56,7 +56,7 @@ The scale (Tailwind utilities, no custom tokens):
 | UI body | `text-sm text-ink` (secondary: `text-muted`) |
 | Small / meta | `text-[13px] text-muted`, timestamps `text-faint` |
 | Caption | `text-xs text-muted` |
-| Micro-label (eyebrow) | `font-mono text-[11px] uppercase tracking-[0.08em] text-faint` |
+| Micro-label (section header) | `font-mono text-[11px] uppercase tracking-[0.08em] text-faint` |
 | Reading body (artifacts) | `text-[17px] leading-[1.7]`, measure ~68ch, headings step down from `text-2xl` |
 
 Weights: 400 default, 500 for emphasis and titles-in-rows, 600 for headings and buttons.
@@ -95,8 +95,8 @@ Nothing above 600.
 A plain, full-viewport split: a `canvas`-tinted rail (`--rail-width`) with a hairline
 divider, and a white content region. **The window never scrolls** — `<main>` is the scroll
 container (`.scroll-region`); use `h-full`/`sticky`, never `h-screen`/`fixed`, for in-app
-chrome. `/login` renders without the frame. Every page opens the same way: an eyebrow
-micro-label, a page title, one line of intent, actions on the right.
+chrome. `/login` renders without the frame. Every page opens the same way: a page title, one
+line of intent, actions on the right.
 
 ## Motion
 

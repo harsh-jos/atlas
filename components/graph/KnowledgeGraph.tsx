@@ -461,9 +461,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ backgroundColor: selectedNode.conceptColor }}
             />
-            <span className="truncate font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
-              {selectedNode.conceptName}
-            </span>
+            <span className="truncate text-[13px] text-faint">{selectedNode.conceptName}</span>
           </div>
 
           <h2 className="text-[16px] font-semibold leading-snug tracking-[-0.01em] text-ink">
