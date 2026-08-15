@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { type ActionResult, attempt } from '@/lib/actions';
 import { apiSend } from '@/lib/api';
-import type { ConceptDetail } from '@/lib/api-types';
 
 export interface ConceptDraft {
   name: string;
@@ -19,12 +18,6 @@ const payload = (draft: ConceptDraft) => ({
 });
 
 const conceptPath = (slug: string) => `/concepts/${encodeURIComponent(slug)}`;
-
-export async function createConcept(draft: ConceptDraft): Promise<ActionResult<ConceptDetail>> {
-  const result = await attempt(() => apiSend<ConceptDetail>('POST', '/concepts', payload(draft)));
-  if (!result.error) revalidatePath('/');
-  return result;
-}
 
 export async function updateConcept(slug: string, draft: ConceptDraft): Promise<ActionResult> {
   const result = await attempt(() => apiSend('PATCH', conceptPath(slug), payload(draft)));
