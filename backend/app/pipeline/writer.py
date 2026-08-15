@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.core.slugify import slugify
 from app.db.models import Artifact, Concept, Relation, Source, User
-from app.pipeline.models import ArtifactSpec, MappedImport, RelationSpec
+from app.db.repository import NotOwned
+from app.pipeline.models import ArtifactSpec, ConceptSpec, MappedImport, RelationSpec
 from app.storage.quota import QuotaService
 
 _UNTITLED = "untitled"
@@ -21,6 +22,7 @@ _UNTITLED = "untitled"
 
 class ImportSummary(TypedDict):
     conceptSlug: str
+    conceptName: str
     artifacts: int
     relations: int
     pruned: int
@@ -43,6 +45,27 @@ def text_bytes(*parts: str | None) -> int:
     return sum(len(part.encode()) for part in parts if part)
 
 
+def find_concept(session: Session, user_id: UUID, name: str) -> Concept | None:
+    """The concept a name would land in. A concept's name is its identity, matched by slug."""
+    slug = slugify(name) or _UNTITLED
+    return session.scalars(
+        select(Concept).where(Concept.user_id == user_id, Concept.slug == slug)
+    ).one_or_none()
+
+
+def ensure_concept(session: Session, user_id: UUID, spec: ConceptSpec) -> Concept:
+    """Get-or-create by name, so importing under a name you already use extends that concept."""
+    concept = find_concept(session, user_id, spec.name)
+    if concept is None:
+        concept = Concept(user_id=user_id, slug=slugify(spec.name) or _UNTITLED)
+        session.add(concept)
+    concept.name = spec.name
+    concept.description = spec.description or concept.description
+    concept.color = spec.color or concept.color
+    session.flush()
+    return concept
+
+
 class ImportWriter:
     """Writes one import into one user's knowledge base; re-imports update rows in place."""
 
@@ -52,14 +75,25 @@ class ImportWriter:
         self.quota = quota
 
     def write(
-        self, mapped: MappedImport, known_keys: Sequence[str] | None = None
+        self,
+        mapped: MappedImport,
+        known_keys: Sequence[str] | None = None,
+        *,
+        concept: Concept | None = None,
     ) -> ImportSummary:
         """`known_keys` is everything the source offered; without it, the selection is the source.
 
         Pruning compares against the source, not against the selection — otherwise committing a
         curated subset would delete artifacts the user kept from an earlier import.
+
+        `concept` is where the artifacts land. Given one, it is left as it is — an existing
+        concept is not renamed to the import's phrasing; without one, the import's own concept
+        spec is resolved by name.
         """
-        concept = self._ensure_concept(mapped)
+        if concept is None:
+            concept = ensure_concept(self.session, self.user_id, mapped.concept)
+        elif concept.user_id != self.user_id:
+            raise NotOwned(f"Concept {concept.id} belongs to another user")
         existing = self._existing_artifacts(concept, mapped.artifacts)
         stale = self._stale_artifacts(concept, mapped.artifacts, known_keys)
         delta = self._charge(mapped.artifacts, [*existing.values(), *stale])
@@ -70,6 +104,7 @@ class ImportWriter:
         self._prune(stale)
         return {
             "conceptSlug": concept.slug,
+            "conceptName": concept.name,
             "artifacts": len(mapped.artifacts),
             "relations": relations,
             "pruned": len(stale),
@@ -85,21 +120,6 @@ class ImportWriter:
         elif delta < 0:
             self.quota.release(-delta)
         return delta
-
-    def _ensure_concept(self, mapped: MappedImport) -> Concept:
-        spec = mapped.concept
-        slug = slugify(spec.name) or _UNTITLED
-        concept = self.session.scalars(
-            select(Concept).where(Concept.user_id == self.user_id, Concept.slug == slug)
-        ).one_or_none()
-        if concept is None:
-            concept = Concept(user_id=self.user_id, slug=slug)
-            self.session.add(concept)
-        concept.name = spec.name
-        concept.description = spec.description or concept.description
-        concept.color = spec.color or concept.color
-        self.session.flush()
-        return concept
 
     def _existing_artifacts(
         self, concept: Concept, specs: Sequence[ArtifactSpec]

@@ -8,11 +8,12 @@ from sqlalchemy import func, select, update
 
 from app.core.config import get_settings
 from app.core.enums import SourceType
-from app.db.models import Artifact, Preview, Relation, User
+from app.db.models import Artifact, Concept, Preview, Relation, User
 from app.pipeline.build import build_import
 from app.pipeline.parsing.markdown_parser import parse_markdown
 from app.pipeline.preview import (
     PreviewService,
+    UnknownConcept,
     UnknownPreview,
     select_artifacts,
     sweep_expired_previews,
@@ -37,9 +38,9 @@ Product quantisation compresses vectors into codes so far more of them fit in me
 """
 
 
-def _mapped(markdown: str = SAMPLE, name: str = "Vector Search"):
+def _mapped(markdown: str = SAMPLE, name: str = "Vector Search", scope: str = "test-scope"):
     doc = parse_markdown(markdown, fallback_title=name, source_type=SourceType.DOCS)
-    return build_import(doc, concept_name=name, scope="test-scope", min_artifact_chars=1)
+    return build_import(doc, concept_name=name, scope=scope, min_artifact_chars=1)
 
 
 @pytest.fixture
@@ -189,3 +190,63 @@ def test_the_sweep_removes_only_expired_previews(session, service, user):
     assert sweep_expired_previews(session) == 1
     assert _count(session, Preview, user_id=user.id) == 1
     assert service.previews.get(fresh.id) is not None
+
+
+def _concept(session, user, name: str) -> Concept:
+    return session.scalars(
+        select(Concept).where(Concept.user_id == user.id, Concept.name == name)
+    ).one()
+
+
+def test_committing_into_an_existing_concept_extends_it_and_keeps_its_name(session, service, user):
+    service.commit(service.park(_mapped(name="Search Indexes", scope="first"), scope="first").id)
+    home = _concept(session, user, "Search Indexes")
+
+    proposal = _mapped(name="Vector Search", scope="second")
+    preview = service.park(proposal, scope="second")
+    summary = service.commit(preview.id, concept_id=home.id)
+
+    assert summary["conceptSlug"] == home.slug
+    assert summary["conceptName"] == "Search Indexes"
+    assert _count(session, Concept, user_id=user.id) == 1
+    assert _count(session, Artifact, concept_id=home.id) == len(proposal.artifacts) * 2
+
+
+def test_committing_under_a_new_name_creates_that_concept(session, service, user):
+    preview = service.park(_mapped(name="Vector Search"), scope="test-scope")
+    summary = service.commit(preview.id, concept_name="Retrieval")
+
+    assert summary["conceptName"] == "Retrieval"
+    assert summary["conceptSlug"] == "retrieval"
+    assert _count(session, Concept, user_id=user.id) == 1
+
+
+def test_committing_under_a_name_already_in_use_extends_that_concept(session, service, user):
+    service.commit(service.park(_mapped(name="Retrieval"), scope="first").id)
+    preview = service.park(_mapped(name="Vector Search"), scope="second")
+
+    service.commit(preview.id, concept_name="retrieval")
+
+    assert _count(session, Concept, user_id=user.id) == 1
+
+
+def test_a_commit_cannot_land_in_another_users_concept(session, service, user):
+    intruder = User(email="intruder@example.com", password_hash="x")
+    session.add(intruder)
+    session.flush()
+    theirs = PreviewService(session, intruder)
+    theirs.commit(theirs.park(_mapped(name="Theirs"), scope="theirs").id)
+    preview = service.park(_mapped(), scope="test-scope")
+
+    with pytest.raises(UnknownConcept):
+        service.commit(preview.id, concept_id=_concept(session, intruder, "Theirs").id)
+    assert _count(session, Preview, user_id=user.id) == 1
+
+
+def test_existing_concept_is_matched_by_the_proposed_name(session, service, user):
+    assert service.existing_concept(service.park(_mapped(), scope="a").id) is None
+    service.commit(service.park(_mapped(name="vector search"), scope="b").id)
+
+    preview = service.park(_mapped(name="Vector Search"), scope="c")
+    found = service.existing_concept(preview.id)
+    assert found is not None and found.slug == "vector-search"

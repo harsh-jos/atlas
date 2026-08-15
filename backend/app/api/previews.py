@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from app.api.library import Payload, SearchHit
 from app.auth.deps import CurrentUser, SessionDep
-from app.pipeline.preview import PreviewService, UnknownPreview
+from app.pipeline.preview import PreviewService, UnknownConcept, UnknownPreview
 from app.pipeline.writer import ImportSummary
 from app.search import search_artifacts
 
@@ -31,13 +31,18 @@ class PreviewSummary(Payload):
 class PreviewDetail(Payload):
     id: UUID
     concept_name: str
+    existing_concept_id: UUID | None  # what the proposed name would extend, if it already exists
     artifacts: list[ProposedArtifact]
     total_bytes: int
     already_known: list[SearchHit]
 
 
 class Selection(BaseModel):
+    """What to keep, and where: an existing concept by id, a new name, or the proposal's own."""
+
     source_keys: list[str]
+    concept_id: UUID | None = None
+    concept_name: str | None = None
 
 
 def _service(session: SessionDep, user: CurrentUser) -> PreviewService:
@@ -74,10 +79,12 @@ def get_preview(preview_id: UUID, session: SessionDep, user: CurrentUser) -> Pre
     service = _found(session, user, preview_id)
     preview = service.previews.get(preview_id)
     outline = service.outline(preview_id)
+    existing = service.existing_concept(preview_id)
     assert preview is not None
     return PreviewDetail(
         id=preview.id,
         concept_name=preview.concept_name,
+        existing_concept_id=existing.id if existing else None,
         artifacts=[ProposedArtifact(**item) for item in outline],
         total_bytes=sum(item["bytes"] for item in outline),
         already_known=[
@@ -93,7 +100,17 @@ def commit_preview(
     """Writes only the chosen artifacts; an empty selection is refused, not read as 'all'."""
     if not selection.source_keys:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "choose at least one artifact")
-    return _found(session, user, preview_id).commit(preview_id, selection.source_keys)
+    if selection.concept_name is not None and not selection.concept_name.strip():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "give the concept a name")
+    try:
+        return _found(session, user, preview_id).commit(
+            preview_id,
+            selection.source_keys,
+            concept_id=selection.concept_id,
+            concept_name=selection.concept_name.strip() if selection.concept_name else None,
+        )
+    except UnknownConcept:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "concept not found") from None
 
 
 @router.delete("/{preview_id}", status_code=status.HTTP_204_NO_CONTENT)
