@@ -38,10 +38,7 @@ export function Sidebar({ chatHistory }: SidebarProps) {
         </Link>
       </div>
 
-      <nav className="mt-6 flex shrink-0 flex-col gap-0.5 px-3">
-        <p className="px-2.5 pb-2 font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
-          Workspace
-        </p>
+      <nav className="mt-7 flex shrink-0 flex-col gap-0.5 px-3" aria-label="Workspace">
         {NAV_ITEMS.map(({ href, label, icon, match }) => {
           const Icon = ICONS[icon];
           const active = match(pathname);

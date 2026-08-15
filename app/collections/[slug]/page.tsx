@@ -3,18 +3,18 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Breadcrumb } from '@/components/layout/Breadcrumb';
 import { CollectionDetailHeader } from '@/components/collection/CollectionDetailHeader';
+import { SortMenu } from '@/components/collection/SortMenu';
+import { TagMenu } from '@/components/collection/TagMenu';
 import { EntryCard } from '@/components/entry/EntryCard';
-import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageContainer } from '@/components/layout/PageHeader';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { apiGetOrNull } from '@/lib/api';
+import { collectionFilterHref, parseSort } from '@/lib/collectionFilters';
 import type { ConceptPage } from '@/lib/api-types';
 import { cn } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
-
-type CollectionSort = 'updated' | 'created' | 'title';
 
 interface CollectionPageProps {
   params: Promise<{
@@ -25,16 +25,6 @@ interface CollectionPageProps {
     sort?: string;
     page?: string;
   }>;
-}
-
-const sortOptions: Array<{ label: string; value: CollectionSort }> = [
-  { label: 'Updated', value: 'updated' },
-  { label: 'Created', value: 'created' },
-  { label: 'Title', value: 'title' },
-];
-
-function parseSort(value?: string): CollectionSort {
-  return value === 'created' || value === 'title' ? value : 'updated';
 }
 
 function parsePage(value?: string): number {
@@ -83,52 +73,18 @@ export default async function CollectionPage({ params, searchParams }: Collectio
         entryCount={concept.artifactCount}
       />
 
-      <div className="mb-5 flex flex-wrap items-center gap-1.5 border-b py-3.5">
-        <span className="text-[13px] text-faint">Sort by</span>
-        {sortOptions.map((option) => (
-          <FilterLink
-            key={option.value}
-            href={collectionFilterHref(concept.slug, {
-              sort: option.value,
-              tag,
-            })}
-            active={sort === option.value}
-          >
-            {option.label}
-          </FilterLink>
-        ))}
+      <div className="mb-5 flex flex-wrap items-center gap-2 border-b py-3.5">
+        <SortMenu conceptSlug={concept.slug} sort={sort} tag={tag} />
+        {tags.length > 0 && (
+          <TagMenu
+            conceptSlug={concept.slug}
+            sort={sort}
+            tags={tags}
+            totalTags={totalTags}
+            activeTag={tag}
+          />
+        )}
       </div>
-
-      {tags.length > 0 && (
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <span className="text-[13px] text-faint">Tags</span>
-          {tag && (
-            <Link
-              href={collectionFilterHref(concept.slug, { sort })}
-              className="focus-ring rounded-full"
-            >
-              <Badge variant="secondary">Clear tag</Badge>
-            </Link>
-          )}
-          {tags.map((entryTag) => (
-            <Link
-              key={entryTag}
-              href={collectionFilterHref(concept.slug, {
-                sort,
-                tag: entryTag,
-              })}
-              className="focus-ring rounded-full"
-            >
-              <Badge variant={tag === entryTag ? 'accent' : 'default'}>{entryTag}</Badge>
-            </Link>
-          ))}
-          {totalTags > tags.length && (
-            <span className="text-[12px] text-faint">
-              +{totalTags - tags.length} more
-            </span>
-          )}
-        </div>
-      )}
 
       {artifacts.length > 0 ? (
         <>
@@ -198,28 +154,6 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   );
 }
 
-function FilterLink({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        'focus-ring rounded-full px-3 py-1 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]',
-        active ? 'bg-action text-white' : 'text-muted hover:bg-surface-soft hover:text-ink'
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
-
 function PageLink({
   href,
   disabled,
@@ -245,31 +179,4 @@ function PageLink({
       {children}
     </Link>
   );
-}
-
-function collectionFilterHref(
-  slug: string,
-  options: {
-    sort: CollectionSort;
-    tag?: string;
-    page?: number;
-  }
-) {
-  const searchParams = new URLSearchParams();
-
-  if (options.sort !== 'updated') {
-    searchParams.set('sort', options.sort);
-  }
-
-  if (options.tag) {
-    searchParams.set('tag', options.tag);
-  }
-
-  if (options.page && options.page > 1) {
-    searchParams.set('page', String(options.page));
-  }
-
-  const query = searchParams.toString();
-
-  return query ? `/collections/${slug}?${query}` : `/collections/${slug}`;
 }
