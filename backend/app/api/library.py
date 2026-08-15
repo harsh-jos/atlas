@@ -164,7 +164,7 @@ def get_concept(
     session: SessionDep,
     user_id: CurrentUserId,
     tag: str | None = None,
-    sort: library.Sort = "updated",
+    sort: library.Sort = "created_asc",
     page: Annotated[int, Query(ge=1)] = 1,
 ) -> ConceptPage:
     found = library.get_concept_page(session, user_id, slug, tag=tag, sort=sort, page=page)
