@@ -12,6 +12,7 @@ import { EntryRelations } from '@/components/entry/EntryRelations';
 import { EntryTags } from '@/components/entry/EntryTags';
 import { EntryMetadata } from '@/components/entry/EntryMetadata';
 import { EntryTableOfContents } from '@/components/entry/EntryTableOfContents';
+import { ReadingSettings } from '@/components/entry/ReadingSettings';
 import { cleanTitle, duplicatesOpening, estimateReadingTime, formatDate } from '@/lib/utils';
 
 export interface EntryArtifactProps {
@@ -53,10 +54,11 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
     <>
       <ReadingProgressBar />
       <EntryCoverBand color={artifact.concept.color} />
+      <ReadingSettings />
 
-      <div className="mx-auto max-w-[54rem] px-5 pb-12 pt-8 sm:px-8">
+      <div className="mx-auto max-w-[calc(var(--reading-measure)+24rem)] px-5 pb-12 pt-8 sm:px-8">
         <article>
-          <div className="max-w-[34rem]">
+          <div className="max-w-[var(--reading-measure)]">
             <header className="mb-8">
               <div className="mb-4 flex items-center justify-between gap-4">
                 <Link
@@ -112,7 +114,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
             )}
           </div>
 
-          <div className="mt-9 grid gap-x-12 gap-y-10 xl:grid-cols-[minmax(0,34rem)_1fr]">
+          <div className="mt-9 grid gap-x-12 gap-y-10 xl:grid-cols-[minmax(0,var(--reading-measure))_1fr]">
             <div id={BODY_ID} className="entry-body min-w-0">
               {artifact.bodyHtml?.trim() ? (
                 <HtmlBody html={artifact.bodyHtml} />
@@ -128,7 +130,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
           </div>
 
           {hasFooterMatter && (
-            <footer className="mt-16 max-w-[34rem] space-y-11 border-t pt-10">
+            <footer className="mt-16 max-w-[var(--reading-measure)] space-y-8 border-t pt-10">
               <EntryRelations outgoing={relationsFrom} incoming={relationsTo} />
               <EntryTags tags={artifact.tags} />
               <EntryMetadata metadata={artifact.metadata} />
