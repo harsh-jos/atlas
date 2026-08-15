@@ -124,6 +124,15 @@ Selection must be per-artifact, not per-source. Dropping a subset means dropping
 point at excluded artifacts — the mapper needs a filter step, and it must not silently produce
 dangling edges.
 
+The selection also carries **where it lands**. The agent proposes a concept name with every
+preview; at commit the user keeps it, renames it, or picks a concept they already have. The
+preview reports which existing concept the proposed name would extend, so the chooser defaults
+to that honestly rather than letting the outcome hinge on whether the agent happened to type the
+same words. A concept's name is its identity — committing under a name already in use extends
+that concept — and an explicitly chosen concept is never renamed to the import's phrasing.
+There is no other way to create a concept: one comes into being only because artifacts were
+committed into it.
+
 ### Long-running runs
 
 Organising a whole documentation site is an hours-long job, and the user is willing to wait. ADK
@@ -355,8 +364,8 @@ Flagged rather than guessed — several of these change the build meaningfully.
 - **PDF artifacts.** Is a PDF artifact rendered as a PDF, or extracted to markdown at ingest and
   the PDF kept as provenance? The pipeline already extracts via docling; storing both doubles
   the quota cost.
-- **Concept assignment.** Does the agent choose the concept, or the user at curation time? The
-  vision says the user curates — but per-artifact concept assignment may be tedious enough to
-  warrant agent proposal + bulk override.
+- ~~**Concept assignment.**~~ **Settled 2026-08-15:** the agent proposes, the user overrides
+  at commit — per source, not per artifact (see the preview/commit split above). Per-artifact
+  reassignment stays a post-hoc edit on the artifact page.
 - **ADK specifics** — the user has said this description is deliberately vague and will be
   pinned down later. Nothing here should be treated as settled beyond the tool topology.

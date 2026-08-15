@@ -140,6 +140,8 @@ export interface ProposedArtifact {
 export interface PreviewDetail {
   id: string;
   conceptName: string;
+  /** The concept the proposed name would extend, if the user already has one by that name. */
+  existingConceptId: string | null;
   artifacts: ProposedArtifact[];
   totalBytes: number;
   alreadyKnown: SearchHit[];
@@ -147,6 +149,7 @@ export interface PreviewDetail {
 
 export interface ImportSummary {
   conceptSlug: string;
+  conceptName: string;
   artifacts: number;
   relations: number;
   pruned: number;
