@@ -57,7 +57,7 @@ export function EntryMetadata({ metadata }: EntryMetadataProps) {
       <dl className="space-y-2">
         {rows.map((row) => (
           <div key={row.label} className="flex items-baseline gap-3 text-[14px] leading-6">
-            <dt className="w-[7.5rem] shrink-0 text-muted">{row.label}</dt>
+            <dt className="w-[7.5rem] shrink-0 font-mono text-[12px] text-faint">{row.label}</dt>
             <dd className="text-ink">{row.value}</dd>
           </div>
         ))}

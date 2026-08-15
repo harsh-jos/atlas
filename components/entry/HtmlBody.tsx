@@ -1,6 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
+import rehypeSlug from 'rehype-slug';
 import { readingComponents } from '@/components/entry/readingComponents';
 
 export interface HtmlBodyProps {
@@ -14,7 +15,10 @@ export interface HtmlBodyProps {
  */
 export function HtmlBody({ html }: HtmlBodyProps) {
   return (
-    <ReactMarkdown rehypePlugins={[rehypeRaw, rehypeSanitize]} components={readingComponents}>
+    <ReactMarkdown
+      rehypePlugins={[rehypeRaw, rehypeSlug, rehypeSanitize]}
+      components={readingComponents}
+    >
       {html}
     </ReactMarkdown>
   );

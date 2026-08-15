@@ -48,7 +48,7 @@ export function EntrySources({ sources }: EntrySourcesProps) {
 
           return (
             <li key={`${source.title}-${index}`} className="flex gap-3 text-[14px] leading-6">
-              <span className="shrink-0 pt-px font-mono text-[12px] tabular-nums text-faint">
+              <span className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] bg-accent-soft font-mono text-[11px] tabular-nums text-accent">
                 {index + 1}
               </span>
               <div className="min-w-0">

@@ -25,8 +25,8 @@ export function Logo({ className }: LogoProps) {
         className="shrink-0"
       >
         <linearGradient id="atlas-logo-slash" x1="100%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#45D6F6" />
-          <stop offset="100%" stopColor="#142DD2" />
+          <stop offset="0%" stopColor="#30AFFF" />
+          <stop offset="100%" stopColor="#08213B" />
         </linearGradient>
         <path
           fill="url(#atlas-logo-slash)"
