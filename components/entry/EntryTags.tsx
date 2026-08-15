@@ -14,7 +14,7 @@ export function EntryTags({ tags }: EntryTagsProps) {
         {tags.map((tag) => (
           <span
             key={tag}
-            className="rounded-full border bg-surface px-2.5 py-0.5 text-[12px] text-muted"
+            className="rounded-full bg-surface-soft px-2.5 py-1 font-mono text-[11.5px] text-muted"
           >
             {tag}
           </span>

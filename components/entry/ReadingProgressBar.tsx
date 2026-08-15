@@ -44,7 +44,7 @@ export function ReadingProgressBar() {
   return (
     <div ref={trackRef} className="sticky top-0 z-30 h-[2px] w-full" aria-hidden="true">
       <div
-        className="h-full bg-accent transition-[width] duration-75 ease-out"
+        className="h-full bg-gradient-to-r from-sky to-accent transition-[width] duration-75 ease-out"
         style={{ width: `${progress * 100}%` }}
       />
     </div>

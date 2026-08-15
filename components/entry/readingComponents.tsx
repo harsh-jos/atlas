@@ -1,9 +1,18 @@
-import type { ReactNode } from 'react';
+import { isValidElement, type ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 
 // A fenced block is a <code> that either carries a language class or spans lines.
 function isBlockCode(className: string | undefined, children: ReactNode): boolean {
   return /language-/.test(className ?? '') || String(children).includes('\n');
+}
+
+// react-markdown's `pre` renderer only sees `children` (the `code` element it wraps),
+// so the language — carried by remark/rehype as `language-xxx` on that inner element —
+// has to be read back off it here to label the block.
+function codeLanguage(preChildren: ReactNode): string | undefined {
+  const child = Array.isArray(preChildren) ? preChildren[0] : preChildren;
+  if (!isValidElement<{ className?: string }>(child)) return undefined;
+  return /language-(\w+)/.exec(child.props.className ?? '')?.[1];
 }
 
 // The shared element styling for reading content — used for both markdown
@@ -15,7 +24,7 @@ export const readingComponents: Components = {
     </h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mt-12 mb-4 text-[20px] font-semibold leading-snug tracking-[-0.015em] text-ink first:mt-0">
+    <h2 className="mt-12 mb-4 text-[22px] font-semibold leading-snug tracking-[-0.015em] text-ink first:mt-0">
       {children}
     </h2>
   ),
@@ -56,13 +65,25 @@ export const readingComponents: Components = {
         {children}
       </code>
     ),
-  pre: ({ children }) => (
-    <pre className="my-6 overflow-x-auto rounded-card border bg-surface-soft p-4 font-mono text-[13px] leading-6 text-ink">
-      {children}
-    </pre>
-  ),
+  pre: ({ children }) => {
+    const language = codeLanguage(children);
+    return (
+      <div className="my-6 overflow-hidden rounded-card border">
+        {language && (
+          <div className="border-b bg-surface-soft px-4 py-2 font-mono text-[11px] uppercase tracking-[0.06em] text-faint">
+            {language}
+          </div>
+        )}
+        <pre className="overflow-x-auto bg-surface-soft p-4 font-mono text-[13px] leading-6 text-ink">
+          {children}
+        </pre>
+      </div>
+    );
+  },
+  // A pull-quote, not an aside: markdown authors reach for `>` to flag the one
+  // sentence worth setting apart, so it's set larger than body text, not just indented.
   blockquote: ({ children }) => (
-    <blockquote className="my-7 border-l-2 border-hairline-strong pl-5 text-[17px] leading-[1.7] text-muted [&>p]:my-2.5">
+    <blockquote className="my-11 border-l-2 border-hairline-strong pl-6 text-[21px] font-medium leading-[1.5] tracking-[-0.01em] text-ink [&>p]:my-0">
       {children}
     </blockquote>
   ),

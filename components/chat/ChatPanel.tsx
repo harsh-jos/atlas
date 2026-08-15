@@ -216,7 +216,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
 
   return (
     <div className="group flex items-start gap-3">
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-ink font-mono text-[9.5px] font-semibold text-white">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-gradient-to-br from-sky to-deep font-mono text-[9.5px] font-semibold text-white">
         A
       </span>
       <div className="min-w-0 flex-1">
@@ -248,7 +248,7 @@ function CopyButton({ text }: { text: string }) {
 function ThinkingIndicator({ activity }: { activity: string[] }) {
   return (
     <div className="flex items-start gap-3" aria-live="polite">
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-ink">
+      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-gradient-to-br from-sky to-deep">
         <span
           className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/80"
           style={{ animationDuration: '1.4s' }}
@@ -269,6 +269,11 @@ function ThinkingIndicator({ activity }: { activity: string[] }) {
 function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
   return (
     <div className="relative flex h-full flex-col items-center justify-center px-4 text-center">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-40 blur-3xl"
+        style={{ background: 'radial-gradient(closest-side, var(--sky), transparent 72%)' }}
+      />
       <div
         aria-hidden="true"
         className="dot-grid pointer-events-none absolute inset-0"
@@ -292,7 +297,7 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
               key={prompt}
               type="button"
               onClick={() => onPick(prompt)}
-              className="focus-ring rounded-card border bg-surface px-4 py-3.5 text-left shadow-card transition-colors duration-[var(--dur-fast)] hover:bg-canvas"
+              className="focus-ring rounded-card border bg-surface px-4 py-3.5 text-left shadow-card transition-colors duration-[var(--dur-fast)] hover:border-accent-line hover:bg-accent-soft"
             >
               <span className="text-[13.5px] leading-snug text-ink">{prompt}</span>
             </button>
@@ -322,13 +327,18 @@ function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
 
   return (
     <form
-      className="shrink-0 pb-6 pt-4"
+      className="relative shrink-0 pb-6 pt-4"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
       }}
     >
-      <div className="flex items-end gap-2 rounded-card border bg-surface p-2 pl-4 shadow-card transition-shadow duration-[var(--dur-fast)] focus-within:border-accent/40 focus-within:shadow-card">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-2 mx-auto h-24 max-w-sm rounded-full opacity-25 blur-2xl"
+        style={{ background: 'radial-gradient(closest-side, var(--sky), transparent 72%)' }}
+      />
+      <div className="relative flex items-end gap-2 rounded-card border bg-surface p-2 pl-4 shadow-card transition-shadow duration-[var(--dur-fast)] focus-within:border-accent/40 focus-within:shadow-card">
         <textarea
           ref={textareaRef}
           value={draft}
