@@ -122,3 +122,45 @@ def test_history_replays_prior_turns(client, token, monkeypatch):
             {"role": "atlas", "text": "a burrito"},
         ],
     }
+
+
+def test_sessions_requires_a_token(client):
+    assert client.get("/agent/sessions").status_code == 401
+
+
+def test_sessions_lists_past_conversations_latest_first(client, token, monkeypatch):
+    from datetime import datetime, timezone
+
+    from app.agent.session import SessionSummary
+
+    async def stored(user_id):
+        return [
+            SessionSummary("s2", "second question", datetime(2026, 1, 2, tzinfo=timezone.utc)),
+            SessionSummary("s1", "what is a monad", datetime(2026, 1, 1, tzinfo=timezone.utc)),
+        ]
+
+    monkeypatch.setattr("app.agent.router.load_chat_sessions", stored)
+
+    response = client.get("/agent/sessions", headers=_auth(token))
+    assert response.status_code == 200
+    assert response.json() == [
+        {"sessionId": "s2", "firstMessage": "second question", "updatedAt": "2026-01-02T00:00:00Z"},
+        {"sessionId": "s1", "firstMessage": "what is a monad", "updatedAt": "2026-01-01T00:00:00Z"},
+    ]
+
+
+def test_sessions_reports_a_session_with_no_messages_yet(client, token, monkeypatch):
+    from datetime import datetime, timezone
+
+    from app.agent.session import SessionSummary
+
+    async def stored(user_id):
+        return [SessionSummary("s1", None, datetime(2026, 1, 1, tzinfo=timezone.utc))]
+
+    monkeypatch.setattr("app.agent.router.load_chat_sessions", stored)
+
+    response = client.get("/agent/sessions", headers=_auth(token))
+    assert response.status_code == 200
+    assert response.json() == [
+        {"sessionId": "s1", "firstMessage": None, "updatedAt": "2026-01-01T00:00:00Z"}
+    ]

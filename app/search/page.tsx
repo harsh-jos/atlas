@@ -23,7 +23,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <PageContainer>
-      <PageHeader eyebrow="Search" title="Search your atlas" />
+      <PageHeader title="Search your atlas" />
 
       <SearchField defaultValue={query} />
 

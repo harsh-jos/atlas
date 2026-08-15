@@ -1,4 +1,5 @@
 import { SignInForm } from '@/components/auth/SignInForm';
+import { Logo } from '@/components/ui/Logo';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,20 +11,11 @@ export default function LoginPage() {
           className="pointer-events-none absolute inset-0 opacity-[0.16] [background-image:radial-gradient(rgba(255,255,255,0.9)_1px,transparent_1px)] [background-size:14px_14px] [mask-image:radial-gradient(900px_640px_at_25%_15%,black,transparent_75%)]"
           aria-hidden="true"
         />
-        <div className="relative flex items-center gap-2.5">
-          <span
-            className="flex h-7 w-7 items-center justify-center rounded-[8px] border border-white/20 bg-white/10 text-[13px] font-semibold text-white"
-            aria-hidden="true"
-          >
-            A
-          </span>
-          <span className="text-[15px] font-semibold tracking-[-0.01em] text-white">Atlas</span>
+        <div className="relative text-white">
+          <Logo className="text-[15px]" />
         </div>
 
         <div className="relative max-w-sm">
-          <p className="mb-4 font-mono text-[11px] uppercase tracking-[0.08em] text-white/50">
-            Your knowledge, kept
-          </p>
           <p className="text-[28px] font-semibold leading-[1.25] tracking-[-0.02em] text-white">
             Curiosity becomes a knowledge base you own.
           </p>
@@ -36,14 +28,8 @@ export default function LoginPage() {
 
       <div className="flex flex-1 items-center justify-center px-6 py-12 sm:px-10">
         <div className="w-full max-w-sm">
-          <div className="mb-3 flex items-center gap-2 lg:hidden">
-            <span
-              className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-action text-[12px] font-semibold text-white"
-              aria-hidden="true"
-            >
-              A
-            </span>
-            <span className="text-sm font-semibold tracking-[-0.01em] text-ink">Atlas</span>
+          <div className="mb-3 lg:hidden">
+            <Logo />
           </div>
 
           <div className="mb-8">

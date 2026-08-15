@@ -21,10 +21,15 @@
   --hairline: #e8e8e8;        /* borders, dividers */
   --hairline-strong: #d9d9d9; /* input borders needing a firmer edge */
 
-  /* Accent — one blue. Links, focus, active states. Never a button fill. */
-  --accent: #2563eb;
-  --accent-soft: #eff4ff;
-  --accent-line: #c7d9fb;
+  /* Accent — one blue family. --accent is the AA-safe shade used for text, links,
+     focus, active states (never a button fill). --sky/--deep are the brighter,
+     decorative ends of the same hue — gradients, marks, glows — used only where
+     large-surface contrast rules apply, never for text on their own. */
+  --accent: #0b6fae;
+  --accent-soft: #e9f5ff;
+  --accent-line: #bfe0f7;
+  --sky: #30afff;
+  --deep: #08213b;
 
   /* Action — carbon. Primary buttons are black, not chromatic. */
   --action: #171717;
@@ -44,6 +49,17 @@
   /* Geometry */
   --rail-width: 15rem;
 
+  /* Reading preferences — defaults here (Small/Tight/Wide, the user's chosen
+     combination); ReadingSettings.tsx overrides these on document.documentElement
+     from a localStorage'd choice, and must stay in sync with these values. Every
+     size in readingComponents.tsx is calc(basePx * --reading-scale), so nested
+     elements never compound (unlike cascading em). --reading-line-height applies
+     to prose only (p/li/blockquote) — headings keep their own fixed, tighter leading. */
+  --reading-scale: 0.9;
+  --reading-line-height: 1.5;
+  --reading-measure: 46rem;
+  --reading-font: var(--font-sans);
+
   /* Motion — quick fades, nothing bouncy. */
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur-fast: 120ms;
@@ -62,6 +78,8 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-accent-line: var(--accent-line);
+  --color-sky: var(--sky);
+  --color-deep: var(--deep);
   --color-action: var(--action);
   --color-action-hover: var(--action-hover);
   --color-success: var(--success);
@@ -128,7 +146,7 @@ body {
   outline: none;
   box-shadow:
     0 0 0 2px var(--surface),
-    0 0 0 4px rgba(37, 99, 235, 0.4);
+    0 0 0 4px rgba(11, 111, 174, 0.4);
 }
 
 /* Halftone dot ground — the one texture, for the graph and empty moments. */
@@ -205,4 +223,36 @@ b {
   padding: 12px 0;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+/* One declaration, cascades to every element readingComponents.tsx renders —
+   the reader's chosen font family (Sans/Mono) never needs repeating per tag. */
+.entry-body {
+  font-family: var(--reading-font);
+}
+
+/* Concept identity mark — a small generated halftone/gradient swatch, tinted per
+   concept, standing in for a plain color dot on Library cards. Set --mark-color
+   inline per instance; falls back to the accent so it never renders unstyled. */
+.identity-mark {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--mark-color, var(--accent)) 12%, var(--surface-soft));
+}
+.identity-mark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 28% 28%, color-mix(in srgb, var(--mark-color, var(--accent)) 55%, white) 0%, transparent 46%),
+    radial-gradient(circle at 72% 68%, var(--mark-color, var(--accent)) 0%, transparent 55%);
+}
+.identity-mark::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: radial-gradient(var(--mark-color, var(--accent)) 1px, transparent 1px);
+  background-size: 5px 5px;
 }

@@ -22,10 +22,7 @@ export default function Error({
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-[34rem] flex-col items-center justify-center px-5 text-center">
-      <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-faint">Something broke</p>
-      <h1 className="mt-3 text-2xl font-semibold tracking-[-0.02em] text-ink">
-        This page didn’t load
-      </h1>
+      <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">This page didn’t load</h1>
       <p className="mt-3 text-sm leading-relaxed text-muted">
         Atlas hit an error while putting this together. It’s usually momentary — try again, and if
         it keeps happening the backend may be unreachable.

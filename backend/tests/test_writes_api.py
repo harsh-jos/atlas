@@ -72,9 +72,14 @@ def owner(owner_user):
 
 
 @pytest.fixture
-def stranger(session):
-    token, _ = _register(session, "stranger@example.com")
-    return {"Authorization": f"Bearer {token}"}
+def stranger_user(session):
+    token, user = _register(session, "stranger@example.com")
+    return user, {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def stranger(stranger_user):
+    return stranger_user[1]
 
 
 def _slugs(client, headers) -> list[str]:
@@ -90,7 +95,6 @@ def test_every_write_endpoint_requires_a_token(client):
     calls = [
         ("PATCH", "/artifacts/x", {}),
         ("DELETE", "/artifacts/x", None),
-        ("POST", "/concepts", {"name": "x"}),
         ("PATCH", "/concepts/x", {}),
         ("DELETE", "/concepts/x", None),
         ("PUT", "/artifacts/x/sources", []),
@@ -121,15 +125,21 @@ def test_renaming_an_artifact_keeps_its_slug(client, owner):
     assert client.get(f"/artifacts/{slug}", headers=owner).status_code == 200
 
 
-def test_an_artifact_can_be_moved_to_another_concept(client, owner):
-    concept = client.post("/concepts", json={"name": "Indexing"}, headers=owner).json()
-    slug = _slug(client, owner)
-    body = client.patch(f"/artifacts/{slug}", json={"conceptId": concept["id"]}, headers=owner)
+def test_an_artifact_can_be_moved_to_another_concept(client, session, owner_user):
+    user, headers = owner_user
+    _import(session, user, "Indexing")
+    concept = client.get("/concepts/indexing", headers=headers).json()["concept"]
+    slug = _slug(client, headers)
+    body = client.patch(f"/artifacts/{slug}", json={"conceptId": concept["id"]}, headers=headers)
     assert body.json()["concept"]["slug"] == "indexing"
 
 
-def test_moving_an_artifact_into_another_users_concept_is_not_found(client, owner, stranger):
-    concept = client.post("/concepts", json={"name": "Theirs"}, headers=stranger).json()
+def test_moving_an_artifact_into_another_users_concept_is_not_found(
+    client, session, owner, stranger_user
+):
+    stranger, stranger_headers = stranger_user
+    _import(session, stranger, "Theirs")
+    concept = client.get("/concepts/theirs", headers=stranger_headers).json()["concept"]
     slug = _slug(client, owner)
     response = client.patch(f"/artifacts/{slug}", json={"conceptId": concept["id"]}, headers=owner)
     assert response.status_code == 404
@@ -168,21 +178,6 @@ def test_deleting_an_artifact_removes_it_and_releases_its_bytes(client, owner_us
     assert client.get(f"/artifacts/{slug}", headers=headers).status_code == 404
     session.refresh(user)
     assert user.storage_bytes < before
-
-
-def test_creating_a_concept_allocates_a_unique_slug(client, owner):
-    first = client.post("/concepts", json={"name": "Indexing", "color": "#abc"}, headers=owner)
-    assert first.status_code == 201
-    assert first.json()["slug"] == "indexing"
-    assert first.json()["color"] == "#abc"
-
-    second = client.post("/concepts", json={"name": "Indexing"}, headers=owner)
-    assert second.json()["slug"] == "indexing-1"
-
-
-def test_a_concept_name_is_only_taken_for_its_owner(client, owner, stranger):
-    body = client.post("/concepts", json={"name": "Vector Search"}, headers=stranger).json()
-    assert body["slug"] == "vector-search"
 
 
 def test_editing_a_concept_updates_it_and_keeps_its_slug(client, owner):

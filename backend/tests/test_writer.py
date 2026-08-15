@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 
 from app.core.enums import SourceType
 from app.db.models import Artifact, Concept, Relation, Source, User
+from app.db.repository import NotOwned
 from app.pipeline.build import build_import
 from app.pipeline.parsing.markdown_parser import parse_markdown
 from app.pipeline.writer import ImportWriter, allocate_slug
@@ -69,6 +70,7 @@ def test_first_import_creates_the_concept_and_its_artifacts(session, user):
     summary = _writer(session, user).write(_mapped())
 
     assert summary["conceptSlug"] == "vector-search"
+    assert summary["conceptName"] == "Vector Search"
     assert summary["artifacts"] == _count(session, Artifact, user_id=user.id)
     assert _count(session, Concept, user_id=user.id) == 1
     assert _count(session, Source) == summary["artifacts"]
@@ -117,6 +119,28 @@ def test_relations_are_not_duplicated_across_imports(session, user):
     writer.write(_mapped())
     assert _count(session, Relation) == first
     assert first > 0
+
+
+def test_an_explicit_concept_receives_the_import_and_keeps_its_own_name(session, user):
+    writer = _writer(session, user)
+    writer.write(_mapped(name="Retrieval"))
+    home = session.scalars(select(Concept).where(Concept.user_id == user.id)).one()
+
+    summary = writer.write(_mapped(name="Vector Search"), concept=home)
+
+    assert summary["conceptSlug"] == "retrieval"
+    assert home.name == "Retrieval"
+    assert _count(session, Concept, user_id=user.id) == 1
+    assert all(a.concept_id == home.id for a in session.scalars(select(Artifact)))
+
+
+def test_writing_into_another_users_concept_is_refused(session, user, other_user):
+    _writer(session, other_user).write(_mapped())
+    theirs = session.scalars(select(Concept).where(Concept.user_id == other_user.id)).one()
+
+    with pytest.raises(NotOwned):
+        _writer(session, user).write(_mapped(), concept=theirs)
+    assert _count(session, Artifact, user_id=user.id) == 0
 
 
 def test_two_users_importing_the_same_source_stay_separate(session, user, other_user):

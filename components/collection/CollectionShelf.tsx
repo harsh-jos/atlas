@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import Link from 'next/link';
 import { cleanTitle } from '@/lib/utils';
 
@@ -27,16 +28,17 @@ export function CollectionShelf({
   return (
     <Link href={`/collections/${slug}`} className="focus-ring group block rounded-card">
       <div className="flex h-full min-h-[8.5rem] flex-col rounded-card border bg-surface p-5 shadow-card transition-shadow duration-[var(--dur-fast)] group-hover:shadow-card-hover">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ backgroundColor: accent }}
-          />
-          <h3 title={name} className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
-            {name}
-          </h3>
-        </div>
+        <div
+          aria-hidden="true"
+          className="identity-mark h-9 w-9 shrink-0 rounded-[10px]"
+          style={{ '--mark-color': accent } as React.CSSProperties}
+        />
+        <h3
+          title={name}
+          className="mt-3 truncate text-[15px] font-semibold tracking-[-0.01em] text-ink"
+        >
+          {name}
+        </h3>
         {description && (
           <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-muted">
             {description}

@@ -105,7 +105,9 @@ def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
 
         Args:
             url: the page or documentation site to read.
-            concept_name: what to call the group of artifacts; leave empty to infer it.
+            concept_name: what to call the group of artifacts; leave empty to infer it. If
+            search_knowledge_base showed they already hold a concept on this topic, pass that
+            concept's exact name so the chooser defaults to extending it.
 
         Returns:
             previewId: pass this to commit_artifacts once the person has chosen.
@@ -114,6 +116,8 @@ def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
             totalBytes: size of the whole source, all artifacts combined.
             alreadyKnown: artifacts the person ALREADY has on this topic. If this is not
             empty, tell them before they choose — they may want to extend rather than duplicate.
+            The chooser also lets them pick which concept the artifacts land in, or name a new
+            one, so do not ask them where to put it.
         """
         return await _attempt(_preview, url, concept_name)
 

@@ -11,7 +11,7 @@ from app.api.previews import router as previews_router
 from app.auth.service import AuthService
 from app.core.enums import SourceType
 from app.db.base import get_session, get_session_scope
-from app.db.models import Artifact, Preview
+from app.db.models import Artifact, Concept, Preview
 from app.pipeline.build import build_import
 from app.pipeline.parsing.markdown_parser import parse_markdown
 from app.pipeline.preview import PreviewService
@@ -157,4 +157,70 @@ def test_a_stranger_cannot_see_or_commit_another_users_preview(client, session, 
         ).status_code
         == 404
     )
+    assert _count(session, Preview) == 1
+
+
+def _commit(client, headers, preview_id, **body):
+    return client.post(f"/previews/{preview_id}/commit", json=body, headers=headers)
+
+
+def _all_keys(client, headers, preview_id) -> list[str]:
+    detail = client.get(f"/previews/{preview_id}", headers=headers).json()
+    return [a["sourceKey"] for a in detail["artifacts"]]
+
+
+def _concept(session, name: str) -> Concept:
+    return session.scalars(select(Concept).where(Concept.name == name)).one()
+
+
+def test_detail_says_which_concept_the_proposed_name_would_extend(client, session, owner):
+    first = _park(session, owner[1])
+    detail = client.get(f"/previews/{first.id}", headers=owner[0]).json()
+    assert detail["existingConceptId"] is None
+    _commit(client, owner[0], first.id, source_keys=_all_keys(client, owner[0], first.id))
+
+    second = _park(session, owner[1])
+    detail = client.get(f"/previews/{second.id}", headers=owner[0]).json()
+    assert detail["existingConceptId"] == str(_concept(session, "Vector Search").id)
+
+
+def test_committing_into_a_chosen_concept_lands_there_without_renaming_it(client, session, owner):
+    first = _park(session, owner[1])
+    keys = _all_keys(client, owner[0], first.id)
+    _commit(client, owner[0], first.id, source_keys=keys, concept_name="Retrieval")
+    home = _concept(session, "Retrieval")
+
+    second = _park(session, owner[1])
+    summary = _commit(
+        client, owner[0], second.id, source_keys=keys[:1], concept_id=str(home.id)
+    ).json()
+
+    assert summary["conceptSlug"] == "retrieval"
+    assert summary["conceptName"] == "Retrieval"
+    assert _count(session, Concept) == 1
+    assert _count(session, Preview) == 0
+
+
+def test_a_blank_concept_name_is_refused(client, session, owner):
+    preview = _park(session, owner[1])
+    response = _commit(client, owner[0], preview.id, source_keys=["x"], concept_name="   ")
+    assert response.status_code == 400
+    assert _count(session, Preview) == 1
+
+
+def test_committing_into_another_users_concept_is_not_found(client, session, owner):
+    _, other = _account(session, "other@example.com")
+    theirs = PreviewService(session, other)
+    theirs.commit(_park(session, other).id)
+    mine = _park(session, owner[1])
+
+    response = _commit(
+        client,
+        owner[0],
+        mine.id,
+        source_keys=["x"],
+        concept_id=str(_concept(session, "Vector Search").id),
+    )
+
+    assert response.status_code == 404
     assert _count(session, Preview) == 1

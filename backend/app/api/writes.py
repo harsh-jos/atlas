@@ -21,7 +21,7 @@ from app.auth.deps import CurrentUser, CurrentUserId, SessionDep
 from app.core.enums import RelationType, SourceType
 from app.db.models import Artifact, Concept, Relation, Source, User
 from app.db.repository import OwnedRepository
-from app.pipeline.writer import allocate_slug, text_bytes
+from app.pipeline.writer import text_bytes
 from app.storage.quota import QuotaExceeded, QuotaService
 
 router = APIRouter(tags=["writes"])
@@ -42,9 +42,6 @@ class ConceptRepository(OwnedRepository[Concept]):
     def by_slug(self, slug: str) -> Concept | None:
         return self.session.scalars(self._select().where(Concept.slug == slug)).one_or_none()
 
-    def slugs(self) -> set[str]:
-        return set(self.session.scalars(self._select().with_only_columns(Concept.slug)))
-
 
 class ArtifactPatch(Payload):
     title: str | None = None
@@ -53,12 +50,6 @@ class ArtifactPatch(Payload):
     body_html: str | None = None
     tags: list[str] | None = None
     concept_id: UUID | None = None
-
-
-class ConceptIn(Payload):
-    name: str
-    description: str | None = None
-    color: str | None = None
 
 
 class ConceptPatch(Payload):
@@ -164,15 +155,6 @@ def delete_artifact(slug: str, session: SessionDep, user: CurrentUser) -> None:
     artifact = _found(artifacts.by_slug(slug), "artifact")
     _charge(session, user, -_cost(artifact.body, artifact.summary))
     artifacts.delete(artifact)
-
-
-@router.post("/concepts", response_model=ConceptDetail, status_code=status.HTTP_201_CREATED)
-def create_concept(
-    payload: ConceptIn, session: SessionDep, user_id: CurrentUserId
-) -> ConceptDetail:
-    concepts = ConceptRepository(session, user_id)
-    slug = allocate_slug(payload.name, concepts.slugs())
-    return _concept_detail(concepts.add(Concept(slug=slug, **payload.model_dump())), 0)
 
 
 @router.patch("/concepts/{slug}", response_model=ConceptDetail)

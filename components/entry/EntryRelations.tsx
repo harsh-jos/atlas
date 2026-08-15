@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { Relation } from '@/lib/api-types';
-import { SectionLabel } from '@/components/entry/SectionLabel';
 import { RELATION_INCOMING_LABELS, RELATION_OUTGOING_LABELS } from '@/lib/relations';
 import { cleanTitle } from '@/lib/utils';
 
@@ -31,35 +30,38 @@ function buildGroups(outgoing: Relation[], incoming: Relation[]): Group[] {
   return [...byLabel.entries()].map(([label, items]) => ({ label, items }));
 }
 
-/**
- * Related entries as the entry's closing back-matter — grouped by relation
- * type, each a chip that carries you onward. Inline, never a sidebar.
- */
+/** One dense line per relation type in the footer — a label, then linked titles. */
 export function EntryRelations({ outgoing, incoming }: EntryRelationsProps) {
   const groups = buildGroups(outgoing, incoming);
   if (groups.length === 0) return null;
 
   return (
-    <section>
-      <SectionLabel>Related</SectionLabel>
-      <div className="space-y-3">
-        {groups.map((group) => (
-          <div key={group.label} className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
-            <span className="w-[7.5rem] shrink-0 text-[13px] text-muted">{group.label}</span>
-            <div className="flex flex-1 flex-wrap gap-2">
-              {group.items.map((chip) => (
-                <Link
-                  key={chip.slug}
-                  href={`/entries/${chip.slug}`}
-                  className="focus-ring rounded-full border bg-surface px-3 py-1 text-[13px] font-medium text-ink transition-colors hover:border-accent/40 hover:bg-accent-soft hover:text-accent"
-                >
-                  {cleanTitle(chip.title)}
-                </Link>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
+    <div className="flex flex-col gap-1">
+      {groups.map((group) => (
+        <div
+          key={group.label}
+          className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-[13px] leading-6"
+        >
+          <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+            {group.label}
+          </span>
+          {group.items.map((chip, index) => (
+            <span key={chip.slug} className="inline-flex items-baseline">
+              {index > 0 && (
+                <span className="mr-1.5 text-faint" aria-hidden="true">
+                  &middot;
+                </span>
+              )}
+              <Link
+                href={`/entries/${chip.slug}`}
+                className="focus-ring rounded-sm text-ink underline decoration-hairline-strong underline-offset-2 transition-colors hover:text-accent hover:decoration-accent"
+              >
+                {cleanTitle(chip.title)}
+              </Link>
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }

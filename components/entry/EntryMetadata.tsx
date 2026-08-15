@@ -1,4 +1,4 @@
-import { SectionLabel } from '@/components/entry/SectionLabel';
+import { ChevronDown } from 'lucide-react';
 import { cleanTitle } from '@/lib/utils';
 
 export interface EntryMetadataProps {
@@ -13,6 +13,10 @@ interface MetaRow {
 // Ingestion plumbing — meaningful to the importer, noise to a reader. Kept out
 // of the reader-facing "Details" list.
 const INTERNAL_METADATA_KEYS = new Set(['importId', 'sourceKey', 'sourceKind', 'headingLevel']);
+
+// Past this many fields, Details opens collapsed — all of it is still there,
+// just not dumped open by default on every artifact.
+const COLLAPSE_THRESHOLD = 3;
 
 // "arxivId" -> "Arxiv id", "year" -> "Year"
 function humanizeKey(key: string): string {
@@ -44,24 +48,51 @@ function toRows(metadata: Record<string, unknown> | null): MetaRow[] {
 }
 
 /**
- * Entry-specific structured data (the jsonb escape hatch) as a quiet detail
- * list in the closing back-matter.
+ * Entry-specific structured data (the jsonb escape hatch) as the last, densest
+ * line of the footer. A handful of fields sit open inline; past
+ * {@link COLLAPSE_THRESHOLD} it collapses behind a native `<details>` toggle —
+ * ingestion pipelines routinely stamp 6-8 fields (model, scope, seed URL...)
+ * and dumping all of them open would dominate an otherwise one-line footer.
  */
 export function EntryMetadata({ metadata }: EntryMetadataProps) {
   const rows = toRows(metadata);
   if (rows.length === 0) return null;
 
+  const list = (
+    <span className="text-muted">
+      {rows.map((row, index) => (
+        <span key={row.label}>
+          {index > 0 && ' · '}
+          <span className="text-faint">{row.label}:</span> {row.value}
+        </span>
+      ))}
+    </span>
+  );
+
+  if (rows.length <= COLLAPSE_THRESHOLD) {
+    return (
+      <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[13px] leading-6">
+        <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+          Details
+        </span>
+        {list}
+      </div>
+    );
+  }
+
   return (
-    <section>
-      <SectionLabel>Details</SectionLabel>
-      <dl className="space-y-2">
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-baseline gap-3 text-[14px] leading-6">
-            <dt className="w-[7.5rem] shrink-0 text-muted">{row.label}</dt>
-            <dd className="text-ink">{row.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
+    <details className="group text-[13px] leading-6">
+      <summary className="focus-ring flex cursor-pointer list-none items-baseline gap-1.5 [&::-webkit-details-marker]:hidden">
+        <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+          Details
+        </span>
+        <span className="text-faint">{rows.length} fields</span>
+        <ChevronDown
+          className="h-3 w-3 shrink-0 text-faint transition-transform duration-[var(--dur-fast)] group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="mt-1.5">{list}</div>
+    </details>
   );
 }
