@@ -40,10 +40,13 @@ interface ReadingPrefs {
   font: string;
 }
 
+// Small / Tight / Wide — the user's chosen combination. Keep in sync with the
+// --reading-* defaults in app/globals.css (what a reader with no saved
+// preference yet, or JS disabled, actually sees on first paint).
 const DEFAULT_PREFS: ReadingPrefs = {
-  scale: SCALE_STEPS[1].value,
-  lineHeight: LINE_HEIGHT_STEPS[1].value,
-  measure: MEASURE_STEPS[1].value,
+  scale: SCALE_STEPS[0].value,
+  lineHeight: LINE_HEIGHT_STEPS[0].value,
+  measure: MEASURE_STEPS[2].value,
   font: FONT_STEPS[0].value,
 };
 
