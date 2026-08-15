@@ -42,7 +42,14 @@ export function ReadingProgressBar() {
   }, []);
 
   return (
-    <div ref={trackRef} className="sticky top-0 z-30 h-[2px] w-full" aria-hidden="true">
+    // -mb-[2px] cancels the 2px this reserves in normal flow, so whatever
+    // renders next (the cover band) starts flush at the very top instead of
+    // being pushed down by the track's own height.
+    <div
+      ref={trackRef}
+      className="sticky top-0 z-30 -mb-[2px] h-[2px] w-full"
+      aria-hidden="true"
+    >
       <div
         className="h-full bg-gradient-to-r from-sky to-accent transition-[width] duration-75 ease-out"
         style={{ width: `${progress * 100}%` }}
