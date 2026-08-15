@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { type ActionResult, attempt } from '@/lib/actions';
 import { apiGet, apiSend } from '@/lib/api';
-import type { ImportSummary, LinkReport, PreviewDetail } from '@/lib/api-types';
+import type { ConceptSummary, ImportSummary, LinkReport, PreviewDetail } from '@/lib/api-types';
+
+/** Where a commit lands: a concept the user already has, or a new one they name. */
+export type Destination =
+  | { kind: 'existing'; conceptId: string }
+  | { kind: 'new'; name: string };
 
 /**
  * One turn with the agent. A turn can commit artifacts and always touches the session's
@@ -40,13 +45,24 @@ export async function loadPreview(previewId: string): Promise<ActionResult<Previ
   return attempt(() => apiGet<PreviewDetail>(`/previews/${previewId}`));
 }
 
-/** Keep only the chosen artifacts. Refused server-side if nothing is selected. */
+/** Every concept the user has — the choices for where a commit can land. */
+export async function listConcepts(): Promise<ActionResult<ConceptSummary[]>> {
+  return attempt(() => apiGet<ConceptSummary[]>('/concepts'));
+}
+
+/** Keep only the chosen artifacts, in the chosen concept. Refused server-side if nothing is selected. */
 export async function commitPreview(
   previewId: string,
-  sourceKeys: string[]
+  sourceKeys: string[],
+  destination: Destination
 ): Promise<ActionResult<ImportSummary>> {
   const result = await attempt(() =>
-    apiSend<ImportSummary>('POST', `/previews/${previewId}/commit`, { source_keys: sourceKeys })
+    apiSend<ImportSummary>('POST', `/previews/${previewId}/commit`, {
+      source_keys: sourceKeys,
+      ...(destination.kind === 'existing'
+        ? { concept_id: destination.conceptId }
+        : { concept_name: destination.name }),
+    })
   );
   if (result.error === undefined) {
     revalidatePath('/');
