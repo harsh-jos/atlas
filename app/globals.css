@@ -49,6 +49,16 @@
   /* Geometry */
   --rail-width: 15rem;
 
+  /* Reading preferences — defaults here; ReadingSettings.tsx overrides these on
+     document.documentElement from a localStorage'd choice. Every size in
+     readingComponents.tsx is calc(basePx * --reading-scale), so nested elements
+     never compound (unlike cascading em). --reading-line-height applies to prose
+     only (p/li/blockquote) — headings keep their own fixed, tighter leading. */
+  --reading-scale: 1;
+  --reading-line-height: 1.68;
+  --reading-measure: 40rem;
+  --reading-font: var(--font-sans);
+
   /* Motion — quick fades, nothing bouncy. */
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur-fast: 120ms;
@@ -212,6 +222,12 @@ b {
   padding: 12px 0;
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+/* One declaration, cascades to every element readingComponents.tsx renders —
+   the reader's chosen font family (Sans/Mono) never needs repeating per tag. */
+.entry-body {
+  font-family: var(--reading-font);
 }
 
 /* Concept identity mark — a small generated halftone/gradient swatch, tinted per

@@ -11,16 +11,25 @@ export interface PopoverProps {
   /** Which side of the trigger the panel hangs from. */
   align?: 'start' | 'end';
   className?: string;
+  /** Off for panels with several independent controls (e.g. settings) where a
+   * click should adjust one thing without dismissing the rest. Defaults on —
+   * every other current use is a single pick that should close immediately. */
+  closeOnSelect?: boolean;
 }
 
 /**
  * A small anchored dropdown — not the centered `Modal`, which is reserved for
  * things that genuinely interrupt. This is for lightweight choices (sort,
- * filter) that shouldn't cost a full-screen overlay. Closes on outside click,
- * Escape, or a click anywhere inside the panel (every current use is a single
- * pick that should dismiss immediately).
+ * filter) that shouldn't cost a full-screen overlay. Closes on outside click
+ * or Escape always; closes on an inner click too unless `closeOnSelect` is off.
  */
-export function Popover({ renderTrigger, children, align = 'start', className }: PopoverProps) {
+export function Popover({
+  renderTrigger,
+  children,
+  align = 'start',
+  className,
+  closeOnSelect = true,
+}: PopoverProps) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
 
@@ -48,7 +57,7 @@ export function Popover({ renderTrigger, children, align = 'start', className }:
       {open && (
         <div
           role="menu"
-          onClick={() => setOpen(false)}
+          onClick={closeOnSelect ? () => setOpen(false) : undefined}
           className={cn(
             'animate-rise absolute top-full z-30 mt-2 min-w-[13rem] overflow-hidden rounded-card border bg-surface p-1.5 shadow-pop',
             align === 'end' ? 'right-0' : 'left-0',
