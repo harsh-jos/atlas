@@ -49,6 +49,21 @@ export function formatDate(date: Date | string | number): string {
   });
 }
 
+/**
+ * A quick, approximate h2 count from raw markdown or HTML — cheap enough to
+ * call server-side just to decide whether the table of contents will have
+ * anything to show (it needs 2+ to render at all). Not exact HTML/CDATA-safe
+ * parsing; that's what EntryTableOfContents does client-side off the real
+ * rendered DOM. This only has to be right often enough to avoid reserving an
+ * empty grid column for a TOC that won't render.
+ */
+export function countH2Headings(text: string | null): number {
+  if (!text) return 0;
+  const markdown = text.match(/^##(?!#)\s+\S/gm)?.length ?? 0;
+  const html = text.match(/<h2[\s>]/gi)?.length ?? 0;
+  return markdown + html;
+}
+
 const WORDS_PER_MINUTE = 200;
 
 /**
