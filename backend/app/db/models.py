@@ -34,9 +34,17 @@ class UUIDKey:
 
 
 class Timestamped:
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # clock_timestamp(), not now(): now() is pinned to the transaction's start, so a bulk
+    # ingestion that writes many rows in one transaction gives every row the same instant —
+    # sorting by created_at within that batch becomes a no-op. clock_timestamp() is the
+    # actual wall clock at each row, so insertion order survives.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp()
+    )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True),
+        server_default=func.clock_timestamp(),
+        onupdate=func.clock_timestamp(),
     )
 
 

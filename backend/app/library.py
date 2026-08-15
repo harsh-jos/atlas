@@ -9,12 +9,13 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import Artifact, Concept, Relation
 
-Sort = Literal["updated", "created", "title"]
+Sort = Literal["created_asc", "created_desc", "updated_desc", "title_asc"]
 
 _SORTS = {
-    "updated": desc(Artifact.updated_at),
-    "created": desc(Artifact.created_at),
-    "title": asc(Artifact.title),
+    "created_asc": asc(Artifact.created_at),
+    "created_desc": desc(Artifact.created_at),
+    "updated_desc": desc(Artifact.updated_at),
+    "title_asc": asc(Artifact.title),
 }
 DEFAULT_PAGE_SIZE = 20
 MAX_TAGS = 40
@@ -75,7 +76,7 @@ def get_concept_page(
     slug: str,
     *,
     tag: str | None = None,
-    sort: Sort = "updated",
+    sort: Sort = "created_asc",
     page: int = 1,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> ConceptPage | None:
