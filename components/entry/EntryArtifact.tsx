@@ -13,7 +13,14 @@ import { EntryTags } from '@/components/entry/EntryTags';
 import { EntryMetadata } from '@/components/entry/EntryMetadata';
 import { EntryTableOfContents } from '@/components/entry/EntryTableOfContents';
 import { ReadingSettings } from '@/components/entry/ReadingSettings';
-import { cleanTitle, duplicatesOpening, estimateReadingTime, formatDate } from '@/lib/utils';
+import {
+  cleanTitle,
+  cn,
+  countH2Headings,
+  duplicatesOpening,
+  estimateReadingTime,
+  formatDate,
+} from '@/lib/utils';
 
 export interface EntryArtifactProps {
   artifact: ArtifactDetail;
@@ -52,6 +59,10 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
 
   const body = artifact.bodyHtml || artifact.body;
   const readingTime = estimateReadingTime(body);
+  // The TOC needs 2+ h2s to render at all (a map with one stop isn't a map) —
+  // decided here, server-side, so a short artifact never reserves an empty
+  // grid column for a table of contents that won't show up.
+  const hasToc = countH2Headings(body) >= 2;
 
   return (
     <>
@@ -117,8 +128,13 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
             )}
           </div>
 
-          <div className="mt-9 grid gap-x-12 gap-y-10 xl:grid-cols-[minmax(0,var(--reading-measure))_1fr]">
-            <div id={BODY_ID} className="entry-body min-w-0">
+          <div
+            className={cn(
+              'mt-9 grid gap-x-12 gap-y-10',
+              hasToc && 'xl:grid-cols-[minmax(0,var(--reading-measure))_1fr]'
+            )}
+          >
+            <div id={BODY_ID} className="entry-body min-w-0 max-w-[var(--reading-measure)]">
               {artifact.bodyHtml?.trim() ? (
                 <HtmlBody html={artifact.bodyHtml} />
               ) : (
@@ -126,9 +142,11 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
               )}
             </div>
 
-            <aside className="xl:pt-1">
-              <EntryTableOfContents bodyId={BODY_ID} />
-            </aside>
+            {hasToc && (
+              <aside className="xl:pt-1">
+                <EntryTableOfContents bodyId={BODY_ID} />
+              </aside>
+            )}
           </div>
 
           {hasFooterMatter && (
