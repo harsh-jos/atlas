@@ -360,10 +360,10 @@ function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
           </span>
           <Button
             type="submit"
-            size="md"
+            size="icon"
             disabled={pending || !draft.trim()}
             aria-label="Send message"
-            className="w-9 px-0 shrink-0"
+            className="shrink-0"
           >
             <SendIcon />
           </Button>

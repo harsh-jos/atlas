@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { Calendar, Clock, Link2 } from 'lucide-react';
+import { Calendar, ChevronLeft, Clock, Link2 } from 'lucide-react';
 import type { ArtifactDetail, Relation } from '@/lib/api-types';
 import { ReadingProgressBar } from '@/components/entry/ReadingProgressBar';
+import { EntryCoverBand } from '@/components/entry/EntryCoverBand';
 import { EntryLineage } from '@/components/entry/EntryLineage';
 import { EntrySummary } from '@/components/entry/EntrySummary';
 import { MarkdownBody } from '@/components/entry/MarkdownBody';
@@ -51,16 +52,21 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
   return (
     <>
       <ReadingProgressBar />
+      <EntryCoverBand color={artifact.concept.color} />
 
-      <div className="mx-auto max-w-[54rem] px-5 py-12 sm:px-8">
+      <div className="mx-auto max-w-[54rem] px-5 pb-12 pt-8 sm:px-8">
         <article>
           <div className="max-w-[34rem]">
             <header className="mb-8">
               <div className="mb-4 flex items-center justify-between gap-4">
                 <Link
                   href={`/collections/${artifact.concept.slug}`}
-                  className="focus-ring inline-flex min-w-0 items-center gap-2 rounded-full bg-surface-soft py-1.5 pl-2.5 pr-3 text-[12.5px] font-medium text-muted transition-colors duration-[var(--dur-fast)] hover:bg-accent-soft hover:text-accent"
+                  className="focus-ring group inline-flex min-w-0 items-center gap-1 rounded-full bg-surface-soft py-1.5 pl-2 pr-3 text-[12.5px] font-medium text-muted transition-colors duration-[var(--dur-fast)] hover:bg-accent-soft hover:text-accent"
                 >
+                  <ChevronLeft
+                    className="h-3.5 w-3.5 shrink-0 text-faint transition-colors group-hover:text-accent"
+                    aria-hidden="true"
+                  />
                   <span
                     aria-hidden="true"
                     className="h-[7px] w-[7px] shrink-0 rounded-full"

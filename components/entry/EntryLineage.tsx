@@ -66,7 +66,7 @@ function Edge({ label }: { label: string }) {
   return (
     <div className="flex shrink-0 flex-col items-center px-1.5">
       <ChevronRight className="h-3.5 w-3.5 text-faint" aria-hidden="true" />
-      <span className="font-mono text-[9px] uppercase tracking-[0.06em] text-faint">{label}</span>
+      <span className="text-[10px] text-faint">{label}</span>
     </div>
   );
 }

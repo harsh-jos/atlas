@@ -14,10 +14,8 @@ export function ChatHistoryList({ sessions }: { sessions: ChatSessionSummary[] }
   if (sessions.length === 0) return null;
 
   return (
-    <div className="mt-6 flex min-h-0 flex-1 flex-col px-3">
-      <p className="px-2.5 pb-2 font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
-        History
-      </p>
+    <div className="mt-6 flex min-h-0 flex-1 flex-col border-t pt-4 px-3">
+      <p className="px-2.5 pb-2 text-xs text-faint">History</p>
       <div className="scroll-region min-h-0 flex-1 space-y-0.5">
         {sessions.map((session) => {
           const href = `/chat/${session.sessionId}`;

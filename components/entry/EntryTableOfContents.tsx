@@ -58,10 +58,7 @@ export function EntryTableOfContents({ bodyId }: EntryTableOfContentsProps) {
 
   return (
     <div className="sticky top-10">
-      <p className="mb-3 font-mono text-[10.5px] uppercase tracking-[0.08em] text-faint">
-        On this page
-      </p>
-      <nav className="flex flex-col">
+      <nav className="flex flex-col" aria-label="On this page">
         {headings.map((heading) => (
           <a
             key={heading.id}
