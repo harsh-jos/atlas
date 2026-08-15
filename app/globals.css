@@ -49,14 +49,15 @@
   /* Geometry */
   --rail-width: 15rem;
 
-  /* Reading preferences — defaults here; ReadingSettings.tsx overrides these on
-     document.documentElement from a localStorage'd choice. Every size in
-     readingComponents.tsx is calc(basePx * --reading-scale), so nested elements
-     never compound (unlike cascading em). --reading-line-height applies to prose
-     only (p/li/blockquote) — headings keep their own fixed, tighter leading. */
-  --reading-scale: 1;
-  --reading-line-height: 1.68;
-  --reading-measure: 40rem;
+  /* Reading preferences — defaults here (Small/Tight/Wide, the user's chosen
+     combination); ReadingSettings.tsx overrides these on document.documentElement
+     from a localStorage'd choice, and must stay in sync with these values. Every
+     size in readingComponents.tsx is calc(basePx * --reading-scale), so nested
+     elements never compound (unlike cascading em). --reading-line-height applies
+     to prose only (p/li/blockquote) — headings keep their own fixed, tighter leading. */
+  --reading-scale: 0.9;
+  --reading-line-height: 1.5;
+  --reading-measure: 46rem;
   --reading-font: var(--font-sans);
 
   /* Motion — quick fades, nothing bouncy. */

@@ -45,7 +45,10 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
   const relationCount = relationsFrom.length + incomingShown.length;
 
   const hasFooterMatter =
-    relationCount > 0 || artifact.tags.length > 0 || hasDetails(artifact.metadata);
+    artifact.sources.length > 0 ||
+    relationCount > 0 ||
+    artifact.tags.length > 0 ||
+    hasDetails(artifact.metadata);
 
   const body = artifact.bodyHtml || artifact.body;
   const readingTime = estimateReadingTime(body);
@@ -123,14 +126,14 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
               )}
             </div>
 
-            <aside className="flex flex-col gap-9 xl:pt-1">
+            <aside className="xl:pt-1">
               <EntryTableOfContents bodyId={BODY_ID} />
-              {artifact.sources.length > 0 && <EntrySources sources={artifact.sources} />}
             </aside>
           </div>
 
           {hasFooterMatter && (
-            <footer className="mt-16 max-w-[var(--reading-measure)] space-y-8 border-t pt-10">
+            <footer className="mt-10 max-w-[var(--reading-measure)] space-y-2 border-t pt-5">
+              <EntrySources sources={artifact.sources} />
               <EntryRelations outgoing={relationsFrom} incoming={relationsTo} />
               <EntryTags tags={artifact.tags} />
               <EntryMetadata metadata={artifact.metadata} />

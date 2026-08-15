@@ -1,19 +1,9 @@
-import type { Source, SourceType } from '@/lib/api-types';
-import { SectionLabel } from '@/components/entry/SectionLabel';
+import type { Source } from '@/lib/api-types';
 import { cleanTitle } from '@/lib/utils';
 
 export interface EntrySourcesProps {
   sources: Source[];
 }
-
-const sourceLabels: Record<SourceType, string> = {
-  BOOK: 'Book',
-  PAPER: 'Paper',
-  DOCS: 'Docs',
-  TUTORIAL: 'Tutorial',
-  COURSE: 'Course',
-  WEBSITE: 'Website',
-};
 
 // "https://arxiv.org/abs/1234" -> "arxiv.org" — a quiet host label instead of a raw URL.
 function hostLabel(url: string | null): string | null {
@@ -25,51 +15,40 @@ function hostLabel(url: string | null): string | null {
   }
 }
 
-/**
- * Sources rendered as a book's references — a quiet numbered, host-labelled
- * list at the end of the entry, not a card competing with the body.
- */
+/** One dense line in the footer: label, then linked titles separated by middots. */
 export function EntrySources({ sources }: EntrySourcesProps) {
   if (sources.length === 0) return null;
 
   return (
-    <section>
-      <SectionLabel>Sources</SectionLabel>
-      <ol className="space-y-3">
-        {sources.map((source, index) => {
-          const detail = [
-            sourceLabels[source.sourceType],
-            hostLabel(source.url),
-            source.author,
-            cleanTitle(source.ref ?? ''),
-          ]
-            .filter(Boolean)
-            .join(' · ');
-
-          return (
-            <li key={`${source.title}-${index}`} className="flex gap-3 text-[14px] leading-6">
-              <span className="mt-px flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] bg-accent-soft font-mono text-[11px] tabular-nums text-accent">
-                {index + 1}
+    <div className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-[13px] leading-6">
+      <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+        Sources
+      </span>
+      {sources.map((source, index) => {
+        const host = hostLabel(source.url);
+        return (
+          <span key={`${source.title}-${index}`} className="inline-flex items-baseline">
+            {index > 0 && (
+              <span className="mr-1.5 text-faint" aria-hidden="true">
+                &middot;
               </span>
-              <div className="min-w-0">
-                {source.url ? (
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="focus-ring rounded-sm font-medium text-ink underline decoration-[var(--hairline)] underline-offset-[3px] transition-colors hover:text-accent hover:decoration-accent"
-                  >
-                    {cleanTitle(source.title)}
-                  </a>
-                ) : (
-                  <span className="font-medium text-ink">{cleanTitle(source.title)}</span>
-                )}
-                {detail && <span className="text-muted"> — {detail}</span>}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+            )}
+            {source.url ? (
+              <a
+                href={source.url}
+                target="_blank"
+                rel="noreferrer"
+                className="focus-ring rounded-sm text-ink underline decoration-hairline-strong underline-offset-2 transition-colors hover:text-accent hover:decoration-accent"
+              >
+                {cleanTitle(source.title)}
+              </a>
+            ) : (
+              <span className="text-ink">{cleanTitle(source.title)}</span>
+            )}
+            {host && <span className="ml-1 text-faint">({host})</span>}
+          </span>
+        );
+      })}
+    </div>
   );
 }

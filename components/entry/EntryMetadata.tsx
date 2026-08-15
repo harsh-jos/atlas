@@ -48,58 +48,51 @@ function toRows(metadata: Record<string, unknown> | null): MetaRow[] {
 }
 
 /**
- * Entry-specific structured data (the jsonb escape hatch) as a quiet detail
- * grid in the closing back-matter. A handful of fields sit open; past
+ * Entry-specific structured data (the jsonb escape hatch) as the last, densest
+ * line of the footer. A handful of fields sit open inline; past
  * {@link COLLAPSE_THRESHOLD} it collapses behind a native `<details>` toggle —
  * ingestion pipelines routinely stamp 6-8 fields (model, scope, seed URL...)
- * and dumping all of them open dominates the page.
+ * and dumping all of them open would dominate an otherwise one-line footer.
  */
 export function EntryMetadata({ metadata }: EntryMetadataProps) {
   const rows = toRows(metadata);
   if (rows.length === 0) return null;
 
-  const grid = (
-    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
-      {rows.map((row) => (
-        <div key={row.label} className="flex min-w-0 items-baseline gap-3 text-[13.5px] leading-6">
-          <dt className="w-[6.5rem] shrink-0 font-mono text-[11.5px] text-faint">{row.label}</dt>
-          <dd className="min-w-0 truncate text-ink" title={row.value}>
-            {row.value}
-          </dd>
-        </div>
+  const list = (
+    <span className="text-muted">
+      {rows.map((row, index) => (
+        <span key={row.label}>
+          {index > 0 && ' · '}
+          <span className="text-faint">{row.label}:</span> {row.value}
+        </span>
       ))}
-    </dl>
+    </span>
   );
 
   if (rows.length <= COLLAPSE_THRESHOLD) {
     return (
-      <section>
-        <div className="mb-3 flex items-center gap-3">
-          <h2 className="shrink-0 font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
-            Details
-          </h2>
-          <span aria-hidden="true" className="h-px flex-1 bg-hairline" />
-        </div>
-        {grid}
-      </section>
+      <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[13px] leading-6">
+        <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+          Details
+        </span>
+        {list}
+      </div>
     );
   }
 
   return (
-    <section>
-      <details className="group">
-        <summary className="focus-ring mb-3 flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
-          <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.08em] text-faint">
-            Details &middot; {rows.length}
-          </span>
-          <span aria-hidden="true" className="h-px flex-1 bg-hairline" />
-          <ChevronDown
-            className="h-3.5 w-3.5 shrink-0 text-faint transition-transform duration-[var(--dur-fast)] group-open:rotate-180"
-            aria-hidden="true"
-          />
-        </summary>
-        {grid}
-      </details>
-    </section>
+    <details className="group text-[13px] leading-6">
+      <summary className="focus-ring flex cursor-pointer list-none items-baseline gap-1.5 [&::-webkit-details-marker]:hidden">
+        <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+          Details
+        </span>
+        <span className="text-faint">{rows.length} fields</span>
+        <ChevronDown
+          className="h-3 w-3 shrink-0 text-faint transition-transform duration-[var(--dur-fast)] group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="mt-1.5">{list}</div>
+    </details>
   );
 }
