@@ -11,7 +11,7 @@ interface ChatPageProps {
 export default async function ChatPage({ params }: ChatPageProps) {
   const { sessionId } = await params;
   // An unstarted session returns an empty history, so a fresh URL simply opens a blank chat.
-  const { messages } = await apiGet<ChatHistory>(`/agent/chat/${encodeURIComponent(sessionId)}`);
+  const snapshot = await apiGet<ChatHistory>(`/agent/chat/${encodeURIComponent(sessionId)}`);
 
-  return <ChatPanel sessionId={sessionId} initialMessages={messages} />;
+  return <ChatPanel key={sessionId} sessionId={sessionId} initialSnapshot={snapshot} />;
 }

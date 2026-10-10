@@ -1,7 +1,7 @@
 """Read endpoints for the knowledge base — everything the frontend renders."""
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -120,6 +120,7 @@ class SearchHit(Payload):
 
 
 class GraphNode(Payload):
+    node_kind: Literal["concept", "explanation"] = "explanation"
     id: UUID
     title: str
     slug: str
@@ -131,12 +132,13 @@ class GraphNode(Payload):
 class GraphLink(Payload):
     source: UUID
     target: UUID
-    relation_type: RelationType
+    relation_type: RelationType | Literal["requires", "related_to", "explains"]
     note: str | None
     origin: Origin
 
 
 class Graph(Payload):
+    has_more: bool = False
     nodes: list[GraphNode]
     links: list[GraphLink]
 
@@ -154,8 +156,9 @@ def _concept_detail(concept, artifact_count: int) -> ConceptDetail:
 
 
 @router.get("/concepts", response_model=list[ConceptSummary])
-def list_concepts(session: SessionDep, user_id: CurrentUserId) -> list[ConceptSummary]:
-    return [ConceptSummary(**row) for row in library.list_concepts(session, user_id)]
+def list_concepts(session: SessionDep, user_id: CurrentUserId,
+                  limit: int = Query(100, ge=1, le=101), offset: int = Query(0, ge=0, le=1000000)) -> list[ConceptSummary]:
+    return [ConceptSummary(**row) for row in library.list_concepts(session, user_id, limit, offset)]
 
 
 @router.get("/concepts/{slug}", response_model=ConceptPage)
@@ -179,7 +182,7 @@ def get_concept(
                 slug=artifact.slug,
                 summary=artifact.summary,
                 tags=artifact.tags,
-                source_count=len(artifact.sources),
+                source_count=artifact.source_count,
                 updated_at=artifact.updated_at,
             )
             for artifact in found.artifacts
@@ -228,5 +231,16 @@ def search(
 
 
 @router.get("/graph", response_model=Graph)
-def graph(session: SessionDep, user_id: CurrentUserId) -> Graph:
-    return Graph(**library.get_graph(session, user_id))
+def graph(session: SessionDep, user_id: CurrentUserId,
+          limit: int = Query(200, ge=1, le=500), offset: int = Query(0, ge=0, le=1000000)) -> Graph:
+    return Graph(**library.get_graph(session, user_id, limit, offset))
+
+
+@router.get("/concepts/{slug}/neighbourhood")
+def concept_neighbourhood(slug: str, session: SessionDep, user_id: CurrentUserId) -> dict:
+    from app.agent.knowledge import neighbourhood
+
+    try:
+        return neighbourhood(session, user_id, slug)
+    except ValueError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "concept not found") from None

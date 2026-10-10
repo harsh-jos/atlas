@@ -9,6 +9,7 @@ import { EntryCard } from '@/components/entry/EntryCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageContainer } from '@/components/layout/PageHeader';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { ConceptConnections, type ConceptNeighbourhood } from '@/components/collection/ConceptConnections';
 import { apiGetOrNull } from '@/lib/api';
 import { collectionFilterHref, parseSort } from '@/lib/collectionFilters';
 import type { ConceptPage } from '@/lib/api-types';
@@ -50,6 +51,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
     notFound();
   }
 
+  const graph = await apiGetOrNull<ConceptNeighbourhood>(`/concepts/${encodeURIComponent(slug)}/neighbourhood`);
+
   const { concept, artifacts, tags, totalTags, matched, pageSize } = data;
   const totalPages = Math.max(1, Math.ceil(matched / pageSize));
   const rangeStart = matched === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -72,6 +75,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
         color={concept.color}
         entryCount={concept.artifactCount}
       />
+
+      {graph && <ConceptConnections slug={slug} graph={graph} />}
 
       <div className="mb-5 flex flex-wrap items-center gap-2 border-b py-3.5">
         <SortMenu conceptSlug={concept.slug} sort={sort} tag={tag} />

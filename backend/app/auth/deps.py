@@ -14,7 +14,7 @@ from app.core.security import read_access_token
 from app.db.base import SessionScope, get_session, get_session_scope
 from app.db.models import User
 
-SessionDep = Annotated[Session, Depends(get_session)]
+SessionDep = Annotated[Session, Depends(get_session, scope="function")]
 SessionScopeDep = Annotated[SessionScope, Depends(get_session_scope)]
 
 _bearer = HTTPBearer(auto_error=False)

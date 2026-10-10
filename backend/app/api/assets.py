@@ -7,11 +7,14 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.api.library import Payload
+from app.agent.knowledge import lock_owner
 from app.auth.deps import CurrentUser, SessionDep
 from app.core.config import ALLOWED_ASSET_TYPES, get_settings
 from app.db.models import Asset
 from app.db.repository import OwnedRepository
 from app.storage.quota import QuotaExceeded, QuotaService
+from app.storage.assets import delete_after_commit, write
+from app.core.errors import AppError
 
 router = APIRouter(tags=["assets"])
 
@@ -30,7 +33,6 @@ class AssetOut(Payload):
 def _asset_path(asset_id: UUID) -> Path:
     """Named by the generated id: the client's filename never reaches the filesystem."""
     directory = Path(get_settings().assets_dir)
-    directory.mkdir(parents=True, exist_ok=True)
     return directory / str(asset_id)
 
 
@@ -43,7 +45,7 @@ def _owned(assets: AssetRepository, asset_id: UUID) -> Asset:
 
 
 @router.post("/assets", response_model=AssetOut, status_code=status.HTTP_201_CREATED)
-async def upload_asset(
+def upload_asset(
     session: SessionDep, user: CurrentUser, file: UploadFile = File(...)
 ) -> AssetOut:
     """Store one image, charged against the caller's quota before anything touches the disk."""
@@ -52,12 +54,12 @@ async def upload_asset(
         raise HTTPException(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, f"unsupported asset type: {mime_type}"
         )
-    data = await file.read()
     limit = get_settings().max_asset_bytes
+    data = file.file.read(limit + 1)
     if len(data) > limit:
         raise HTTPException(
             status.HTTP_413_CONTENT_TOO_LARGE,
-            f"asset is {len(data)} bytes; the limit is {limit}",
+            f"asset exceeds the limit of {limit} bytes",
         )
     try:
         QuotaService(session, user).reserve(len(data))
@@ -71,7 +73,7 @@ async def upload_asset(
             size=len(data),
         )
     )
-    _asset_path(asset.id).write_bytes(data)
+    write(session, _asset_path(asset.id), data)
     return AssetOut(
         id=asset.id, url=f"/assets/{asset.id}", mime_type=asset.mime_type, size=asset.size
     )
@@ -81,15 +83,19 @@ async def upload_asset(
 def get_asset(asset_id: UUID, session: SessionDep, user: CurrentUser) -> FileResponse:
     """Streamed off disk by FileResponse, so the bytes never sit in memory."""
     asset = _owned(AssetRepository(session, user.id), asset_id)
-    return FileResponse(_asset_path(asset.id), media_type=asset.mime_type)
+    path = _asset_path(asset.id)
+    if not path.is_file():
+        raise AppError("This saved image is missing. Restore it from a backup or upload it again.", "asset_missing", 404)
+    return FileResponse(path, media_type=asset.mime_type)
 
 
 @router.delete("/assets/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_asset(asset_id: UUID, session: SessionDep, user: CurrentUser) -> None:
     """Drops the row, gives the bytes back to the quota, and removes the file."""
+    user = lock_owner(session, user.id)
     assets = AssetRepository(session, user.id)
     asset = _owned(assets, asset_id)
     path, size = _asset_path(asset.id), asset.size
     assets.delete(asset)
     QuotaService(session, user).release(size)
-    path.unlink(missing_ok=True)
+    delete_after_commit(session, path)

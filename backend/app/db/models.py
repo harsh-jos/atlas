@@ -2,22 +2,26 @@
 
 from datetime import datetime
 from uuid import UUID, uuid4
+from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
+    Computed,
     Enum,
     Float,
     ForeignKey,
     Index,
+    JSON,
     String,
     Text,
     UniqueConstraint,
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from app.core.config import EMBEDDING_DIMENSIONS
@@ -98,7 +102,7 @@ class Concept(OwnedRecord):
     overview: Mapped[str | None] = mapped_column(Text)
 
     artifacts: Mapped[list["Artifact"]] = relationship(
-        back_populates="concept", cascade="all, delete-orphan"
+        back_populates="concept", cascade="all, delete-orphan", passive_deletes=True
     )
 
 
@@ -109,6 +113,12 @@ class Artifact(OwnedRecord):
     __table_args__ = (
         UniqueConstraint("user_id", "slug"),
         Index("ix_artifacts_concept_source_key", "concept_id", text("(metadata->>'sourceKey')")),
+        Index("ix_artifacts_search_vector", "search_vector", postgresql_using="gin"),
+        Index("ix_artifacts_title_trgm", "title", postgresql_using="gin",
+              postgresql_ops={"title": "gin_trgm_ops"}),
+        Index("ix_artifacts_tags", "tags", postgresql_using="gin"),
+        Index("ix_artifacts_owner_concept_updated", "user_id", "concept_id",
+              text("updated_at DESC"), text("id DESC")),
     )
 
     concept_id: Mapped[UUID] = mapped_column(
@@ -123,15 +133,23 @@ class Artifact(OwnedRecord):
     format: Mapped[ArtifactFormat] = mapped_column(_enum(ArtifactFormat), default=ArtifactFormat.MD)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     meta: Mapped[dict | None] = mapped_column("metadata", JSONB)
+    search_vector: Mapped[Any] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english'::regconfig, coalesce(title, '') || ' ' || "
+                 "coalesce(summary, '') || ' ' || coalesce(body, ''))", persisted=True),
+        deferred=True,
+    )
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
     origin: Mapped[Origin] = mapped_column(_enum(Origin), default=Origin.HUMAN)
 
     concept: Mapped[Concept] = relationship(back_populates="artifacts")
     sources: Mapped[list["Source"]] = relationship(
-        back_populates="artifact", cascade="all, delete-orphan"
+        back_populates="artifact", cascade="all, delete-orphan", passive_deletes=True
     )
 
 
+# Retained schema definitions for existing installs. Import and linker routes are archived.
+# Remove these only with a separate migration and an explicit data-retention decision.
 class Preview(OwnedRecord):
     """A built-but-unwritten import, parked between proposal and curation."""
 
@@ -190,3 +208,72 @@ class Relation(OwnedRecord):
     note: Mapped[str | None] = mapped_column(Text)
     origin: Mapped[Origin] = mapped_column(_enum(Origin), default=Origin.HUMAN)
     confidence: Mapped[float | None] = mapped_column(Float)
+
+
+class AgentRequest(OwnedRecord):
+    """One reserved model request, counted even if a provider fails before reporting usage."""
+
+    __tablename__ = "agent_requests"
+    __table_args__ = (Index("ix_agent_requests_owner_session", "user_id", "session_id"),)
+
+    session_id: Mapped[str] = mapped_column(String(64))
+    invocation_id: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(200))
+    research: Mapped[bool] = mapped_column(default=False)
+    reported: Mapped[bool] = mapped_column(default=False)
+    input_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    thought_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    search_queries: Mapped[int] = mapped_column(default=0)
+    # NULL means pending or unknown, including requests made before cost accounting.
+    estimated_cost_microusd: Mapped[int | None] = mapped_column(BigInteger)
+
+
+class AgentTurn(OwnedRecord):
+    """An accepted user message, independent of the HTTP request that submitted it."""
+
+    __tablename__ = "agent_turns"
+    __table_args__ = (
+        UniqueConstraint("user_id", "session_id", "request_id"),
+        Index("ix_agent_turns_owner_session", "user_id", "session_id"),
+        Index("ix_agent_turns_queue", "status", "created_at", "id"),
+        Index("ix_agent_turns_lease", "status", "lease_until"),
+        Index("ix_agent_turns_history", "user_id", "session_id", "created_at", "id"),
+        Index(
+            "ix_agent_turns_active_session", "user_id", "session_id", unique=True,
+            postgresql_where=text("status IN ('queued', 'running')"),
+            sqlite_where=text("status IN ('queued', 'running')"),
+        ),
+    )
+
+    session_id: Mapped[str] = mapped_column(String(64))
+    request_id: Mapped[UUID]
+    message: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
+    reply: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    tool_name: Mapped[str | None] = mapped_column(String(200))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    tool_errors: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), default=list, server_default=text("'[]'")
+    )
+
+
+class ConceptConnection(OwnedRecord):
+    """A small orientation graph; 'requires' points from an idea to its prerequisite."""
+
+    __tablename__ = "concept_connections"
+    __table_args__ = (UniqueConstraint("user_id", "from_id", "to_id", "kind"),)
+
+    from_id: Mapped[UUID] = mapped_column(
+        ForeignKey("concepts.id", ondelete="CASCADE"), index=True
+    )
+    to_id: Mapped[UUID] = mapped_column(
+        ForeignKey("concepts.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    note: Mapped[str] = mapped_column(Text)
+    origin: Mapped[Origin] = mapped_column(_enum(Origin), default=Origin.AI)

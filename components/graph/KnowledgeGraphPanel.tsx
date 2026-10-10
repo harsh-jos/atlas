@@ -36,7 +36,7 @@ export function KnowledgeGraphPanel({ data }: KnowledgeGraphPanelProps) {
             The graph is empty
           </h2>
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
-            Add entries and connect them with relations to see them here.
+            Explore an idea with Atlas. Concepts and saved explanations will appear here.
           </p>
         </div>
       </div>

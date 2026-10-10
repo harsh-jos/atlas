@@ -26,7 +26,7 @@ const MEASURE_STEPS = [
   { label: 'Wide', value: '46rem' },
 ] as const;
 
-// Deliberately Sans/Mono only, not Sans/Serif — see docs/design.md and
+// Deliberately Sans/Mono only, not Sans/Serif — see the font tokens in
 // atlas-visual-taste memory: serif has been tried and rejected twice.
 const FONT_STEPS = [
   { label: 'Sans', value: 'var(--font-sans)' },

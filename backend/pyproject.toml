@@ -1,17 +1,14 @@
 [project]
-name = "atlas-import-pipeline"
+name = "atlas-backend"
 version = "0.1.0"
-description = "Local ingestion service that imports external knowledge into Atlas."
+description = "Atlas learning agent and knowledge API."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic-settings>=2.6",
     "psycopg[binary]>=3.2",
-    "psycopg-pool>=3.2",
     "httpx>=0.28",
-    "docling>=2.104.0",
-    "trafilatura>=2.1.0",
     "python-multipart>=0.0.32",
     "sqlalchemy>=2.0",
     "alembic>=1.14",
@@ -19,7 +16,7 @@ dependencies = [
     "pyjwt>=2.10",
     "pwdlib[argon2]>=0.2",
     "email-validator>=2.2",
-    "google-adk>=1.16",
+    "google-adk==2.5.0",
     "greenlet>=3.5.4",
 ]
 

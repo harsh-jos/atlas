@@ -1,4 +1,4 @@
-"""Domain enumerations shared by the ORM models and the ingestion pipeline."""
+"""Domain enumerations for persisted knowledge."""
 
 from enum import StrEnum
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { loadOlderSessions } from '@/app/chat/actions';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn, timeAgo, truncate } from '@/lib/utils';
@@ -10,6 +12,20 @@ const TITLE_LENGTH = 20;
 /** Every past chat, latest-first — the section collapses away once there's nothing to show. */
 export function ChatHistoryList({ sessions }: { sessions: ChatSessionSummary[] }) {
   const pathname = usePathname();
+  const [older, setOlder] = useState<ChatSessionSummary[]>([]);
+  const [hasMore, setHasMore] = useState(sessions.length === 100);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const visible = [...new Map([...sessions, ...older].map((row) => [row.sessionId, row])).values()];
+  async function more() {
+    setLoading(true);
+    const result = await loadOlderSessions(visible.length);
+    setLoading(false);
+    if (result.error !== undefined) { setError(result.error); return; }
+    setError(null);
+    setOlder((current) => [...current, ...result.value]);
+    setHasMore(result.value.length === 100);
+  }
 
   if (sessions.length === 0) return null;
 
@@ -17,7 +33,7 @@ export function ChatHistoryList({ sessions }: { sessions: ChatSessionSummary[] }
     <div className="mt-6 flex min-h-0 flex-1 flex-col border-t pt-4 px-3">
       <p className="px-2.5 pb-2 text-xs text-faint">History</p>
       <div className="scroll-region min-h-0 flex-1 space-y-0.5">
-        {sessions.map((session) => {
+        {visible.map((session) => {
           const href = `/chat/${session.sessionId}`;
           const active = pathname === href;
           return (
@@ -41,6 +57,8 @@ export function ChatHistoryList({ sessions }: { sessions: ChatSessionSummary[] }
             </Link>
           );
         })}
+        {hasMore && <button type="button" className="focus-ring px-2.5 py-2 text-xs text-muted" disabled={loading} onClick={() => void more()}>{loading ? 'Loading…' : 'More chats'}</button>}
+        {error && <p className="px-2.5 text-xs text-danger">{error}</p>}
       </div>
     </div>
   );

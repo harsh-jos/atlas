@@ -1,140 +1,110 @@
-"""The pipeline and knowledge base, bound to one user, as callables an LlmAgent can hold.
-
-Tool docstrings are the model's contract, so they are written for the model, not the reader.
-Every tool is async: ADK calls sync tools inline, and a blocking crawl would stall the loop.
-"""
+"""Agent tools scoped to the current user; each write commits before success is returned."""
 
 import asyncio
 import logging
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Awaitable, Callable
 from uuid import UUID
 
-from sqlalchemy.orm import Session
-
-from app.auth.repository import UserRepository
-from app.core.config import get_settings
+from app.agent import knowledge
 from app.db.base import SessionScope
-from app.db.models import User
-from app.pipeline.build import build_import
-from app.pipeline.loader import load_source
-from app.pipeline.preview import PreviewService, UnknownPreview
 from app.search import search_artifacts
+from app.storage.quota import QuotaExceeded
+from app.core.errors import describe, report
 
 log = logging.getLogger(__name__)
 
 
-async def _attempt(work: Callable[..., dict], *args: Any) -> dict:
-    """A tool that raises kills the whole turn, so failure comes back as something to say.
+def build_toolkit(
+    scope: SessionScope, user_id: UUID, *, on_event: Callable[[dict], Awaitable[None]] | None = None
+) -> list[Callable]:
+    async def execute(operation, *args):
+        def transaction():
+            with scope() as session:
+                return operation(session, user_id, *args)
 
-    The model is told to relay the message rather than invent a result, which is why the reason
-    travels with it — a bare "failed" would tempt it to guess what happened.
-    """
-    try:
-        return await asyncio.to_thread(work, *args)
-    except Exception as error:
-        log.warning("tool %s failed: %s", work.__name__, error)
-        return {"error": f"{type(error).__name__}: {error}"}
-
-
-def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
-    """Tools bound to one user; every call takes a short-lived session of its own."""
-
-    def owner(session: Session) -> User:
-        user = UserRepository(session).get(user_id)
-        if user is None:
-            raise LookupError(f"user {user_id} no longer exists")
-        return user
-
-    def _search(query: str) -> dict:
-        with scope() as session:
-            return {"results": search_artifacts(session, user_id, query)}
-
-    def _preview(url: str, concept_name: str) -> dict:
-        settings = get_settings()
-        loaded = load_source("url", {"url": url})
-        mapped = build_import(
-            loaded.doc,
-            concept_name=concept_name or loaded.suggested_concept,
-            scope=loaded.scope,
-            min_artifact_chars=settings.min_artifact_chars,
-            max_split_level=settings.max_split_level,
-        )
-        with scope() as session:
-            service = PreviewService(session, owner(session))
-            preview = service.park(mapped, scope=loaded.scope)
-            outline = service.outline(preview.id)
-            # Checked here, not left to the model: a prompt cannot guarantee a tool call.
-            return {
-                "previewId": str(preview.id),
-                "artifacts": outline,
-                "totalBytes": sum(item["bytes"] for item in outline),
-                "alreadyKnown": search_artifacts(session, user_id, mapped.concept.name),
-            }
-
-    def _commit(preview_id: str, source_keys: list[str]) -> dict:
-        with scope() as session:
-            service = PreviewService(session, owner(session))
+        try:
+            operation_task = asyncio.create_task(asyncio.to_thread(transaction))
             try:
-                return dict(service.commit(UUID(preview_id), source_keys or None))
-            except UnknownPreview:
-                # Usually the person already resolved it in the chooser. Not an error to them.
-                return {"alreadyResolved": True, "error": "That preview was already resolved."}
+                return await asyncio.shield(operation_task)
+            except asyncio.CancelledError:
+                # A database thread cannot be cancelled. Drain it before releasing the turn
+                # so a new message cannot race a save that is still committing.
+                try:
+                    await operation_task
+                except Exception as error:
+                    report(log, error, describe(error).code, tool=operation.__name__)
+                raise
+        except (ValueError, QuotaExceeded) as error:
+            code = "storage_quota" if isinstance(error, QuotaExceeded) else "invalid_tool_input"
+            message = str(error)
+        except Exception as error:
+            failure = describe(error)
+            code, message = failure.code, failure.message
+            report(log, error, code, tool=operation.__name__)
+        if on_event:
+            await on_event({"type": "agent.tool_error", "name": operation.__name__, "code": code, "message": message})
+        return {"error": message, "code": code}
 
     async def search_knowledge_base(query: str) -> dict:
-        """Search what this person has ALREADY learned and kept.
+        """Find saved explanations by text. Exposure does not prove understanding."""
+        result = await execute(search_artifacts, query[:200])
+        return result if isinstance(result, dict) else {"results": result}
 
-        Call this before searching the web, every time. If they already hold artifacts on the
-        topic, say so and offer to extend that concept instead of importing the same thing twice.
+    async def inspect_concept_graph(concept_slug: str = "") -> dict:
+        """Read a concept's neighbours and explanations, or recent concepts if slug is empty.
 
-        Args:
-            query: words describing the topic, e.g. "vector index HNSW".
-
-        Returns:
-            results: matching artifacts, each with slug, title, summary and concept name.
-            An empty list means they have nothing on this yet.
+        'requires' outgoing means this concept needs the neighbour; incoming is the reverse.
+        'related_to' is symmetric. Results are bounded and indicate when more exist.
         """
-        return await _attempt(_search, query)
+        return await execute(knowledge.neighbourhood, concept_slug)
 
-    async def preview_source(url: str, concept_name: str = "") -> dict:
-        """Fetch a source and show exactly which artifacts it would become. Writes NOTHING.
+    async def remember_concept(name: str, description: str) -> dict:
+        """Keep one concept actually explored, with a short plain-language description.
 
-        Use this the moment a specific source is agreed on — including when the person named
-        the source themselves, in which case do not search the web at all. Present the returned
-        artifact list to them and ask which ones they want before committing anything.
-
-        Args:
-            url: the page or documentation site to read.
-            concept_name: what to call the group of artifacts; leave empty to infer it. If
-            search_knowledge_base showed they already hold a concept on this topic, pass that
-            concept's exact name so the chooser defaults to extending it.
-
-        Returns:
-            previewId: pass this to commit_artifacts once the person has chosen.
-            artifacts: every artifact this source would create, with sourceKey, title,
-            breadcrumb and size in bytes. sourceKey is what commit_artifacts expects.
-            totalBytes: size of the whole source, all artifacts combined.
-            alreadyKnown: artifacts the person ALREADY has on this topic. If this is not
-            empty, tell them before they choose — they may want to extend rather than duplicate.
-            The chooser also lets them pick which concept the artifacts land in, or name a new
-            one, so do not ask them where to put it.
+        Reuses an existing concept. Do not populate a curriculum or infer mastery.
         """
-        return await _attempt(_preview, url, concept_name)
+        return await execute(knowledge.remember_concept, name, description)
 
-    async def commit_artifacts(preview_id: str, source_keys: list[str]) -> dict:
-        """Write the artifacts the person explicitly chose into their knowledge base.
+    async def connect_concepts(from_slug: str, to_slug: str, kind: str, note: str) -> dict:
+        """Connect two existing concepts with a specific reason.
 
-        Never call this until they have seen a preview and said which artifacts they want.
-        Passing an empty source_keys list commits the entire preview, so only do that when they
-        asked for all of it.
-
-        Args:
-            preview_id: previewId returned by preview_source.
-            source_keys: the sourceKey of each artifact they chose.
-
-        Returns:
-            conceptSlug, artifacts written, relations created, pruned, and bytes charged.
+        kind is 'requires' (from needs to as a prerequisite) or symmetric 'related_to'.
+        Use only meaningful connections supported by this exploration; duplicates are reused.
         """
-        return await _attempt(_commit, preview_id, source_keys)
+        return await execute(knowledge.connect_concepts, from_slug, to_slug, kind, note)
 
-    return [search_knowledge_base, preview_source, commit_artifacts]
+    async def read_saved_explanation(slug: str) -> dict:
+        """Read an owned explanation and its revision timestamp before using or revising it."""
+        return await execute(knowledge.read_explanation, slug)
+
+    async def save_explanation(
+        concept_slug: str, title: str, summary: str, body: str, source_urls: list[str]
+    ) -> dict:
+        """Save a standalone Markdown answer only when the user asks or has agreed to saving.
+
+        Reuse source URLs actually retrieved. Use a question as title when helpful.
+        Same concept and title reuses the existing explanation without overwriting it.
+        Return the reader URL to the user after success.
+        """
+        return await execute(
+            knowledge.save_explanation, concept_slug, title, summary, body, source_urls
+        )
+
+    async def revise_saved_explanation(
+        slug: str, expected_updated_at: str, body: str, summary: str
+    ) -> dict:
+        """Revise an explanation when asked, after reading its current text and timestamp.
+
+        Preserve relevant source citations and useful context. A stale timestamp rejects the edit.
+        """
+        return await execute(knowledge.revise_explanation, slug, expected_updated_at, body, summary)
+
+    return [
+        search_knowledge_base,
+        inspect_concept_graph,
+        remember_concept,
+        connect_concepts,
+        read_saved_explanation,
+        save_explanation,
+        revise_saved_explanation,
+    ]

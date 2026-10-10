@@ -1,76 +1,80 @@
-import asyncio
 import logging
+import asyncio
 from contextlib import asynccontextmanager
+from contextlib import suppress
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException
 from sqlalchemy import text
 
+from app.agent.session import get_session_service
+from app.db.bootstrap import prepare_database
 from app.agent.router import router as agent_router
+from app.agent.worker import WorkerHealth, run_worker
 from app.api.assets import router as assets_router
-from app.api.imports import router as imports_router
-from app.api.kb import kb_router, llm_router
 from app.api.library import router as library_router
-from app.api.links import router as links_router
-from app.api.previews import router as previews_router
 from app.api.writes import router as writes_router
 from app.auth.router import router as auth_router
-from app.core.config import get_settings
-from app.db.base import get_engine, get_session_scope
-from app.jobs.queue import JobStore, run_worker
-from app.jobs.runner import process_job
-from app.jobs.sweeper import run_sweeper
-from app.realtime.router import router as realtime_router
+from app.db.base import get_engine
+from app.core.errors import AppError
+from app.core.http_errors import ErrorMiddleware, http_error, validation_error
 
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    store = JobStore(get_settings().jobs_db_path)
-    app.state.store = store
-
-    stop = asyncio.Event()
-    background = [
-        asyncio.create_task(run_worker(store, process_job, stop)),
-        asyncio.create_task(run_sweeper(get_session_scope(), stop)),
-    ]
+    app.state.schema_ready = False
+    worker = None
     try:
+        await prepare_database()
+        app.state.schema_ready = True
+        app.state.worker_health = WorkerHealth()
+        worker = asyncio.create_task(run_worker(app.state.worker_health))
+        app.state.worker = worker
         yield
     finally:
-        stop.set()
-        await asyncio.gather(*background)
-        get_engine().dispose()
+        app.state.schema_ready = False
+        if worker is not None:
+            worker.cancel()
+            with suppress(asyncio.CancelledError):
+                await worker
+        try:
+            if get_session_service.cache_info().currsize:
+                await get_session_service().close()
+                get_session_service.cache_clear()
+        finally:
+            get_engine().dispose()
 
 
 app = FastAPI(title="Atlas", version="0.1.0", lifespan=lifespan)
-
-
-@app.exception_handler(Exception)
-async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
-    """A bug must not leak a traceback to the reader. The trace goes to the log; a plain, honest
-    message goes to the caller — deliberate HTTPExceptions keep their own specific detail."""
-    log.exception("unhandled error on %s %s", request.method, request.url.path)
-    return JSONResponse(status_code=500, content={"detail": "Something went wrong on our end."})
+app.add_middleware(ErrorMiddleware)
+app.add_exception_handler(HTTPException, http_error)
+app.add_exception_handler(RequestValidationError, validation_error)
 
 
 app.include_router(auth_router)
-app.include_router(realtime_router)
 app.include_router(agent_router)
 app.include_router(library_router)
 app.include_router(writes_router)
-app.include_router(previews_router)
-app.include_router(links_router)
 app.include_router(assets_router)
-app.include_router(imports_router)
-app.include_router(llm_router)
-app.include_router(kb_router)
 
 
 @app.get("/healthz")
 def healthz() -> dict[str, bool]:
-    """Liveness plus database reachability."""
+    """Readiness: a reachable database and a worker recently able to access its queue."""
+    worker = getattr(app.state, "worker", None)
+    health = getattr(app.state, "worker_health", None)
+    if worker is None or worker.done() or health is None or not health.ready():
+        raise AppError("The chat worker is unavailable. Try again later.", "worker_unavailable", 503)
+    if not getattr(app.state, "schema_ready", False):
+        raise AppError("Database setup is incomplete.", "schema_unavailable", 503)
     with get_engine().connect() as connection:
         connection.execute(text("SELECT 1"))
+    return {"ok": True}
+
+
+@app.get("/livez")
+def livez() -> dict[str, bool]:
     return {"ok": True}
