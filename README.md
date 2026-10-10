@@ -4,7 +4,8 @@ Explore a subject with expert guidance. Keep useful explanations, see connection
 and return when curiosity brings you back.
 
 [Purpose and v0.1 feature list](docs/product.md) is the only product plan.
-The app is a development scaffold. The new learning loop is not complete.
+The local agent supports exploration, saved explanations, and a small concept graph.
+The v0.1 release checklist is not complete.
 
 ## Local development
 
@@ -73,6 +74,22 @@ Live checks use AI credits. Scenarios cover the first explanation, prerequisite 
 changes of direction, returning, stopping, and small practice. Read the responses against the
 saved review checklist. A successful API request is not a passing teaching-quality review.
 The language instructions follow STE principles; there is no full dictionary compliance checker yet.
+
+## Agent memory and graph
+
+The agent can inspect nearby concepts, search/read saved explanations, and remember concepts
+actually explored. It adds `requires` and `related_to` connections with short reasons.
+`requires` points from an idea to its prerequisite; `related_to` is symmetric.
+Ask “keep this” to save an explanation, or ask for a revision after returning.
+Saved explanations appear in the existing library, reader, editor, and graph.
+The graph's `explains` edges come from each explanation's concept membership.
+
+Writes are scoped to the authenticated owner, enforce text-storage quota, reuse duplicate
+saves/connections, and reject stale revisions. Concept pages let you remove a connection.
+The agent does not delete explanations; use the existing editor. Saving consent and teaching
+style are model instructions, not a separate deterministic policy checker.
+
+See [the live review](docs/evaluations/2026-10-10-agent.md) for observations and remaining limits.
 
 ## Archive
 

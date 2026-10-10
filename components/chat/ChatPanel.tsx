@@ -14,7 +14,13 @@ const COMPOSER_MAX_HEIGHT = 160;
 /** What each tool call is called while the reader waits — the agent's work, made legible. */
 const TOOL_LABELS: Record<string, string> = {
   search_knowledge_base: 'Finding saved explanations',
-  researcher: 'Researching the open web',
+  researcher: 'Checking sources',
+  inspect_concept_graph: 'Looking at connected ideas',
+  remember_concept: 'Keeping this idea',
+  connect_concepts: 'Connecting ideas',
+  read_saved_explanation: 'Reading a saved explanation',
+  save_explanation: 'Saving your explanation',
+  revise_saved_explanation: 'Updating your explanation',
 };
 
 /** The first-run moment — three or four honest ways to start a research thread. */

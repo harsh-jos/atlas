@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import Select, asc, desc, func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.db.models import Artifact, Concept, Relation
+from app.db.models import Artifact, Concept, ConceptConnection, Relation
 
 Sort = Literal["created_asc", "created_desc", "updated_desc", "title_asc"]
 
@@ -155,7 +155,7 @@ def _edges(session: Session, user_id: UUID, near, far, artifact_id: UUID) -> lis
 
 
 def get_graph(session: Session, user_id: UUID) -> dict[str, list[dict]]:
-    """Every artifact as a node and every edge as a link, for the graph view."""
+    """Concepts and saved explanations, with their owned connections for the graph view."""
     rows = session.execute(
         select(
             Artifact.id,
@@ -164,6 +164,8 @@ def get_graph(session: Session, user_id: UUID) -> dict[str, list[dict]]:
             Artifact.summary,
             Concept.name,
             Concept.color,
+            Artifact.concept_id,
+            Artifact.origin,
         )
         .join(Concept, Concept.id == Artifact.concept_id)
         .where(Artifact.user_id == user_id)
@@ -178,7 +180,7 @@ def get_graph(session: Session, user_id: UUID) -> dict[str, list[dict]]:
             Relation.origin,
         ).where(Relation.user_id == user_id)
     ).all()
-    return {
+    graph = {
         "nodes": [
             {
                 "id": artifact_id,
@@ -187,8 +189,9 @@ def get_graph(session: Session, user_id: UUID) -> dict[str, list[dict]]:
                 "summary": summary,
                 "concept_name": concept_name,
                 "concept_color": color or _FALLBACK_COLOUR,
+                "node_kind": "explanation",
             }
-            for artifact_id, title, slug, summary, concept_name, color in rows
+            for artifact_id, title, slug, summary, concept_name, color, _, _ in rows
         ],
         "links": [
             {
@@ -201,3 +204,41 @@ def get_graph(session: Session, user_id: UUID) -> dict[str, list[dict]]:
             for source, target, kind, note, origin in links
         ],
     }
+
+    concepts = session.scalars(_owned(Concept, user_id).order_by(Concept.name)).all()
+    concept_ids = {row.id for row in concepts}
+    for concept in concepts:
+        graph["nodes"].append(
+            {
+                "id": concept.id,
+                "title": concept.name,
+                "slug": concept.slug,
+                "summary": concept.description,
+                "concept_name": concept.name,
+                "concept_color": concept.color or _FALLBACK_COLOUR,
+                "node_kind": "concept",
+            }
+        )
+    for artifact_id, _, _, _, _, _, concept_id, origin in rows:
+        if concept_id in concept_ids:
+            graph["links"].append(
+                {
+                    "source": artifact_id,
+                    "target": concept_id,
+                    "relation_type": "explains",
+                    "note": None,
+                    "origin": origin,
+                }
+            )
+    for edge in session.scalars(_owned(ConceptConnection, user_id)):
+        if edge.from_id in concept_ids and edge.to_id in concept_ids:
+            graph["links"].append(
+                {
+                    "source": edge.from_id,
+                    "target": edge.to_id,
+                    "relation_type": edge.kind,
+                    "note": edge.note,
+                    "origin": edge.origin,
+                }
+            )
+    return graph

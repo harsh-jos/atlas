@@ -252,3 +252,18 @@ def list_artifacts(
         ArtifactOption(id=row_id, title=title, slug=slug, concept_name=name, concept_color=color)
         for row_id, title, slug, name, color in session.execute(statement)
     ]
+
+
+@router.delete("/concept-connections/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_concept_connection(
+    connection_id: UUID, session: SessionDep, user_id: CurrentUserId
+) -> None:
+    from app.db.models import ConceptConnection
+
+    row = session.scalar(
+        select(ConceptConnection).where(
+            ConceptConnection.id == connection_id, ConceptConnection.user_id == user_id
+        )
+    )
+    _found(row, "connection")
+    session.delete(row)

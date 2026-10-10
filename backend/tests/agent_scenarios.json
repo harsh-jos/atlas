@@ -1,7 +1,9 @@
 [
   {
     "id": "pytorch-start",
-    "turns": ["I want to learn PyTorch. I know Python and basic algebra. I do not want a tutorial or to master the whole framework."],
+    "turns": [
+      "I want to learn PyTorch. I know Python and basic algebra. I do not want a tutorial or to master the whole framework."
+    ],
     "review": [
       "Selects one useful starting question and explains why it matters.",
       "Begins a concrete explanation instead of giving a syllabus or an interview.",
@@ -56,6 +58,35 @@
       "Uses a small, correct example with necessary terms explained.",
       "Gives one optional prediction and useful feedback or a clear answer check.",
       "Does not claim code was executed. Does not create a worksheet."
+    ]
+  },
+  {
+    "id": "gradient-misconception",
+    "turns": [
+      "I know Python and basic algebra. What does a gradient mean? Use one numerical example and keep it short.",
+      "Does a zero gradient mean the output cannot change?",
+      "At x=3 in y=x*x, does a gradient of 6 mean a step of 1 increases y by 6?"
+    ],
+    "review": [
+      "Defines local change without assuming calculus.",
+      "Uses y=x*x at zero to show that zero gradient does not mean a constant function.",
+      "Distinguishes the actual increase of 7 from the local prediction of 6.",
+      "Avoids universal claims about learning rates and does not append a new lesson."
+    ]
+  },
+  {
+    "id": "keep-and-revise",
+    "turns": [
+      "Explain why the gradient of y=x*x at x=3 predicts small changes, using numbers.",
+      "Keep that explanation so I can return to it.",
+      "Read the saved explanation and update it to include what happens at x=0. Preserve its sources.",
+      "That is enough for today."
+    ],
+    "review": [
+      "Actually saves an explanation and returns its reader link.",
+      "Reads before revising and preserves useful content and citations.",
+      "Keeps graph additions limited to ideas actually explored.",
+      "Does not claim understanding and accepts stopping without tools or a new question."
     ]
   }
 ]

@@ -93,6 +93,7 @@ export interface SearchHit {
 }
 
 export interface GraphNode {
+  nodeKind: 'concept' | 'explanation';
   id: string;
   title: string;
   slug: string;
@@ -104,7 +105,7 @@ export interface GraphNode {
 export interface GraphLink {
   source: string;
   target: string;
-  relationType: RelationType;
+  relationType: RelationType | 'requires' | 'related_to' | 'explains';
   note: string | null;
   origin: Origin;
 }

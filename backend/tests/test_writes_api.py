@@ -284,3 +284,39 @@ def test_no_mutation_reaches_another_users_rows(client, owner, stranger):
         assert response.status_code == 404, f"{method} {path}"
 
     assert client.get(f"/artifacts/{slug}", headers=owner).json()["title"] != "hijacked"
+
+
+def test_concept_neighbourhood_and_removal_are_owned(client, session, owner_user, stranger_user):
+    from app.agent.knowledge import remember_concept, connect_concepts
+
+    user, headers = owner_user
+    _, other_headers = stranger_user
+    a = remember_concept(session, user.id, "Autograd", "Records operations.")
+    b = remember_concept(session, user.id, "Gradient", "Describes change.")
+    edge = connect_concepts(session, user.id, a["slug"], b["slug"], "requires", "Autograd computes gradients.")
+    path = f'/concepts/{a["slug"]}/neighbourhood'
+    assert client.get(path, headers=other_headers).status_code == 404
+    data = client.get(path, headers=headers).json()
+    assert data["connections"][0]["slug"] == b["slug"]
+    delete_path = f'/concept-connections/{edge["id"]}'
+    assert client.delete(delete_path, headers=other_headers).status_code == 404
+    assert client.delete(delete_path, headers=headers).status_code == 204
+    assert client.get(path, headers=headers).json()["connections"] == []
+
+
+def test_graph_shows_concepts_explanations_and_prerequisite_direction(client, session, owner_user):
+    from app.agent.knowledge import remember_concept, connect_concepts, save_explanation
+
+    user, headers = owner_user
+    a = remember_concept(session, user.id, "Autograd", "Records operations.")
+    b = remember_concept(session, user.id, "Gradient", "Describes change.")
+    connect_concepts(session, user.id, a["slug"], b["slug"], "requires", "Computes gradients.")
+    saved = save_explanation(session, user.id, a["slug"], "How does autograd work?", "Records operations.", "Example.", [])
+    graph = client.get('/graph', headers=headers).json()
+    by_slug = {node['slug']: node for node in graph['nodes']}
+    assert by_slug[a['slug']]['nodeKind'] == 'concept'
+    assert by_slug[saved['slug']]['nodeKind'] == 'explanation'
+    assert any(edge['source'] == by_slug[a['slug']]['id'] and edge['target'] == by_slug[b['slug']]['id']
+               and edge['relationType'] == 'requires' for edge in graph['links'])
+    assert any(edge['source'] == by_slug[saved['slug']]['id'] and edge['target'] == by_slug[a['slug']]['id']
+               and edge['relationType'] == 'explains' for edge in graph['links'])

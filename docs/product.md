@@ -26,7 +26,7 @@ question and remain useful without its chat. Small means focused, not a fixed wo
 The graph provides orientation and guides the agent. Target two node types: concepts and
 saved explanations. Start with three relationships: requires, related to, and explains.
 Show the current neighbourhood first, with a wider view available. Do not show mastery scores
-or make unexplored concepts look like a backlog. The current schema needs work to support this.
+or make unexplored concepts look like a backlog. Concept connections support requires and related to. A saved explanation belongs to the concept it explains.
 
 ## Build first
 
@@ -69,13 +69,18 @@ editing, auth, storage, and an artifact graph remain as foundations. The first a
 uses Gemini 3.8 Flash on Vertex AI, with high reasoning and focused teaching instructions.
 It has a bounded research tool, source links, persistent request accounting, and explicit
 incomplete replies when limits are reached. Scripted ADK checks cover history, ownership,
-research, failure, and request limits. Live scenarios still need review for teaching quality.
+research, failure, and request limits. Live PyTorch scenarios have been reviewed for teaching quality; see the dated evaluation notes.
 
 Limits apply to model requests, grounded research requests, input request size,
 and reply time. Google may run multiple queries within one research request. Provider-reported
 token and query counts are recorded; missing usage is marked unknown. These controls are not
 a hard currency spending limit. Currency enforcement remains required before v0.1.
-The new concept graph, agent writes, and formal language validation still need implementation.
+The agent can inspect concept neighbourhoods, remember explored concepts, connect them, and
+save/read/revise Markdown explanations. Saves reuse the same concept/title; revisions check
+that the saved text has not changed. Existing readers and editors support inspection and deletion.
+Concept pages show removable connections; the graph shows concepts and explanations together.
+The full graph still opens as a wider map; a neighbourhood-first graph view remains pending.
+Formal language validation is not implemented.
 Keep feature boxes unchecked until their full behaviour has been verified.
 Archived experiments are reference code only and are excluded from the active app.
 
