@@ -19,6 +19,8 @@ from app.agent.session import (
 )
 from app.agent.turns import TurnStore
 from app.agent.toolkit import build_toolkit
+from app.agent.context import PREFERENCES_KEY
+from app.agent.knowledge import preferences
 from app.core.config import get_settings
 from app.db.base import get_session_scope
 from app.core.errors import AppError
@@ -45,9 +47,15 @@ async def run_turn(
 
     limits = RequestLimits(UsageStore(get_session_scope(), user_id, session_id), get_settings())
     agent = build_agent(build_toolkit(get_session_scope(), user_id, on_event=on_event), limits)
+    def load_preferences():
+        with get_session_scope()() as db:
+            return preferences(db, user_id)
+
+    current_preferences = await asyncio.to_thread(load_preferences)
     try:
         reply = await ask(
-            agent, str(user_id), session_id, message, on_event=on_event, turn_id=turn_id
+            agent, str(user_id), session_id, message, on_event=on_event, turn_id=turn_id,
+            state_delta={PREFERENCES_KEY: current_preferences},
         )
         if limits.truncated and on_event:
             await on_event({"type": "agent.incomplete", "code": "provider_truncated"})

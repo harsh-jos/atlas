@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-10",
+  "guide_model": "gemini-3.8-flash",
+  "research_model": "gemini-3.8-flash",
+  "query": "In three short sentences, what is a Python dictionary? Include one tiny example.",
+  "reply": "A Python dictionary is a data structure that stores information in key-value pairs. You use a unique key to retrieve its associated value quickly. For example, `user = {\"name\": \"Alex\"}` connects the key `\"name\"` to the value `\"Alex\"`.",
+  "elapsed_seconds": 10.0,
+  "usage": {
+    "model_requests": 2,
+    "research_requests": 0,
+    "input_tokens": 6061,
+    "output_tokens": 144,
+    "thought_tokens": 844,
+    "total_tokens": 7049,
+    "unreported_requests": 0,
+    "search_queries": 0,
+    "estimated_cost_microusd": 8252,
+    "unpriced_requests": 0,
+    "cached_input_tokens": 0,
+    "cache_unreported_requests": 2
+  },
+  "tools": [
+    "remember_concept",
+    "update_learning_context"
+  ],
+  "incomplete": [],
+  "tool_errors": [],
+  "explicit_cache_enabled": false
+}

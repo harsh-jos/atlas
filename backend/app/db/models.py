@@ -77,6 +77,8 @@ class User(Record):
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[Role] = mapped_column(_enum(Role), default=Role.OWNER)
     storage_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
+    agent_memory_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    agent_auto_save: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
 
 class Asset(OwnedRecord):
@@ -221,7 +223,10 @@ class AgentRequest(OwnedRecord):
     model: Mapped[str] = mapped_column(String(200))
     research: Mapped[bool] = mapped_column(default=False)
     reported: Mapped[bool] = mapped_column(default=False)
+    rejected: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     input_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    # A subset of input_tokens. NULL means the provider did not report cache usage.
+    cached_input_tokens: Mapped[int | None] = mapped_column(BigInteger)
     output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     thought_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)

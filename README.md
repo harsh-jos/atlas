@@ -97,12 +97,17 @@ Project access is required. No alternative model is selected automatically.
 The backend environment example lists the request, research, context-size, and time
 limits. SDK retries are disabled so hidden retries do not bypass request accounting.
 `GET /agent/chat/{session_id}/usage` returns owned counts, including requests with unknown usage.
+It also returns `cachedInputTokens` and `cacheUnreportedRequests`. Cached tokens are part of
+input tokens; missing cache metadata is unknown, not a confirmed cache miss. Static agent rules
+are separate from changing conversation context. Explicit caching is not enabled.
 Research-request limits count grounded model requests, not Google's internal search queries.
 Actual query and token counts come from provider metadata.
 `AGENT_SESSION_BUDGET_MICROUSD` defaults to 5000000 ($5); 0 explicitly disables the spending guard.
 The guard stops further calls once estimated spending reaches the allowance. A pending request
 holds the remaining allowance, so concurrent calls cannot both claim it. Missing usage, an
 interrupted request, or missing research-query metadata blocks further spending in that session.
+A confirmed HTTP 429 capacity rejection before any response is recorded separately and allows
+a manual retry; it still consumes a request slot. No automatic retry is added.
 Historical requests without cost records also block; start a new chat to continue.
 The usage endpoint reports estimated cost, unpriced requests, and the configured allowance.
 
@@ -196,8 +201,10 @@ The graph's `explains` edges come from each explanation's concept membership.
 
 Writes are scoped to the authenticated owner, enforce text-storage quota, reuse duplicate
 saves/connections, and reject stale revisions. Concept pages let you remove a connection.
-The agent does not delete explanations; use the existing editor. Saving consent and teaching
-style are model instructions, not a separate deterministic policy checker.
+The agent does not delete explanations; use the existing editor. Saving tools require an explicit-request declaration or a stored continuing agreement.
+The model interprets consent; teaching style and semantic consent are not independently verified.
+Concept-memory opt-out is enforced by the tools across chats. Conversation notes are bounded
+and separate from saved explanations. See [the agent and tool guide](docs/agent-guide.md).
 
 See [the live review](docs/evaluations/2026-10-10-agent.md) for observations and remaining limits.
 

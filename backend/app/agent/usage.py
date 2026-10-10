@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import case, func, select
+from sqlalchemy import and_, case, func, select
 
 from app.agent.pricing import estimate_cost, token_rates
 from app.core.config import Settings
@@ -33,6 +33,9 @@ class UsageTotals:
     search_queries: int
     estimated_cost_microusd: int
     unpriced_requests: int
+    cached_input_tokens: int
+    cache_unreported_requests: int
+    rejected_requests: int
 
 
 class UsageStore:
@@ -61,7 +64,7 @@ class UsageStore:
                 func.coalesce(func.sum(case((current_turn, 1), else_=0)), 0).label("turn"),
                 func.coalesce(func.sum(case((AgentRequest.research, 1), else_=0)), 0).label("research"),
                 func.coalesce(func.sum(case((current_turn & AgentRequest.research, 1), else_=0)), 0).label("turn_research"),
-                func.coalesce(func.sum(case((AgentRequest.estimated_cost_microusd.is_(None), 1), else_=0)), 0).label("unknown"),
+                func.coalesce(func.sum(case((and_(AgentRequest.estimated_cost_microusd.is_(None), ~AgentRequest.rejected), 1), else_=0)), 0).label("unknown"),
                 func.coalesce(func.sum(AgentRequest.estimated_cost_microusd), 0).label("spent"),
             )).one()
             if stats.turn >= settings.agent_max_calls_per_turn:
@@ -99,13 +102,21 @@ class UsageStore:
             session.flush()
             return row.id
 
+    def reject(self, request_id: UUID) -> None:
+        """Release a confirmed capacity rejection without inventing token usage or cost."""
+        with self.scope() as session:
+            row = session.scalars(self._owned().where(AgentRequest.id == request_id).with_for_update()).one()
+            if row.reported or row.estimated_cost_microusd is not None:
+                raise ValueError("A request with reported usage cannot be marked rejected.")
+            row.rejected = True
+
     def record(
         self,
         request_id: UUID,
         settings: Settings,
         *,
         search_reported: bool = True,
-        **usage: int | bool,
+        **usage: int | bool | None,
     ) -> None:
         with self.scope() as session:
             row = session.scalars(self._owned().where(AgentRequest.id == request_id)).one()
@@ -138,12 +149,15 @@ class UsageStore:
                             "total_tokens",
                         )
                     ],
-                    func.coalesce(func.sum(case((rows.c.reported, 0), else_=1)), 0),
+                    func.coalesce(func.sum(case((and_(~rows.c.reported, ~rows.c.rejected), 1), else_=0)), 0),
                     func.coalesce(func.sum(rows.c.search_queries), 0),
                     func.coalesce(func.sum(rows.c.estimated_cost_microusd), 0),
                     func.coalesce(
-                        func.sum(case((rows.c.estimated_cost_microusd.is_(None), 1), else_=0)), 0
+                        func.sum(case((and_(rows.c.estimated_cost_microusd.is_(None), ~rows.c.rejected), 1), else_=0)), 0
                     ),
+                    func.coalesce(func.sum(rows.c.cached_input_tokens), 0),
+                    func.coalesce(func.sum(case((and_(rows.c.cached_input_tokens.is_(None), ~rows.c.rejected), 1), else_=0)), 0),
+                    func.coalesce(func.sum(case((rows.c.rejected, 1), else_=0)), 0),
                 )
             ).one()
             return UsageTotals(*(int(value) for value in values))
