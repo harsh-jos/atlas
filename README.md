@@ -97,6 +97,9 @@ Project access is required. No alternative model is selected automatically.
 The backend environment example lists the request, research, context-size, and time
 limits. SDK retries are disabled so hidden retries do not bypass request accounting.
 `GET /agent/chat/{session_id}/usage` returns owned counts, including requests with unknown usage.
+It also returns `cachedInputTokens` and `cacheUnreportedRequests`. Cached tokens are part of
+input tokens; missing cache metadata is unknown, not a confirmed cache miss. Static agent rules
+are separate from changing conversation context. Explicit caching is not enabled.
 Research-request limits count grounded model requests, not Google's internal search queries.
 Actual query and token counts come from provider metadata.
 `AGENT_SESSION_BUDGET_MICROUSD` defaults to 5000000 ($5); 0 explicitly disables the spending guard.
