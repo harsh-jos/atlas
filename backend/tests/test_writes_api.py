@@ -311,7 +311,7 @@ def test_graph_shows_concepts_explanations_and_prerequisite_direction(client, se
     a = remember_concept(session, user.id, "Autograd", "Records operations.")
     b = remember_concept(session, user.id, "Gradient", "Describes change.")
     connect_concepts(session, user.id, a["slug"], b["slug"], "requires", "Computes gradients.")
-    saved = save_explanation(session, user.id, a["slug"], "How does autograd work?", "Records operations.", "Example.", [])
+    saved = save_explanation(session, user.id, a["slug"], "How does autograd work?", "Records operations.", "Example.", [], user_requested=True)
     graph = client.get('/graph', headers=headers).json()
     by_slug = {node['slug']: node for node in graph['nodes']}
     assert by_slug[a['slug']]['nodeKind'] == 'concept'

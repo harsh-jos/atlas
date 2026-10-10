@@ -334,3 +334,114 @@ def test_truncation_reports_a_machine_readable_outcome(local_sessions, usage_fac
         events.append(event)
     asyncio.run(sessions_module.ask(agent, 'u1', 's1', 'Tensor?', on_event=capture))
     assert {'type': 'agent.incomplete', 'code': 'provider_truncated'} in events
+
+
+def call_tool(tool_name, **args):
+    return LlmResponse(content=types.Content(role="model", parts=[
+        types.Part(function_call=types.FunctionCall(name=tool_name, args=args))
+    ]))
+
+
+def test_learning_context_survives_reopening_without_leaking_to_another_chat(
+    local_sessions, usage_factory, agent_settings
+):
+    from app.agent.context import CONTEXT_KEY
+    from app.agent.toolkit import build_toolkit
+
+    store = usage_factory()
+    notes = {"question": "Why cache?", "background": "Knows dictionaries",
+             "confusion": "", "next_connection": "Stale entries"}
+
+    def guide(responses):
+        agent = build_agent(build_toolkit(store.scope, store.user_id), RequestLimits(store, agent_settings))
+        agent.model = ScriptedModel(responses=responses)
+        return agent
+
+    async def run():
+        first = guide([call_tool("update_learning_context", **notes), answer("A cache reuses results.")])
+        await sessions_module.ask(first, "u1", "s1", "Explain caching. I know dictionaries.")
+        saved = await local_sessions.get_session(app_name=agent_settings.agent_app_name, user_id="u1", session_id="s1")
+        assert saved.state[CONTEXT_KEY] == notes
+        reopened = guide([answer("We explored reuse.")])
+        await sessions_module.ask(reopened, "u1", "s1", "Where were we?")
+        assert "Knows dictionaries" in str(reopened.model.requests[0].config.system_instruction)
+        fresh = guide([answer("Let us start with a lookup.")])
+        await sessions_module.ask(fresh, "u1", "s2", "Caching?")
+        assert "Knows dictionaries" not in str(fresh.model.requests[0].config.system_instruction)
+        other = guide([answer("A cache holds results.")])
+        await sessions_module.ask(other, "u2", "s1", "Caching?")
+        assert "Knows dictionaries" not in str(other.model.requests[0].config.system_instruction)
+
+    asyncio.run(run())
+
+
+def test_preference_tool_clears_notes_and_blocks_subsequent_memory_tools(
+    local_sessions, usage_factory, agent_settings
+):
+    from app.agent.context import CONTEXT_KEY, PREFERENCES_KEY
+    from app.agent.knowledge import preferences
+    from app.agent.toolkit import build_toolkit
+
+    store = usage_factory()
+    agent = build_agent(build_toolkit(store.scope, store.user_id), RequestLimits(store, agent_settings))
+    agent.model = ScriptedModel(responses=[
+        call_tool("set_learning_preferences", memory_enabled=False),
+        call_tool("update_learning_context", question="Must not persist", background="", confusion="", next_connection=""),
+        call_tool("remember_concept", name="Must not persist", description="Blocked before any concept query."),
+        answer("Concept memory is off. Chat history still persists."),
+    ])
+
+    async def run():
+        await sessions_module.ask(agent, "u1", "s1", "Do not remember concepts or learning notes.",
+                                  state_delta={CONTEXT_KEY: {"question": "Old notes"}})
+        saved = await local_sessions.get_session(app_name=agent_settings.agent_app_name, user_id="u1", session_id="s1")
+        assert saved.state[CONTEXT_KEY] == {}
+        assert saved.state.get(PREFERENCES_KEY, {}).get("memory_enabled", False) is False
+        responses = [part.function_response.response for content in agent.model.requests[-1].contents
+                     for part in content.parts or [] if part.function_response]
+        assert sum("disabled" in str(result) for result in responses) == 2
+        assert "Old notes" not in str(agent.model.requests[-1].config.system_instruction)
+        with store.scope() as db:
+            persisted = preferences(db, store.user_id)
+        assert persisted == {"memory_enabled": False, "auto_save": False}
+        fresh = build_agent([], RequestLimits(store, agent_settings))
+        fresh.model = ScriptedModel(responses=[answer("Memory remains off.")])
+        await sessions_module.ask(fresh, "u1", "s2", "Is memory enabled?",
+                                  state_delta={PREFERENCES_KEY: persisted})
+        assert '"memory_enabled": false' in str(fresh.model.requests[0].config.system_instruction)
+        assert (await sessions_module.read_history("u1", "s1"))[-1].text.startswith("Concept memory is off")
+
+    asyncio.run(run())
+
+
+def test_context_bounds_and_connection_inspection_fail_explicitly(
+    local_sessions, usage_factory, agent_settings
+):
+    from app.agent.context import CONTEXT_KEY
+    from app.agent.toolkit import build_toolkit
+
+    store = usage_factory()
+    events = []
+
+    async def capture(event):
+        events.append(event)
+
+    agent = build_agent(build_toolkit(store.scope, store.user_id, on_event=capture), RequestLimits(store, agent_settings))
+    agent.model = ScriptedModel(responses=[
+        call_tool("update_learning_context", question="x" * 501, background="", confusion="", next_connection=""),
+        call_tool("remove_concept_connection", connection_id="unseen", user_requested=True),
+        call_tool("remove_concept_connection", connection_id="unseen"),
+        answer("No changes were made."),
+    ])
+
+    async def run():
+        await sessions_module.ask(agent, "u1", "s1", "Change these notes and remove that connection.")
+        saved = await local_sessions.get_session(app_name=agent_settings.agent_app_name, user_id="u1", session_id="s1")
+        assert not saved.state.get(CONTEXT_KEY)
+
+    asyncio.run(run())
+    errors = [event for event in events if event["type"] == "agent.tool_error"]
+    assert len(errors) == 3
+    assert "500" in errors[0]["message"]
+    assert "Inspect" in errors[1]["message"]
+    assert "user request" in errors[2]["message"]
