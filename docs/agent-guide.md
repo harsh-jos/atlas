@@ -120,3 +120,14 @@ a smoke test, not proof of teaching quality, source-policy compliance, or cachin
 
 Caching increment verification: 185 backend tests passed with no skips, including migration
 and schema checks. Backend/frontend lint, TypeScript, and diff whitespace checks passed.
+
+## Capacity rejections and retry recovery
+
+A confirmed provider HTTP 429 before any response is recorded as a rejected request.
+It still consumes a request slot, but does not leave an unknown-cost hold or fabricated
+usage/cost. The usage endpoint exposes `rejectedRequests` separately. No automatic retry
+is added. Partial responses, cancellations, timeouts, server failures, and missing usage
+still leave uncertain cost blocked. Both guide and researcher use the error callback.
+This fixes a first-session failure where one capacity rejection made every manual retry
+return `cost_unknown`. Existing unknown records are not mass-reclassified: the affected
+local session was repaired only after its failed turn confirmed the capacity rejection.

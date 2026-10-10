@@ -25,6 +25,7 @@ def build_agent(tools: list[Callable], limits: RequestLimits) -> Agent:
     callbacks = {
         "before_model_callback": limits.before_model,
         "after_model_callback": limits.after_model,
+        "on_model_error_callback": limits.on_model_error,
     }
     researcher = Agent(
         name="researcher",

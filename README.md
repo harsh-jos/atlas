@@ -106,6 +106,8 @@ Actual query and token counts come from provider metadata.
 The guard stops further calls once estimated spending reaches the allowance. A pending request
 holds the remaining allowance, so concurrent calls cannot both claim it. Missing usage, an
 interrupted request, or missing research-query metadata blocks further spending in that session.
+A confirmed HTTP 429 capacity rejection before any response is recorded separately and allows
+a manual retry; it still consumes a request slot. No automatic retry is added.
 Historical requests without cost records also block; start a new chat to continue.
 The usage endpoint reports estimated cost, unpriced requests, and the configured allowance.
 

@@ -8,6 +8,7 @@ from urllib.parse import quote, urlparse
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import LlmRequest, LlmResponse
 from google.genai import types
+from google.genai.errors import APIError
 
 from app.agent.usage import AgentLimitReached, UsageStore
 from app.core.config import Settings
@@ -23,6 +24,19 @@ class RequestLimits:
         self.sources: dict[str, str] = {}
         self.pending: dict[tuple[str, str], list[UUID]] = {}
         self.truncated = False
+        self.started: set[UUID] = set()
+
+    async def on_model_error(
+        self, callback_context: CallbackContext, llm_request: LlmRequest, error: Exception
+    ) -> None:
+        # Only a confirmed capacity rejection is settled here. Timeouts, server errors,
+        # cancellation, and missing metadata can follow billable work and stay unknown.
+        if not isinstance(error, APIError) or error.code != 429:
+            return
+        pending = self.pending.get((callback_context.agent_name, callback_context.invocation_id), [])
+        if pending and pending[-1] not in self.started:
+            await asyncio.to_thread(self.store.reject, pending[-1])
+            pending.pop()
 
     async def before_model(
         self, callback_context: CallbackContext, llm_request: LlmRequest
@@ -46,6 +60,9 @@ class RequestLimits:
         self, callback_context: CallbackContext, llm_response: LlmResponse
     ) -> None:
         if llm_response.partial:
+            pending = self.pending.get((callback_context.agent_name, callback_context.invocation_id), [])
+            if pending:
+                self.started.add(pending[0])
             return
         pending = self.pending.get(
             (callback_context.agent_name, callback_context.invocation_id), []
