@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from uuid import UUID
 
 from sqlalchemy import or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from app.core.enums import ArtifactFormat, Origin, SourceType
 from app.core.slugify import slugify
@@ -113,12 +113,17 @@ def neighbourhood(session: Session, user_id: UUID, slug: str = "") -> dict:
         .order_by(ConceptConnection.created_at, ConceptConnection.id)
         .limit(21)
     ).all()
+    other_ids = {edge.to_id if edge.from_id == focus.id else edge.from_id for edge in edges[:20]}
+    others = {
+        row.id: row for row in session.scalars(
+            select(Concept).where(Concept.user_id == user_id, Concept.id.in_(other_ids))
+            .options(load_only(Concept.id, Concept.name, Concept.slug, Concept.description))
+        )
+    } if other_ids else {}
     neighbours = []
     for edge in edges[:20]:
         other_id = edge.to_id if edge.from_id == focus.id else edge.from_id
-        other = session.scalar(
-            select(Concept).where(Concept.user_id == user_id, Concept.id == other_id)
-        )
+        other = others.get(other_id)
         if other:
             neighbours.append(
                 {
@@ -131,6 +136,7 @@ def neighbourhood(session: Session, user_id: UUID, slug: str = "") -> dict:
             )
     artifacts = session.scalars(
         select(Artifact)
+        .options(load_only(Artifact.slug, Artifact.title, Artifact.summary))
         .where(Artifact.user_id == user_id, Artifact.concept_id == focus.id)
         .order_by(Artifact.updated_at.desc(), Artifact.id)
         .limit(11)

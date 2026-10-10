@@ -180,7 +180,7 @@ def get_concept(
                 slug=artifact.slug,
                 summary=artifact.summary,
                 tags=artifact.tags,
-                source_count=len(artifact.sources),
+                source_count=artifact.source_count,
                 updated_at=artifact.updated_at,
             )
             for artifact in found.artifacts

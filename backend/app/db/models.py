@@ -100,7 +100,7 @@ class Concept(OwnedRecord):
     overview: Mapped[str | None] = mapped_column(Text)
 
     artifacts: Mapped[list["Artifact"]] = relationship(
-        back_populates="concept", cascade="all, delete-orphan"
+        back_populates="concept", cascade="all, delete-orphan", passive_deletes=True
     )
 
 
@@ -130,7 +130,7 @@ class Artifact(OwnedRecord):
 
     concept: Mapped[Concept] = relationship(back_populates="artifacts")
     sources: Mapped[list["Source"]] = relationship(
-        back_populates="artifact", cascade="all, delete-orphan"
+        back_populates="artifact", cascade="all, delete-orphan", passive_deletes=True
     )
 
 

@@ -181,8 +181,14 @@ def delete_concept(slug: str, session: SessionDep, user: CurrentUser) -> None:
     user = lock_owner(session, user.id)
     concepts = ConceptRepository(session, user.id)
     concept = _found(concepts.by_slug(slug), "concept")
-    _charge(session, user, -sum(_cost(a.body, a.summary) for a in concept.artifacts))
-    concepts.delete(concept)
+    size = session.scalar(
+        select(func.coalesce(func.sum(
+            func.octet_length(func.coalesce(Artifact.body, ""))
+            + func.octet_length(func.coalesce(Artifact.summary, ""))
+        ), 0)).where(Artifact.user_id == user.id, Artifact.concept_id == concept.id)
+    )
+    _charge(session, user, -size)
+    session.execute(delete(Concept).where(Concept.id == concept.id, Concept.user_id == user.id))
 
 
 @router.put("/artifacts/{slug}/sources", response_model=ArtifactDetail)
