@@ -1,0 +1,61 @@
+[
+  {
+    "id": "pytorch-start",
+    "turns": ["I want to learn PyTorch. I know Python and basic algebra. I do not want a tutorial or to master the whole framework."],
+    "review": [
+      "Selects one useful starting question and explains why it matters.",
+      "Begins a concrete explanation instead of giving a syllabus or an interview.",
+      "Explains necessary terms and includes trustworthy primary-source links.",
+      "Uses simple, direct sentences. Does not imply pressure to continue."
+    ]
+  },
+  {
+    "id": "prerequisite-detour",
+    "turns": [
+      "I know Python. Help me understand what PyTorch autograd does.",
+      "I do not understand what a gradient is. Can we stay with that idea?"
+    ],
+    "review": [
+      "Follows the detour without pushing the learner back to PyTorch.",
+      "Uses a concrete numerical example and explains what changes with respect to what.",
+      "Avoids unexplained calculus terms and does not start a calculus course."
+    ]
+  },
+  {
+    "id": "change-direction",
+    "turns": [
+      "I want to understand tensors in PyTorch. I know Python lists.",
+      "Actually, why does Python have a global interpreter lock? I want to explore that instead."
+    ],
+    "review": [
+      "Accepts the new direction without referring to unfinished lessons.",
+      "Checks current official Python documentation and distinguishes builds or versions when relevant.",
+      "Explains the mechanism with an example rather than listing general advantages."
+    ]
+  },
+  {
+    "id": "return-and-stop",
+    "turns": [
+      "I know Python. Explain why PyTorch needs tensors instead of lists.",
+      "I have been away. Remind me what we explored here, without giving me a study plan.",
+      "That is enough for today."
+    ],
+    "review": [
+      "Uses the actual earlier conversation without claiming mastery or unseen history.",
+      "Provides a brief account of the idea, not a new lecture.",
+      "Accepts the stopping point without guilt, homework, or a new explanation."
+    ]
+  },
+  {
+    "id": "small-practice",
+    "turns": [
+      "I know Python. Show me how autograd finds the gradient of a simple expression.",
+      "Give me one tiny prediction to try, with a way to check my answer."
+    ],
+    "review": [
+      "Uses a small, correct example with necessary terms explained.",
+      "Gives one optional prediction and useful feedback or a clear answer check.",
+      "Does not claim code was executed. Does not create a worksheet."
+    ]
+  }
+]

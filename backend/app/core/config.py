@@ -6,6 +6,7 @@ carries a default in this file. Nothing else in the codebase hardcodes a tunable
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Schema-bound, so deliberately NOT environment-driven: changing it needs a migration and a
@@ -41,10 +42,20 @@ class Settings(BaseSettings):
     # Vertex/Gemini. Credentials come from ADC; only the project is required to enable the agent.
     # Gemini 3.x is served from the `global` endpoint — regional locations 404 on those models.
     vertex_project: str | None = None
+    google_application_credentials: str | None = None
     vertex_location: str = "global"
-    agent_model: str = "gemini-3.5-flash"
-    agent_search_model: str = "gemini-3.5-flash"
+    agent_model: str = "gemini-3.1-pro-preview"
+    agent_search_model: str = "gemini-3.1-pro-preview"
     agent_app_name: str = "atlas"
+
+    # Loop guards, not lesson-length targets. Both guide and research calls count.
+    agent_max_calls_per_turn: int = Field(default=12, ge=1, le=100)
+    agent_max_calls_per_session: int = Field(default=256, ge=1)
+    agent_max_research_per_turn: int = Field(default=3, ge=0, le=20)
+    agent_max_research_per_session: int = Field(default=48, ge=0)
+    agent_max_output_tokens: int = Field(default=65536, ge=256, le=65536)
+    agent_max_request_bytes: int = Field(default=2_000_000, ge=1024)
+    agent_turn_timeout_seconds: int = Field(default=300, ge=1, le=1800)
 
     # Full-text search over a user's own artifacts.
     search_limit: int = 8
@@ -53,6 +64,7 @@ class Settings(BaseSettings):
     # Uploaded images, one file per asset id.
     assets_dir: str = "uploads/assets"
     max_asset_bytes: int = 10 * 1024 * 1024
+
 
 @lru_cache
 def get_settings() -> Settings:

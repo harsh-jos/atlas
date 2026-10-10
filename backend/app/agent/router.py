@@ -1,6 +1,8 @@
 """Chat with the agent over HTTP; what it is doing streams to the caller's WebSocket."""
 
 import logging
+import asyncio
+from dataclasses import asdict
 from datetime import datetime
 from typing import Literal
 
@@ -9,7 +11,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from app.agent.service import AgentUnavailable, load_chat_sessions, load_history, run_turn
-from app.auth.deps import CurrentUserId
+from app.auth.deps import CurrentUserId, SessionScopeDep
+from app.agent.usage import UsageStore
 
 log = logging.getLogger(__name__)
 
@@ -83,3 +86,23 @@ async def sessions(user_id: CurrentUserId) -> list[ChatSessionSummary]:
         )
         for summary in await load_chat_sessions(user_id)
     ]
+
+
+class AgentUsage(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    model_requests: int
+    research_requests: int
+    input_tokens: int
+    output_tokens: int
+    thought_tokens: int
+    total_tokens: int
+    unreported_requests: int
+    search_queries: int
+
+
+@router.get("/chat/{session_id}/usage", response_model=AgentUsage)
+async def usage(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep) -> AgentUsage:
+    """Owned provider usage. Unreported requests are unknown, not free."""
+    totals = await asyncio.to_thread(UsageStore(scope, user_id, session_id).totals)
+    return AgentUsage(**asdict(totals))

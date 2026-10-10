@@ -1,6 +1,8 @@
 """Database fixtures: one scratch database per run, one rolled-back transaction per test."""
 
 import pytest
+
+from agent_fixtures import agent_settings, usage_factory  # noqa: F401
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text

@@ -1,5 +1,6 @@
 """Running one turn of the agent, and the Vertex configuration it needs."""
 
+import asyncio
 import os
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -7,12 +8,15 @@ from datetime import datetime, timezone
 from functools import lru_cache
 
 from google.adk.agents import Agent
+from google.adk.agents.run_config import RunConfig
+from google.adk.agents.invocation_context import LlmCallsLimitExceededError
 from google.adk.events.event import Event
 from google.adk.runners import Runner
 from google.adk.sessions import BaseSessionService, DatabaseSessionService
 from google.adk.sessions.session import Session
 from google.genai import types
 
+from app.agent.usage import AgentLimitReached
 from app.core.config import get_settings
 from app.db.base import database_url
 
@@ -24,9 +28,11 @@ def configure_vertex() -> None:
     settings = get_settings()
     if not settings.vertex_project:
         return
-    os.environ.setdefault("GOOGLE_GENAI_USE_VERTEXAI", "True")
-    os.environ.setdefault("GOOGLE_CLOUD_PROJECT", settings.vertex_project)
-    os.environ.setdefault("GOOGLE_CLOUD_LOCATION", settings.vertex_location)
+    if settings.google_application_credentials:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
+    os.environ["GOOGLE_CLOUD_PROJECT"] = settings.vertex_project
+    os.environ["GOOGLE_CLOUD_LOCATION"] = settings.vertex_location
 
 
 @lru_cache
@@ -49,7 +55,7 @@ def _event_text(event: Event) -> str | None:
     content = event.content
     if content is None or not content.parts:
         return None
-    text = "".join(part.text for part in content.parts if part.text)
+    text = "".join(part.text for part in content.parts if part.text and not part.thought)
     return text or None
 
 
@@ -73,7 +79,7 @@ async def read_history(user_id: str, session_id: str) -> list[HistoryMessage]:
             continue
         if event.content.role == "user":
             messages.append(HistoryMessage("you", text))
-        elif event.is_final_response():
+        elif event.author == "atlas" and event.is_final_response():
             messages.append(HistoryMessage("atlas", text))
     return messages
 
@@ -132,23 +138,55 @@ async def ask(
     configure_vertex()
     app_name = get_settings().agent_app_name
     sessions = get_session_service()
-    if await sessions.get_session(app_name=app_name, user_id=user_id, session_id=session_id) is None:
+    if (
+        await sessions.get_session(app_name=app_name, user_id=user_id, session_id=session_id)
+        is None
+    ):
         await sessions.create_session(app_name=app_name, user_id=user_id, session_id=session_id)
 
     runner = Runner(app_name=app_name, agent=agent, session_service=sessions)
     reply: list[str] = []
-    async for event in runner.run_async(
-        user_id=user_id,
-        session_id=session_id,
-        new_message=types.Content(role="user", parts=[types.Part(text=message)]),
-    ):
-        if on_event:
-            for call in event.get_function_calls():
-                await on_event({"type": "agent.tool", "name": call.name})
-        if event.is_final_response() and event.content and event.content.parts:
-            text = "".join(part.text for part in event.content.parts if part.text)
-            if text:
-                reply.append(text)
+    settings = get_settings()
+    try:
+        async with asyncio.timeout(settings.agent_turn_timeout_seconds):
+            async for event in runner.run_async(
+                user_id=user_id,
+                session_id=session_id,
+                new_message=types.Content(role="user", parts=[types.Part(text=message)]),
+                run_config=RunConfig(max_llm_calls=settings.agent_max_calls_per_turn + 1),
+            ):
                 if on_event:
-                    await on_event({"type": "agent.message", "text": text})
-    return "".join(reply)
+                    for call in event.get_function_calls():
+                        await on_event({"type": "agent.tool", "name": call.name})
+                if event.author == "atlas" and event.is_final_response():
+                    text = _event_text(event)
+                    if text:
+                        reply.append(text)
+                        if on_event:
+                            await on_event({"type": "agent.message", "text": text})
+    except (AgentLimitReached, TimeoutError, LlmCallsLimitExceededError) as error:
+        reason = "The model-call limit for this reply was reached."
+        if isinstance(error, AgentLimitReached):
+            reason = str(error)
+        elif isinstance(error, TimeoutError):
+            reason = "The reply time limit was reached."
+        notice = f"{reason} This reply is incomplete. Your conversation history is saved."
+        current = await sessions.get_session(
+            app_name=app_name, user_id=user_id, session_id=session_id
+        )
+        if current is not None:
+            await sessions.append_event(
+                current,
+                Event(
+                    author="atlas",
+                    content=types.Content(role="model", parts=[types.Part(text=notice)]),
+                ),
+            )
+        reply.append(notice)
+        if on_event:
+            await on_event({"type": "agent.message", "text": notice})
+    finally:
+        await runner.close()
+    if not reply:
+        raise RuntimeError("The agent returned no final explanation.")
+    return "\n\n".join(reply)

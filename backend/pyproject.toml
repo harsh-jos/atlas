@@ -16,7 +16,7 @@ dependencies = [
     "pyjwt>=2.10",
     "pwdlib[argon2]>=0.2",
     "email-validator>=2.2",
-    "google-adk>=1.16",
+    "google-adk==2.5.0",
     "greenlet>=3.5.4",
 ]
 

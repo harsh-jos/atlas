@@ -192,3 +192,21 @@ class Relation(OwnedRecord):
     note: Mapped[str | None] = mapped_column(Text)
     origin: Mapped[Origin] = mapped_column(_enum(Origin), default=Origin.HUMAN)
     confidence: Mapped[float | None] = mapped_column(Float)
+
+
+class AgentRequest(OwnedRecord):
+    """One reserved model request, counted even if a provider fails before reporting usage."""
+
+    __tablename__ = "agent_requests"
+    __table_args__ = (Index("ix_agent_requests_owner_session", "user_id", "session_id"),)
+
+    session_id: Mapped[str] = mapped_column(String(64))
+    invocation_id: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(200))
+    research: Mapped[bool] = mapped_column(default=False)
+    reported: Mapped[bool] = mapped_column(default=False)
+    input_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    thought_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    search_queries: Mapped[int] = mapped_column(default=0)
