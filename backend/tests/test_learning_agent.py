@@ -472,3 +472,42 @@ def test_provider_cache_usage_is_recorded_without_double_counting(
 def current_context(request):
     return next(part.text for content in request.contents for part in content.parts or []
                 if part.text and part.text.startswith("CURRENT CONTEXT"))
+
+
+@pytest.mark.parametrize("status, partial", [(429, False), (503, False), (429, True)])
+def test_capacity_rejection_allows_manual_retry_but_server_failure_stays_unknown(
+    local_sessions, usage_factory, agent_settings, status, partial
+):
+    from google.genai.errors import APIError
+
+    class FailedModel(ScriptedModel):
+        async def generate_content_async(self, llm_request, stream=False):
+            if partial:
+                yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text="Started")]), partial=True)
+            raise APIError(status, {"error": {"code": status, "message": "Provider failure"}})
+            yield
+
+    agent_settings.agent_session_budget_microusd = 5_000_000
+    store = usage_factory()
+    agent = make_agent(store, agent_settings, [])
+    agent.model = FailedModel(model="gemini-3.8-flash")
+
+    async def run():
+        with pytest.raises(APIError):
+            await sessions_module.ask(agent, "u1", "s1", "Explain a dictionary.")
+        totals = store.totals()
+        assert totals.model_requests == 1  # No automatic replay or request refund.
+        rejected = status == 429 and not partial
+        assert totals.rejected_requests == (1 if rejected else 0)
+        assert totals.unpriced_requests == (0 if rejected else 1)
+        retry = make_agent(store, agent_settings, [answer("A dictionary maps keys to values.")])
+        retry.model.model = "gemini-3.8-flash"
+        reply = await sessions_module.ask(retry, "u1", "s1", "Try again.")
+        if rejected:
+            assert "maps keys" in reply
+            assert len(retry.model.requests) == 1
+        else:
+            assert "unknown cost" in reply
+            assert not retry.model.requests
+
+    asyncio.run(run())

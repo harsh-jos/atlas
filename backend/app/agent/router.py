@@ -173,6 +173,7 @@ class AgentUsage(BaseModel):
     session_budget_microusd: int
     cached_input_tokens: int
     cache_unreported_requests: int
+    rejected_requests: int
 
 
 @router.get("/chat/{session_id}/usage", response_model=AgentUsage)

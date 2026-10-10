@@ -163,3 +163,27 @@ def test_price_rounding_region_and_scheduled_change():
     assert estimate_cost((750_000, 3_750_000), -1, 0, 0, 0, 0) is None
     assert token_rates("gemini-3.8-flash", "global", date(2027, 1, 1)) == (1_500_000, 7_500_000)
     assert token_rates("gemini-3.8-flash", "us-central1", date(2026, 10, 10)) == (825_000, 4_125_000)
+
+
+def test_rejection_is_owned_and_still_consumes_request_allowance(usage_factory, agent_settings):
+    store = usage_factory()
+    agent_settings.agent_session_budget_microusd = 5_000_000
+    request = store.reserve("first", "gemini-3.8-flash", False, agent_settings)
+    with pytest.raises(NoResultFound):
+        usage_factory(owner=1).reject(request)
+    store.reject(request)
+    assert store.totals().rejected_requests == 1
+    assert store.totals().unreported_requests == store.totals().unpriced_requests == 0
+    agent_settings.agent_max_calls_per_session = 1
+    with pytest.raises(AgentLimitReached, match="conversation"):
+        store.reserve("retry", "gemini-3.8-flash", False, agent_settings)
+
+
+def test_completed_usage_cannot_be_reclassified_as_rejected(usage_factory, agent_settings):
+    store = usage_factory()
+    request = store.reserve("first", "gemini-3.8-flash", False, agent_settings)
+    store.record(request, agent_settings, reported=True, total_tokens=100)
+    with pytest.raises(ValueError, match="reported usage"):
+        store.reject(request)
+    assert store.totals().rejected_requests == 0
+    assert store.totals().estimated_cost_microusd == 375
