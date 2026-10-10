@@ -68,6 +68,7 @@ class RequestLimits:
             search_reported=bool(grounding and grounding.web_search_queries is not None),
             reported=bool(usage and usage.total_token_count is not None),
             input_tokens=usage.prompt_token_count or 0 if usage else 0,
+            cached_input_tokens=usage.cached_content_token_count if usage else None,
             output_tokens=usage.candidates_token_count or 0 if usage else 0,
             thought_tokens=usage.thoughts_token_count or 0 if usage else 0,
             total_tokens=usage.total_token_count or 0 if usage else 0,

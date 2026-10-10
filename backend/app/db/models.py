@@ -224,6 +224,8 @@ class AgentRequest(OwnedRecord):
     research: Mapped[bool] = mapped_column(default=False)
     reported: Mapped[bool] = mapped_column(default=False)
     input_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    # A subset of input_tokens. NULL means the provider did not report cache usage.
+    cached_input_tokens: Mapped[int | None] = mapped_column(BigInteger)
     output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     thought_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)

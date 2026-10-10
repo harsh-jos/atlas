@@ -33,6 +33,8 @@ class UsageTotals:
     search_queries: int
     estimated_cost_microusd: int
     unpriced_requests: int
+    cached_input_tokens: int
+    cache_unreported_requests: int
 
 
 class UsageStore:
@@ -105,7 +107,7 @@ class UsageStore:
         settings: Settings,
         *,
         search_reported: bool = True,
-        **usage: int | bool,
+        **usage: int | bool | None,
     ) -> None:
         with self.scope() as session:
             row = session.scalars(self._owned().where(AgentRequest.id == request_id)).one()
@@ -144,6 +146,8 @@ class UsageStore:
                     func.coalesce(
                         func.sum(case((rows.c.estimated_cost_microusd.is_(None), 1), else_=0)), 0
                     ),
+                    func.coalesce(func.sum(rows.c.cached_input_tokens), 0),
+                    func.coalesce(func.sum(case((rows.c.cached_input_tokens.is_(None), 1), else_=0)), 0),
                 )
             ).one()
             return UsageTotals(*(int(value) for value in values))
