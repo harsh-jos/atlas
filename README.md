@@ -59,7 +59,36 @@ The backend environment example lists the request, research, context-size, and t
 limits. SDK retries are disabled so hidden retries do not bypass request accounting.
 `GET /agent/chat/{session_id}/usage` returns owned counts, including requests with unknown usage.
 Research-request limits count grounded model requests, not Google's internal search queries.
-Actual query and token counts come from provider metadata. No hard currency cap is implemented.
+Actual query and token counts come from provider metadata.
+`AGENT_SESSION_BUDGET_MICROUSD` defaults to 5000000 ($5); 0 explicitly disables the spending guard.
+The guard stops further calls once estimated spending reaches the allowance. A pending request
+holds the remaining allowance, so concurrent calls cannot both claim it. Missing usage, an
+interrupted request, or missing research-query metadata blocks further spending in that session.
+Historical requests without cost records also block; start a new chat to continue.
+The usage endpoint reports estimated cost, unpriced requests, and the configured allowance.
+
+Estimates use standard Vertex Flash list prices, include reasoning and individual search queries,
+and ignore cached-input discounts, free search allowances, and credits. Each request's estimated
+cost is persisted when usage arrives; later settings changes do not reprice past requests. Unsupported models are
+blocked while the guard is enabled. See `backend/app/agent/pricing.py` for the dated pricing source
+and the published January 2027 rate change. This is an admission guard, not a hard billing cap:
+the final in-flight request can exceed the remaining amount. No output-token ceiling is added.
+
+## Chat transport and interruptions
+
+Chat turns use HTTP: a Next.js Server Action calls `POST /agent/chat` and receives the final reply.
+A separate authenticated WebSocket (`/ws`) carries tool-progress events. There is no SSE or
+token streaming. Progress uses a process-local hub and is broadcast to the user's open sockets;
+events currently have no session filter or replay.
+
+Switching browser tabs normally leaves the chat mounted and connected. Navigating away unmounts
+it and closes the socket. That socket closing does not itself cancel the HTTP turn. Completed
+replies are persisted through ADK and appear when the chat is reopened. Reopening while the turn
+is still running can show an unfinished history; the UI does not poll for completion or reconnect
+a broken socket automatically. Browser suspension, network loss, or an HTTP/proxy timeout can
+lose live feedback. There is no durable background turn, running-turn status, cancellation
+endpoint, or idempotent retry yet. A backend restart can interrupt an active reply; only events
+already persisted survive. Transport choice alone does not provide resumable execution.
 
 Offline agent tests run with `uv run pytest tests/test_agent_usage.py tests/test_learning_agent.py`
 from `backend/`. They use the real ADK runner with scripted models and make no cloud calls.

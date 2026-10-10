@@ -13,6 +13,7 @@ from pydantic.alias_generators import to_camel
 from app.agent.service import AgentUnavailable, load_chat_sessions, load_history, run_turn
 from app.auth.deps import CurrentUserId, SessionScopeDep
 from app.agent.usage import UsageStore
+from app.core.config import get_settings
 
 log = logging.getLogger(__name__)
 
@@ -99,10 +100,15 @@ class AgentUsage(BaseModel):
     total_tokens: int
     unreported_requests: int
     search_queries: int
+    estimated_cost_microusd: int
+    unpriced_requests: int
+    session_budget_microusd: int
 
 
 @router.get("/chat/{session_id}/usage", response_model=AgentUsage)
 async def usage(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep) -> AgentUsage:
     """Owned provider usage. Unreported requests are unknown, not free."""
     totals = await asyncio.to_thread(UsageStore(scope, user_id, session_id).totals)
-    return AgentUsage(**asdict(totals))
+    return AgentUsage(
+        **asdict(totals), session_budget_microusd=get_settings().agent_session_budget_microusd
+    )

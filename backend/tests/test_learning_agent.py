@@ -163,6 +163,75 @@ def test_provider_failure_does_not_refund_request(local_sessions, usage_factory,
     assert store.totals().unreported_requests == 1
 
 
+def test_spending_limit_saves_notice_without_another_provider_call(
+    local_sessions, usage_factory, agent_settings
+):
+    agent_settings.agent_session_budget_microusd = 100
+    store = usage_factory()
+    agent = make_agent(store, agent_settings, [answer("A tensor holds values.")])
+    agent.model.model = "gemini-3.8-flash"
+
+    async def run():
+        await sessions_module.ask(agent, "u1", "s1", "Explain a tensor.")
+        reply = await sessions_module.ask(agent, "u1", "s1", "More?")
+        assert "spending limit" in reply and "incomplete" in reply
+        assert len(agent.model.requests) == 1
+        assert "spending limit" in (await sessions_module.read_history("u1", "s1"))[-1].text
+
+    asyncio.run(run())
+
+
+def test_interrupted_request_keeps_unknown_cost_and_blocks_retry(
+    local_sessions, usage_factory, agent_settings
+):
+    class InterruptedModel(ScriptedModel):
+        async def generate_content_async(self, llm_request, stream=False):
+            raise asyncio.CancelledError()
+            yield  # Make this an async generator, like the real provider.
+
+    agent_settings.agent_session_budget_microusd = 5_000_000
+    store = usage_factory()
+    agent = make_agent(store, agent_settings, [])
+    agent.model = InterruptedModel(model="gemini-3.8-flash")
+
+    async def run():
+        # ADK consumes a provider cancellation and ends its event stream without a reply.
+        with pytest.raises(RuntimeError, match="no final explanation"):
+            await sessions_module.ask(agent, "u1", "s1", "Explain.")
+        retry = make_agent(store, agent_settings, [answer("Must not be sent.")])
+        retry.model.model = "gemini-3.8-flash"
+        reply = await sessions_module.ask(retry, "u1", "s1", "Try again.")
+        assert "unknown cost" in reply and not retry.model.requests
+
+    asyncio.run(run())
+    assert store.totals().unpriced_requests == 1
+
+
+def test_research_spend_stops_the_guide_before_another_call(
+    local_sessions, usage_factory, agent_settings
+):
+    agent_settings.agent_session_budget_microusd = 20_000
+    store = usage_factory()
+    tool_call = answer("")
+    tool_call.content.parts = [types.Part(function_call=types.FunctionCall(
+        name="researcher", args={"request": "Check autograd."}
+    ))]
+    agent = make_agent(store, agent_settings, [tool_call, answer("Must not be called.")])
+    agent.model.model = "gemini-3.8-flash"
+    researcher = agent.tools[0].agent
+    researcher.model = ScriptedModel(model="gemini-3.8-flash", responses=[answer(
+        "Evidence.", grounding_metadata=types.GroundingMetadata(
+            web_search_queries=["autograd", "gradient"]
+        )
+    )])
+
+    reply = asyncio.run(sessions_module.ask(agent, "u1", "s1", "Explain autograd."))
+    assert "spending limit" in reply and "incomplete" in reply
+    assert len(agent.model.requests) == 1
+    assert len(researcher.model.requests) == 1
+    assert store.totals().estimated_cost_microusd == 28_376
+
+
 def test_oversized_context_stops_before_provider_call(
     local_sessions, usage_factory, agent_settings
 ):

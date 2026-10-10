@@ -210,6 +210,8 @@ class AgentRequest(OwnedRecord):
     thought_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     search_queries: Mapped[int] = mapped_column(default=0)
+    # NULL means pending or unknown, including requests made before cost accounting.
+    estimated_cost_microusd: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class ConceptConnection(OwnedRecord):

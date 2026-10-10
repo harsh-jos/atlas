@@ -64,6 +64,8 @@ class RequestLimits:
         await asyncio.to_thread(
             self.store.record,
             request_id,
+            self.settings,
+            search_reported=bool(grounding and grounding.web_search_queries is not None),
             reported=bool(usage and usage.total_token_count is not None),
             input_tokens=usage.prompt_token_count or 0 if usage else 0,
             output_tokens=usage.candidates_token_count or 0 if usage else 0,

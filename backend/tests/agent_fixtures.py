@@ -26,6 +26,7 @@ def agent_settings():
         agent_max_calls_per_session=12,
         agent_max_research_per_turn=2,
         agent_max_research_per_session=4,
+        agent_session_budget_microusd=0,
     )
 
 

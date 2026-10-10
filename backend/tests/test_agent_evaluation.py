@@ -26,6 +26,9 @@ def test_live_harness_keeps_one_session_and_requires_review():
                 "totalTokens": 35,
                 "unreportedRequests": 0,
                 "searchQueries": 2,
+                "estimatedCostMicrousd": 28_000,
+                "unpricedRequests": 0,
+                "sessionBudgetMicrousd": 5_000_000,
             },
         )
 

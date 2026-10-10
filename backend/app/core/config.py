@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     agent_max_research_per_session: int = Field(default=48, ge=0)
     agent_max_request_bytes: int = Field(default=2_000_000, ge=1024)
     agent_turn_timeout_seconds: int = Field(default=300, ge=1, le=1800)
+    # Admission guard in millionths of USD. Zero explicitly disables it.
+    # The last provider call can exceed the remaining amount; this is not a billing cap.
+    agent_session_budget_microusd: int = Field(default=5_000_000, ge=0)
 
     # Full-text search over a user's own artifacts.
     search_limit: int = 8

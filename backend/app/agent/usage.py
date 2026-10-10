@@ -2,10 +2,12 @@
 
 import hashlib
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import case, func, select
 
+from app.agent.pricing import estimate_cost, token_rates
 from app.core.config import Settings
 from app.db.base import SessionScope
 from app.db.models import AgentRequest
@@ -25,6 +27,8 @@ class UsageTotals:
     total_tokens: int
     unreported_requests: int
     search_queries: int
+    estimated_cost_microusd: int
+    unpriced_requests: int
 
 
 class UsageStore:
@@ -58,6 +62,22 @@ class UsageStore:
                 or sum(row.research for row in rows) >= settings.agent_max_research_per_session
             ):
                 raise AgentLimitReached("The research-request limit was reached.")
+            if settings.agent_session_budget_microusd:
+                rates = token_rates(
+                    model, settings.vertex_location, datetime.now(timezone.utc).date()
+                )
+                if rates is None:
+                    raise AgentLimitReached("No verified price is configured for this model.")
+                # A pending request holds the session's remaining budget. Failed or interrupted
+                # requests retain that hold instead of silently being treated as free.
+                if any(row.estimated_cost_microusd is None for row in rows):
+                    raise AgentLimitReached(
+                        "A previous model request has pending or unknown cost. "
+                        "Further spending in this conversation is blocked."
+                    )
+                spent = sum(row.estimated_cost_microusd for row in rows)
+                if spent >= settings.agent_session_budget_microusd:
+                    raise AgentLimitReached("The spending limit for this conversation was reached.")
             row = AgentRequest(
                 user_id=self.user_id,
                 session_id=self.session_id,
@@ -69,11 +89,28 @@ class UsageStore:
             session.flush()
             return row.id
 
-    def record(self, request_id: UUID, **usage: int | bool) -> None:
+    def record(
+        self,
+        request_id: UUID,
+        settings: Settings,
+        *,
+        search_reported: bool = True,
+        **usage: int | bool,
+    ) -> None:
         with self.scope() as session:
             row = session.scalars(self._owned().where(AgentRequest.id == request_id)).one()
             for key, value in usage.items():
                 setattr(row, key, value)
+            rates = token_rates(row.model, settings.vertex_location, row.created_at.date())
+            if rates and row.reported and (not row.research or search_reported):
+                row.estimated_cost_microusd = estimate_cost(
+                    rates,
+                    row.input_tokens,
+                    row.output_tokens,
+                    row.thought_tokens,
+                    row.total_tokens,
+                    row.search_queries if row.research else 0,
+                )
 
     def totals(self) -> UsageTotals:
         with self.scope() as session:
@@ -93,6 +130,10 @@ class UsageStore:
                     ],
                     func.coalesce(func.sum(case((rows.c.reported, 0), else_=1)), 0),
                     func.coalesce(func.sum(rows.c.search_queries), 0),
+                    func.coalesce(func.sum(rows.c.estimated_cost_microusd), 0),
+                    func.coalesce(
+                        func.sum(case((rows.c.estimated_cost_microusd.is_(None), 1), else_=0)), 0
+                    ),
                 )
             ).one()
             return UsageTotals(*(int(value) for value in values))
