@@ -40,12 +40,12 @@ class Settings(BaseSettings):
     storage_quota_bytes: int = 500 * 1024 * 1024
 
     # Vertex/Gemini. Credentials come from ADC; only the project is required to enable the agent.
-    # Gemini 3.x is served from the `global` endpoint — regional locations 404 on those models.
+    # Use the global endpoint for the default model.
     vertex_project: str | None = None
     google_application_credentials: str | None = None
     vertex_location: str = "global"
-    agent_model: str = "gemini-3.1-pro-preview"
-    agent_search_model: str = "gemini-3.1-pro-preview"
+    agent_model: str = "gemini-3.8-flash"
+    agent_search_model: str = "gemini-3.8-flash"
     agent_app_name: str = "atlas"
 
     # Loop guards, not lesson-length targets. Both guide and research calls count.

@@ -66,7 +66,7 @@ Portability and continuity are required; permanent operation of a hosted service
 
 This is the target, not a claim that v0.1 is complete. Chat history, the reader, search,
 editing, auth, storage, and an artifact graph remain as foundations. The first agent build
-uses Gemini 3.1 Pro Preview on Vertex AI, with high reasoning and focused teaching instructions.
+uses Gemini 3.8 Flash on Vertex AI, with high reasoning and focused teaching instructions.
 It has a bounded research tool, source links, persistent request accounting, and explicit
 incomplete replies when limits are reached. Scripted ADK checks cover history, ownership,
 research, failure, and request limits. Live scenarios still need review for teaching quality.

@@ -50,9 +50,9 @@ PostgreSQL is unavailable. Never point tests at a shared server with an existing
 ## Agent development
 
 Apply migrations with `uv run alembic upgrade head` from `backend/` before running the agent.
-The default is `gemini-3.1-pro-preview` on Vertex AI, with high reasoning. Both the guide and
-research tool use it. Override `AGENT_MODEL` and `AGENT_SEARCH_MODEL` when needed. The model is
-in preview; project access is required. No cheaper model is selected automatically.
+The default is `gemini-3.8-flash` on Vertex AI, with high reasoning. Both the guide and
+research tool use it. Override `AGENT_MODEL` and `AGENT_SEARCH_MODEL` when needed.
+Project access is required. No alternative model is selected automatically.
 
 The backend environment example lists the request, research, output, context-size, and time
 limits. SDK retries are disabled so hidden retries do not bypass request accounting.
