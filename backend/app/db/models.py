@@ -2,12 +2,14 @@
 
 from datetime import datetime
 from uuid import UUID, uuid4
+from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
     Boolean,
     DateTime,
+    Computed,
     Enum,
     Float,
     ForeignKey,
@@ -19,7 +21,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from app.core.config import EMBEDDING_DIMENSIONS
@@ -111,6 +113,12 @@ class Artifact(OwnedRecord):
     __table_args__ = (
         UniqueConstraint("user_id", "slug"),
         Index("ix_artifacts_concept_source_key", "concept_id", text("(metadata->>'sourceKey')")),
+        Index("ix_artifacts_search_vector", "search_vector", postgresql_using="gin"),
+        Index("ix_artifacts_title_trgm", "title", postgresql_using="gin",
+              postgresql_ops={"title": "gin_trgm_ops"}),
+        Index("ix_artifacts_tags", "tags", postgresql_using="gin"),
+        Index("ix_artifacts_owner_concept_updated", "user_id", "concept_id",
+              text("updated_at DESC"), text("id DESC")),
     )
 
     concept_id: Mapped[UUID] = mapped_column(
@@ -125,6 +133,12 @@ class Artifact(OwnedRecord):
     format: Mapped[ArtifactFormat] = mapped_column(_enum(ArtifactFormat), default=ArtifactFormat.MD)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     meta: Mapped[dict | None] = mapped_column("metadata", JSONB)
+    search_vector: Mapped[Any] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english'::regconfig, coalesce(title, '') || ' ' || "
+                 "coalesce(summary, '') || ' ' || coalesce(body, ''))", persisted=True),
+        deferred=True,
+    )
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIMENSIONS))
     origin: Mapped[Origin] = mapped_column(_enum(Origin), default=Origin.HUMAN)
 
@@ -223,6 +237,9 @@ class AgentTurn(OwnedRecord):
     __table_args__ = (
         UniqueConstraint("user_id", "session_id", "request_id"),
         Index("ix_agent_turns_owner_session", "user_id", "session_id"),
+        Index("ix_agent_turns_queue", "status", "created_at", "id"),
+        Index("ix_agent_turns_lease", "status", "lease_until"),
+        Index("ix_agent_turns_history", "user_id", "session_id", "created_at", "id"),
         Index(
             "ix_agent_turns_active_session", "user_id", "session_id", unique=True,
             postgresql_where=text("status IN ('queued', 'running')"),

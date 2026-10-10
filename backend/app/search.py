@@ -37,7 +37,7 @@ def search_artifacts(
     settings = get_settings()
     language = literal(settings.search_language, REGCONFIG)
     body = func.concat_ws(" ", Artifact.title, Artifact.summary, Artifact.body)
-    haystack = func.to_tsvector(language, body)
+    haystack = Artifact.search_vector
     needle = func.plainto_tsquery(language, query)
     # Postgres builds the snippet around the match, so the reader sees why a result matched.
     excerpt = func.ts_headline(language, body, needle, _HEADLINE)

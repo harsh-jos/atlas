@@ -25,15 +25,21 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def configure_connection(connection) -> None:
+    context.configure(
+        connection=connection, target_metadata=target_metadata, include_object=include_object,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 def run_migrations_online() -> None:
-    with get_engine().connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            include_object=include_object,
-        )
-        with context.begin_transaction():
-            context.run_migrations()
+    connection = context.config.attributes.get("connection")
+    if connection is not None:
+        configure_connection(connection)
+    else:
+        with get_engine().connect() as connection:
+            configure_connection(connection)
 
 
 if context.is_offline_mode():

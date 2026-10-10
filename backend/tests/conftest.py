@@ -1,6 +1,10 @@
 """Database fixtures: one scratch database per run, one rolled-back transaction per test."""
 
+from pathlib import Path
+
 import pytest
+from alembic import command
+from alembic.config import Config
 
 from agent_fixtures import agent_settings, usage_factory  # noqa: F401
 from fastapi import FastAPI
@@ -13,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.auth.router import router as auth_router
 from app.core.config import get_settings
 from app.db import models  # noqa: F401  -- importing registers every model on Base.metadata
-from app.db.base import Base, get_session
+from app.db.base import get_session
 
 _TEST_DATABASE = "atlas_test"
 
@@ -33,8 +37,11 @@ def engine():
 
     test_engine = create_engine(url.set(database=_TEST_DATABASE))
     with test_engine.begin() as connection:
-        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-    Base.metadata.create_all(test_engine)
+        config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+        config.attributes["connection"] = connection
+        command.upgrade(config, "head")
+        command.upgrade(config, "head")
+        command.check(config)
     yield test_engine
     test_engine.dispose()
 

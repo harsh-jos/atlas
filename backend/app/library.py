@@ -79,7 +79,7 @@ def get_concept_page(
         return None
 
     scoped = _owned(Artifact, user_id).where(Artifact.concept_id == concept.id)
-    filtered = scoped.where(Artifact.tags.any(tag)) if tag else scoped
+    filtered = scoped.where(Artifact.tags.contains([tag])) if tag else scoped
     matched = session.scalar(select(func.count()).select_from(filtered.subquery())) or 0
     total = (
         matched

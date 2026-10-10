@@ -5,6 +5,7 @@ carries a default in this file. Nothing else in the codebase hardcodes a tunable
 """
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -63,7 +64,8 @@ class Settings(BaseSettings):
 
     # Full-text search over a user's own artifacts.
     search_limit: int = 8
-    search_language: str = "english"
+    # Matches the generated search vector; changing language requires a migration.
+    search_language: Literal["english"] = "english"
 
     # Uploaded images, one file per asset id.
     assets_dir: str = "uploads/assets"
