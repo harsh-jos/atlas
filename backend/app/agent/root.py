@@ -15,7 +15,6 @@ from app.core.config import get_settings
 def build_agent(tools: list[Callable], limits: RequestLimits) -> Agent:
     settings = get_settings()
     config = types.GenerateContentConfig(
-        max_output_tokens=settings.agent_max_output_tokens,
         thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.HIGH),
         http_options=types.HttpOptions(
             timeout=settings.agent_turn_timeout_seconds * 1000,

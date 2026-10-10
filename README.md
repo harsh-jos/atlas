@@ -16,7 +16,7 @@ The stack is Next.js, a Python FastAPI backend with Google ADK, and PostgreSQL w
 
 The agent needs `VERTEX_PROJECT` and Google Application Default Credentials available to the
 backend process. For a local service-account file, set `GOOGLE_APPLICATION_CREDENTIALS`
-to its absolute path in `backend/.env`. Keep the JSON outside the repo.
+to its absolute path in `backend/.env`. Use `.secrets/vertex.json` in the project root (gitignored, directory mode 700, file mode 600).
 Enable the Vertex AI API in that project, with billing and model access available.
 The service account needs permission to call Vertex AI; it may not have permission to enable APIs.
 Compose does not mount host credentials. For local agent work, run the backend
@@ -54,7 +54,7 @@ The default is `gemini-3.8-flash` on Vertex AI, with high reasoning. Both the gu
 research tool use it. Override `AGENT_MODEL` and `AGENT_SEARCH_MODEL` when needed.
 Project access is required. No alternative model is selected automatically.
 
-The backend environment example lists the request, research, output, context-size, and time
+The backend environment example lists the request, research, context-size, and time
 limits. SDK retries are disabled so hidden retries do not bypass request accounting.
 `GET /agent/chat/{session_id}/usage` returns owned counts, including requests with unknown usage.
 Research-request limits count grounded model requests, not Google's internal search queries.

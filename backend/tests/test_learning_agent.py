@@ -151,9 +151,7 @@ def test_output_limit_is_reported(local_sessions, usage_factory, agent_settings)
     )
     reply = asyncio.run(sessions_module.ask(agent, "u1", "s1", "PyTorch"))
     assert INCOMPLETE_NOTICE in reply
-    assert (
-        agent.model.requests[0].config.max_output_tokens == agent_settings.agent_max_output_tokens
-    )
+    assert agent.model.requests[0].config.max_output_tokens is None
 
 
 def test_provider_failure_does_not_refund_request(local_sessions, usage_factory, agent_settings):

@@ -30,8 +30,6 @@ class RequestLimits:
             raise AgentLimitReached(
                 "The conversation is too large for one request. Its history is saved."
             )
-        config = llm_request.config
-        config.max_output_tokens = self.settings.agent_max_output_tokens
         research = callback_context.agent_name == "researcher"
         request_id = await asyncio.to_thread(
             self.store.reserve,

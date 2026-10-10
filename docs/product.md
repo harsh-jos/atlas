@@ -35,7 +35,7 @@ or make unexplored concepts look like a backlog. The current schema needs work t
 - [ ] Follow-up guidance: clarification, prerequisite detours, and optional next steps.
 - [ ] Saved sessions: close and reopen a conversation without losing it.
 - [ ] Small concept graph: show the current idea, prerequisites, and related ideas.
-- [ ] Usage controls: enforce model-call, search-request, output, and session-cost limits;
+- [ ] Usage controls: enforce model-call, search-request and session-cost limits;
       record use and report incomplete work when a limit is reached.
 
 ## Also required before v0.1
@@ -71,10 +71,14 @@ It has a bounded research tool, source links, persistent request accounting, and
 incomplete replies when limits are reached. Scripted ADK checks cover history, ownership,
 research, failure, and request limits. Live scenarios still need review for teaching quality.
 
-Limits apply to model requests, grounded research requests, output tokens, input request size,
+Limits apply to model requests, grounded research requests, input request size,
 and reply time. Google may run multiple queries within one research request. Provider-reported
 token and query counts are recorded; missing usage is marked unknown. These controls are not
 a hard currency spending limit. Currency enforcement remains required before v0.1.
 The new concept graph, agent writes, and formal language validation still need implementation.
 Keep feature boxes unchecked until their full behaviour has been verified.
 Archived experiments are reference code only and are excluded from the active app.
+
+The model and web research choice is Google ADK with Gemini 3.8 Flash on Vertex AI.
+No application output-token ceiling is set. Concision comes from teaching scope and language.
+Provider truncation is still reported; usage accounting still records output tokens.

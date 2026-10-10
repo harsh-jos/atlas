@@ -53,7 +53,6 @@ class Settings(BaseSettings):
     agent_max_calls_per_session: int = Field(default=256, ge=1)
     agent_max_research_per_turn: int = Field(default=3, ge=0, le=20)
     agent_max_research_per_session: int = Field(default=48, ge=0)
-    agent_max_output_tokens: int = Field(default=65536, ge=256, le=65536)
     agent_max_request_bytes: int = Field(default=2_000_000, ge=1024)
     agent_turn_timeout_seconds: int = Field(default=300, ge=1, le=1800)
 
