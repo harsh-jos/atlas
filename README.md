@@ -196,8 +196,10 @@ The graph's `explains` edges come from each explanation's concept membership.
 
 Writes are scoped to the authenticated owner, enforce text-storage quota, reuse duplicate
 saves/connections, and reject stale revisions. Concept pages let you remove a connection.
-The agent does not delete explanations; use the existing editor. Saving consent and teaching
-style are model instructions, not a separate deterministic policy checker.
+The agent does not delete explanations; use the existing editor. Saving tools require an explicit-request declaration or a stored continuing agreement.
+The model interprets consent; teaching style and semantic consent are not independently verified.
+Concept-memory opt-out is enforced by the tools across chats. Conversation notes are bounded
+and separate from saved explanations. See [the agent and tool guide](docs/agent-guide.md).
 
 See [the live review](docs/evaluations/2026-10-10-agent.md) for observations and remaining limits.
 
