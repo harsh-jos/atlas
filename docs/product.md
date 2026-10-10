@@ -87,7 +87,12 @@ save/read/revise Markdown explanations. Saves reuse the same concept/title; revi
 that the saved text has not changed. Existing readers and editors support inspection and deletion.
 Concept pages show removable connections; the graph shows concepts and explanations together.
 The full graph still opens as a wider map; a neighbourhood-first graph view remains pending.
-Formal language validation is not implemented.
+The rewritten guide separates teaching, platform, and evidence contracts. Bounded conversation
+notes support continuity without mastery claims. Owner-level memory and saving preferences
+persist across chats; tools block opted-out memory writes and require a request declaration
+or saving agreement for explanations. Inspected connections can be removed on request.
+See [the agent and tool guide](agent-guide.md) for contracts and verification limits.
+Formal language validation and independent semantic consent verification are not implemented.
 Keep feature boxes unchecked until their full behaviour has been verified.
 Archived experiments are reference code only and are excluded from the active app.
 
