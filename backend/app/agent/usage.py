@@ -55,15 +55,22 @@ class UsageStore:
                 session.execute(select(func.pg_advisory_xact_lock(lock_id)))
             elif session.get_bind().dialect.name == "sqlite":
                 session.connection().exec_driver_sql("BEGIN IMMEDIATE")
-            rows = list(session.scalars(self._owned()))
-            turn = [row for row in rows if row.invocation_id == invocation_id]
-            if len(turn) >= settings.agent_max_calls_per_turn:
+            current_turn = AgentRequest.invocation_id == invocation_id
+            stats = session.execute(self._owned().with_only_columns(
+                func.count().label("total"),
+                func.coalesce(func.sum(case((current_turn, 1), else_=0)), 0).label("turn"),
+                func.coalesce(func.sum(case((AgentRequest.research, 1), else_=0)), 0).label("research"),
+                func.coalesce(func.sum(case((current_turn & AgentRequest.research, 1), else_=0)), 0).label("turn_research"),
+                func.coalesce(func.sum(case((AgentRequest.estimated_cost_microusd.is_(None), 1), else_=0)), 0).label("unknown"),
+                func.coalesce(func.sum(AgentRequest.estimated_cost_microusd), 0).label("spent"),
+            )).one()
+            if stats.turn >= settings.agent_max_calls_per_turn:
                 raise AgentLimitReached("The model-call limit for this reply was reached.")
-            if len(rows) >= settings.agent_max_calls_per_session:
+            if stats.total >= settings.agent_max_calls_per_session:
                 raise AgentLimitReached("The model-call limit for this conversation was reached.")
             if research and (
-                sum(row.research for row in turn) >= settings.agent_max_research_per_turn
-                or sum(row.research for row in rows) >= settings.agent_max_research_per_session
+                stats.turn_research >= settings.agent_max_research_per_turn
+                or stats.research >= settings.agent_max_research_per_session
             ):
                 raise AgentLimitReached("The research-request limit was reached.", "research_limit")
             if settings.agent_session_budget_microusd:
@@ -74,13 +81,12 @@ class UsageStore:
                     raise AgentLimitReached("No verified price is configured for this model.", "price_unknown")
                 # A pending request holds the session's remaining budget. Failed or interrupted
                 # requests retain that hold instead of silently being treated as free.
-                if any(row.estimated_cost_microusd is None for row in rows):
+                if stats.unknown:
                     raise AgentLimitReached(
                         "A previous model request has pending or unknown cost. "
                         "Further spending in this conversation is blocked.", "cost_unknown"
                     )
-                spent = sum(row.estimated_cost_microusd for row in rows)
-                if spent >= settings.agent_session_budget_microusd:
+                if stats.spent >= settings.agent_session_budget_microusd:
                     raise AgentLimitReached("The spending limit for this conversation was reached.", "budget_limit")
             row = AgentRequest(
                 user_id=self.user_id,
