@@ -21,7 +21,7 @@ from google.adk.sessions.schemas.v1 import StorageEvent, StorageSession
 from app.agent.usage import AgentLimitReached
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.db.base import database_url, engine_options
+from app.db.base import database_url, engine_options, observe_engine
 
 EventSink = Callable[[dict], Awaitable[None]]
 
@@ -42,9 +42,11 @@ def configure_vertex() -> None:
 def get_session_service() -> BaseSessionService:
     """Conversations live in the app database, so a restart does not lose them."""
     # str(URL) masks the password as ***, which silently fails authentication.
-    return DatabaseSessionService(
+    service = DatabaseSessionService(
         db_url=database_url().render_as_string(hide_password=False), **engine_options()
     )
+    observe_engine(service.db_engine.sync_engine)
+    return service
 
 
 @dataclass(frozen=True)

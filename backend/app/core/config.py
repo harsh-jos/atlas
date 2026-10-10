@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     database_url: str
     host: str = "127.0.0.1"
     port: int = 8000
+    db_pool_size: int = Field(default=5, ge=1, le=100)
+    db_max_overflow: int = Field(default=10, ge=0, le=100)
+    db_pool_recycle_seconds: int = Field(default=1800, ge=60)
+    db_slow_query_seconds: float = Field(default=1.0, gt=0)
     db_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
     db_statement_timeout_seconds: int = Field(default=30, ge=1, le=120)
     db_lock_timeout_seconds: int = Field(default=5, ge=1, le=60)
