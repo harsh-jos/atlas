@@ -93,10 +93,10 @@ async def load_history(user_id: UUID, session_id: str) -> list[HistoryMessage]:
     return await read_history(str(user_id), session_id, exclude_managed=True)
 
 
-async def load_chat_sessions(user_id: UUID) -> list[SessionSummary]:
+async def load_chat_sessions(user_id: UUID, limit: int = 100, offset: int = 0) -> list[SessionSummary]:
     """Every conversation this user has had, most recently active first."""
-    summaries = {row.session_id: row for row in await list_chat_sessions(str(user_id))}
-    rows = await asyncio.to_thread(TurnStore(get_session_scope()).summaries, user_id)
+    summaries = {row.session_id: row for row in await list_chat_sessions(str(user_id), limit=limit + offset)}
+    rows = await asyncio.to_thread(TurnStore(get_session_scope()).summaries, user_id, limit + offset)
     for row in rows:
         existing = summaries.get(row["session_id"])
         summaries[row["session_id"]] = SessionSummary(
@@ -106,4 +106,4 @@ async def load_chat_sessions(user_id: UUID) -> list[SessionSummary]:
             if existing
             else row["updated_at"],
         )
-    return sorted(summaries.values(), key=lambda row: row.updated_at, reverse=True)
+    return sorted(summaries.values(), key=lambda row: (row.updated_at, row.session_id), reverse=True)[offset:offset + limit]

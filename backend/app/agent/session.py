@@ -13,8 +13,10 @@ from google.adk.agents.invocation_context import LlmCallsLimitExceededError
 from google.adk.events.event import Event
 from google.adk.runners import Runner
 from google.adk.sessions import BaseSessionService, DatabaseSessionService
-from google.adk.sessions.session import Session
 from google.genai import types
+from sqlalchemy import cast, func, select
+from sqlalchemy.dialects.postgresql import JSONB
+from google.adk.sessions.schemas.v1 import StorageEvent, StorageSession
 
 from app.agent.usage import AgentLimitReached
 from app.core.config import get_settings
@@ -63,7 +65,8 @@ def _event_text(event: Event) -> str | None:
 
 
 async def read_history(
-    user_id: str, session_id: str, *, exclude_managed: bool = False
+    user_id: str, session_id: str, *, exclude_managed: bool = False,
+    limit: int = 200, offset: int = 0
 ) -> list[HistoryMessage]:
     """Replay a persisted conversation as plain messages, so reloading a chat URL restores it.
 
@@ -71,14 +74,30 @@ async def read_history(
     only the reader's messages and the agent's final replies become visible turns.
     """
     sessions = get_session_service()
-    session = await sessions.get_session(
-        app_name=get_settings().agent_app_name, user_id=user_id, session_id=session_id
-    )
-    if session is None:
-        return []
+    if isinstance(sessions, DatabaseSessionService) and exclude_managed:
+        await sessions.prepare_tables()
+        data = cast(StorageEvent.event_data, JSONB)
+        statement = (
+            select(StorageEvent)
+            .where(StorageEvent.app_name == get_settings().agent_app_name,
+                   StorageEvent.user_id == user_id, StorageEvent.session_id == session_id,
+                   data["custom_metadata"]["atlas_turn_id"].astext.is_(None),
+                   (data["content"]["role"].astext == "user") | (data["author"].astext == "atlas"))
+            .order_by(StorageEvent.timestamp.desc(), StorageEvent.id.desc())
+            .limit(limit).offset(offset)
+        )
+        async with sessions.database_session_factory() as db:
+            events = [row.to_event() for row in (await db.scalars(statement)).all()][::-1]
+    else:
+        session = await sessions.get_session(
+            app_name=get_settings().agent_app_name, user_id=user_id, session_id=session_id
+        )
+        if session is None:
+            return []
+        events = session.events
 
     messages: list[HistoryMessage] = []
-    for event in session.events:
+    for event in events:
         if exclude_managed and (event.custom_metadata or {}).get("atlas_turn_id"):
             continue
         text = _event_text(event)
@@ -100,38 +119,38 @@ class SessionSummary:
     updated_at: datetime
 
 
-def _first_user_message(session: Session) -> str | None:
-    """The opening line of a conversation, for a title — the earliest event is always it."""
-    for event in session.events:
-        if event.content and event.content.role == "user":
-            text = _event_text(event)
-            if text:
-                return text
-    return None
-
-
-async def list_chat_sessions(user_id: str) -> list[SessionSummary]:
-    """Every session for this user, most recently active first.
-
-    `list_sessions` doesn't attach events, so the opening message of each is fetched
-    separately — the same cost `read_history` already pays to open a single chat.
-    """
-    sessions = get_session_service()
+async def list_chat_sessions(user_id: str, limit: int = 100) -> list[SessionSummary]:
+    """Read bounded sidebar projections without loading event histories or SDK state."""
+    service = get_session_service()
     app_name = get_settings().agent_app_name
-    listed = await sessions.list_sessions(app_name=app_name, user_id=user_id)
-
-    summaries: list[SessionSummary] = []
-    for bare in listed.sessions:
-        full = await sessions.get_session(app_name=app_name, user_id=user_id, session_id=bare.id)
-        summaries.append(
-            SessionSummary(
-                session_id=bare.id,
-                first_message=_first_user_message(full) if full else None,
-                updated_at=datetime.fromtimestamp(bare.last_update_time, tz=timezone.utc),
-            )
-        )
-    summaries.sort(key=lambda summary: summary.updated_at, reverse=True)
-    return summaries
+    if not isinstance(service, DatabaseSessionService):
+        listed = await service.list_sessions(app_name=app_name, user_id=user_id)
+        return sorted([
+            SessionSummary(row.id, row.state.get("atlas_first_message"),
+                           datetime.fromtimestamp(row.last_update_time, tz=timezone.utc))
+            for row in listed.sessions
+        ], key=lambda row: row.updated_at, reverse=True)[:limit]
+    await service.prepare_tables()
+    data = cast(StorageEvent.event_data, JSONB)
+    first = (
+        select(data["content"]["parts"][0]["text"].astext)
+        .where(StorageEvent.app_name == StorageSession.app_name,
+               StorageEvent.user_id == StorageSession.user_id,
+               StorageEvent.session_id == StorageSession.id,
+               data["content"]["role"].astext == "user")
+        .order_by(StorageEvent.timestamp, StorageEvent.id).limit(1).scalar_subquery()
+    )
+    statement = (
+        select(StorageSession.id,
+               func.coalesce(cast(StorageSession.state, JSONB)["atlas_first_message"].astext, first),
+               StorageSession.update_time)
+        .where(StorageSession.app_name == app_name, StorageSession.user_id == user_id)
+        .order_by(StorageSession.update_time.desc(), StorageSession.id).limit(limit)
+    )
+    async with service.database_session_factory() as db:
+        rows = (await db.execute(statement)).all()
+    return [SessionSummary(id, title, updated.replace(tzinfo=timezone.utc)
+                           if updated.tzinfo is None else updated) for id, title, updated in rows]
 
 
 async def ask(
@@ -150,7 +169,10 @@ async def ask(
         await sessions.get_session(app_name=app_name, user_id=user_id, session_id=session_id)
         is None
     ):
-        await sessions.create_session(app_name=app_name, user_id=user_id, session_id=session_id)
+        await sessions.create_session(
+            app_name=app_name, user_id=user_id, session_id=session_id,
+            state={"atlas_first_message": message},
+        )
 
     runner = Runner(app_name=app_name, agent=agent, session_service=sessions)
     reply: list[str] = []

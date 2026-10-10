@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
@@ -126,15 +126,18 @@ async def history(session_id: str, user_id: CurrentUserId, scope: SessionScopeDe
 
 
 @router.get("/sessions", response_model=list[ChatSessionSummary])
-async def sessions(user_id: CurrentUserId) -> list[ChatSessionSummary]:
+async def sessions(user_id: CurrentUserId, limit: int = Query(100, ge=1, le=100),
+                   offset: int = Query(0, ge=0, le=10000)) -> list[ChatSessionSummary]:
     """Every conversation this user has had, most recently active first."""
+    summaries = (await load_chat_sessions(user_id) if limit == 100 and offset == 0
+                 else await load_chat_sessions(user_id, limit=limit, offset=offset))
     return [
         ChatSessionSummary(
             session_id=summary.session_id,
             first_message=summary.first_message,
             updated_at=summary.updated_at,
         )
-        for summary in await load_chat_sessions(user_id)
+        for summary in summaries
     ]
 
 

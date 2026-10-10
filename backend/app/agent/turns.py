@@ -94,25 +94,23 @@ class TurnStore:
             )
             return turn_data(row) if row else None
 
-    def summaries(self, user_id: UUID) -> list[dict]:
+    def summaries(self, user_id: UUID, limit: int = 100) -> list[dict]:
         with self.scope() as session:
-            rows = session.execute(
-                select(AgentTurn.session_id, AgentTurn.message, AgentTurn.updated_at)
-                .where(AgentTurn.user_id == user_id)
-                .order_by(AgentTurn.created_at, AgentTurn.id)
+            ranked = (
+                select(AgentTurn.session_id, AgentTurn.message,
+                       func.max(AgentTurn.updated_at).over(
+                           partition_by=AgentTurn.session_id).label("updated_at"),
+                       func.row_number().over(
+                           partition_by=AgentTurn.session_id,
+                           order_by=(AgentTurn.created_at, AgentTurn.id)).label("position"))
+                .where(AgentTurn.user_id == user_id).subquery()
             )
-            summaries = {}
-            for session_id, message, updated_at in rows:
-                summary = summaries.setdefault(
-                    session_id,
-                    {
-                        "session_id": session_id,
-                        "first_message": message,
-                        "updated_at": updated_at,
-                    },
-                )
-                summary["updated_at"] = max(summary["updated_at"], updated_at)
-            return list(summaries.values())
+            rows = session.execute(
+                select(ranked.c.session_id, ranked.c.message.label("first_message"), ranked.c.updated_at)
+                .where(ranked.c.position == 1)
+                .order_by(ranked.c.updated_at.desc(), ranked.c.session_id).limit(limit)
+            )
+            return [dict(row._mapping) for row in rows]
 
     def cancel(self, user_id: UUID, turn_id: UUID) -> dict | None:
         with self.scope() as session:
