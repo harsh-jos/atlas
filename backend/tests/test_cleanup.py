@@ -33,7 +33,7 @@ def test_saved_search_is_scoped_to_the_current_user(monkeypatch):
         return [{"title": "Tensors"}]
 
     monkeypatch.setattr(toolkit, "search_artifacts", search)
-    tool, = toolkit.build_toolkit(scope, user_id)
+    tool = toolkit.build_toolkit(scope, user_id)[0]
     assert asyncio.run(tool("tensors")) == {"results": [{"title": "Tensors"}]}
 
 
@@ -43,7 +43,7 @@ def test_saved_search_failure_is_not_reported_as_empty_results(monkeypatch):
         raise RuntimeError("private database details")
         yield
 
-    tool, = toolkit.build_toolkit(scope, uuid4())
+    tool = toolkit.build_toolkit(scope, uuid4())[0]
     result = asyncio.run(tool("tensors"))
     assert "error" in result
     assert "results" not in result

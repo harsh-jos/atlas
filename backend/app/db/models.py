@@ -210,3 +210,20 @@ class AgentRequest(OwnedRecord):
     thought_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     search_queries: Mapped[int] = mapped_column(default=0)
+
+
+class ConceptConnection(OwnedRecord):
+    """A small orientation graph; 'requires' points from an idea to its prerequisite."""
+
+    __tablename__ = "concept_connections"
+    __table_args__ = (UniqueConstraint("user_id", "from_id", "to_id", "kind"),)
+
+    from_id: Mapped[UUID] = mapped_column(
+        ForeignKey("concepts.id", ondelete="CASCADE"), index=True
+    )
+    to_id: Mapped[UUID] = mapped_column(
+        ForeignKey("concepts.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    note: Mapped[str] = mapped_column(Text)
+    origin: Mapped[Origin] = mapped_column(_enum(Origin), default=Origin.AI)

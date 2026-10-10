@@ -8,6 +8,7 @@ npm-debug.log*
 .DS_Store
 
 # Secrets never belong in an image — env is injected by docker compose.
+.secrets
 .env
 .env.*
 

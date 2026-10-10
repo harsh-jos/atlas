@@ -1,31 +1,92 @@
-"""Read tools scoped to the current user's saved knowledge."""
+"""Agent tools scoped to the current user; each write commits before success is returned."""
 
 import asyncio
 import logging
 from collections.abc import Callable
 from uuid import UUID
 
+from app.agent import knowledge
 from app.db.base import SessionScope
 from app.search import search_artifacts
+from app.storage.quota import QuotaExceeded
 
 log = logging.getLogger(__name__)
 
 
 def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
-    def search(query: str) -> dict:
-        with scope() as session:
-            return {"results": search_artifacts(session, user_id, query)}
+    async def execute(operation, *args):
+        def transaction():
+            with scope() as session:
+                return operation(session, user_id, *args)
+
+        try:
+            return await asyncio.to_thread(transaction)
+        except (ValueError, QuotaExceeded) as error:
+            return {"error": str(error)}
+        except Exception:
+            log.exception("knowledge tool failed")
+            return {"error": "The saved knowledge operation failed. Do not claim it succeeded."}
 
     async def search_knowledge_base(query: str) -> dict:
-        """Find this user's saved explanations relevant to the current question.
+        """Find saved explanations by text. Exposure does not prove understanding."""
+        result = await execute(search_artifacts, query[:200])
+        return result if isinstance(result, dict) else {"results": result}
 
-        Saved content is evidence of prior exploration, not proof of understanding.
-        Returns matching artifacts, or an explicit error if retrieval fails.
+    async def inspect_concept_graph(concept_slug: str = "") -> dict:
+        """Read a concept's neighbours and explanations, or recent concepts if slug is empty.
+
+        'requires' outgoing means this concept needs the neighbour; incoming is the reverse.
+        'related_to' is symmetric. Results are bounded and indicate when more exist.
         """
-        try:
-            return await asyncio.to_thread(search, query)
-        except Exception as error:
-            log.warning("knowledge search failed: %s", error)
-            return {"error": "Saved explanations could not be searched. Try again."}
+        return await execute(knowledge.neighbourhood, concept_slug)
 
-    return [search_knowledge_base]
+    async def remember_concept(name: str, description: str) -> dict:
+        """Keep one concept actually explored, with a short plain-language description.
+
+        Reuses an existing concept. Do not populate a curriculum or infer mastery.
+        """
+        return await execute(knowledge.remember_concept, name, description)
+
+    async def connect_concepts(from_slug: str, to_slug: str, kind: str, note: str) -> dict:
+        """Connect two existing concepts with a specific reason.
+
+        kind is 'requires' (from needs to as a prerequisite) or symmetric 'related_to'.
+        Use only meaningful connections supported by this exploration; duplicates are reused.
+        """
+        return await execute(knowledge.connect_concepts, from_slug, to_slug, kind, note)
+
+    async def read_saved_explanation(slug: str) -> dict:
+        """Read an owned explanation and its revision timestamp before using or revising it."""
+        return await execute(knowledge.read_explanation, slug)
+
+    async def save_explanation(
+        concept_slug: str, title: str, summary: str, body: str, source_urls: list[str]
+    ) -> dict:
+        """Save a standalone Markdown answer only when the user asks or has agreed to saving.
+
+        Reuse source URLs actually retrieved. Use a question as title when helpful.
+        Same concept and title reuses the existing explanation without overwriting it.
+        Return the reader URL to the user after success.
+        """
+        return await execute(
+            knowledge.save_explanation, concept_slug, title, summary, body, source_urls
+        )
+
+    async def revise_saved_explanation(
+        slug: str, expected_updated_at: str, body: str, summary: str
+    ) -> dict:
+        """Revise an explanation when asked, after reading its current text and timestamp.
+
+        Preserve relevant source citations and useful context. A stale timestamp rejects the edit.
+        """
+        return await execute(knowledge.revise_explanation, slug, expected_updated_at, body, summary)
+
+    return [
+        search_knowledge_base,
+        inspect_concept_graph,
+        remember_concept,
+        connect_concepts,
+        read_saved_explanation,
+        save_explanation,
+        revise_saved_explanation,
+    ]
