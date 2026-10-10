@@ -6,29 +6,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from knowledge_seed import seed_knowledge
+
 from app.api.library import router as library_router
 from app.api.writes import router as writes_router
 from app.auth.service import AuthService
 from app.core.config import get_settings
-from app.core.enums import SourceType
 from app.db.base import get_session, get_session_scope
-from app.pipeline.build import build_import
-from app.pipeline.parsing.markdown_parser import parse_markdown
-from app.pipeline.preview import PreviewService
 
 PASSWORD = "correct-horse-battery"
-SAMPLE = """# Vector Search
-
-An overview of searching by meaning rather than by exact keyword matching alone.
-
-## HNSW
-
-Hierarchical navigable small worlds, the index most vector databases reach for by default.
-
-## IVF
-
-Inverted file indexes partition the space into cells and search only the nearest few of them.
-"""
 
 
 @pytest.fixture
@@ -51,18 +37,10 @@ def _register(session, email: str) -> tuple[str, object]:
     user = service.register(email, PASSWORD)
     return service.issue_token(user), user
 
-
-def _import(session, user, name: str = "Vector Search") -> None:
-    doc = parse_markdown(SAMPLE, fallback_title=name, source_type=SourceType.DOCS)
-    mapped = build_import(doc, concept_name=name, scope=f"scope:{name}", min_artifact_chars=1)
-    service = PreviewService(session, user)
-    service.commit(service.park(mapped, scope=f"scope:{name}").id)
-
-
 @pytest.fixture
 def owner_user(session, client):
     token, user = _register(session, "owner@example.com")
-    _import(session, user)
+    seed_knowledge(session, user)
     return user, {"Authorization": f"Bearer {token}"}
 
 
@@ -127,7 +105,7 @@ def test_renaming_an_artifact_keeps_its_slug(client, owner):
 
 def test_an_artifact_can_be_moved_to_another_concept(client, session, owner_user):
     user, headers = owner_user
-    _import(session, user, "Indexing")
+    seed_knowledge(session, user, "Indexing")
     concept = client.get("/concepts/indexing", headers=headers).json()["concept"]
     slug = _slug(client, headers)
     body = client.patch(f"/artifacts/{slug}", json={"conceptId": concept["id"]}, headers=headers)
@@ -138,7 +116,7 @@ def test_moving_an_artifact_into_another_users_concept_is_not_found(
     client, session, owner, stranger_user
 ):
     stranger, stranger_headers = stranger_user
-    _import(session, stranger, "Theirs")
+    seed_knowledge(session, stranger, "Theirs")
     concept = client.get("/concepts/theirs", headers=stranger_headers).json()["concept"]
     slug = _slug(client, owner)
     response = client.patch(f"/artifacts/{slug}", json={"conceptId": concept["id"]}, headers=owner)
@@ -256,7 +234,7 @@ def test_repeating_a_relation_is_a_no_op(client, owner):
 
 def test_relating_to_another_users_artifact_is_not_found(client, owner, stranger, session):
     _, stranger_user = _register(session, "third@example.com")
-    _import(session, stranger_user, name="Their Notes")
+    seed_knowledge(session, stranger_user, name="Their Notes")
     mine = _slug(client, owner)
     theirs = client.get("/concepts/their-notes", headers=stranger).status_code
 

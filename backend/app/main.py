@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -8,18 +7,10 @@ from sqlalchemy import text
 
 from app.agent.router import router as agent_router
 from app.api.assets import router as assets_router
-from app.api.imports import router as imports_router
-from app.api.kb import kb_router, llm_router
 from app.api.library import router as library_router
-from app.api.links import router as links_router
-from app.api.previews import router as previews_router
 from app.api.writes import router as writes_router
 from app.auth.router import router as auth_router
-from app.core.config import get_settings
-from app.db.base import get_engine, get_session_scope
-from app.jobs.queue import JobStore, run_worker
-from app.jobs.runner import process_job
-from app.jobs.sweeper import run_sweeper
+from app.db.base import get_engine
 from app.realtime.router import router as realtime_router
 
 logging.basicConfig(level=logging.INFO)
@@ -28,19 +19,9 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    store = JobStore(get_settings().jobs_db_path)
-    app.state.store = store
-
-    stop = asyncio.Event()
-    background = [
-        asyncio.create_task(run_worker(store, process_job, stop)),
-        asyncio.create_task(run_sweeper(get_session_scope(), stop)),
-    ]
     try:
         yield
     finally:
-        stop.set()
-        await asyncio.gather(*background)
         get_engine().dispose()
 
 
@@ -60,12 +41,7 @@ app.include_router(realtime_router)
 app.include_router(agent_router)
 app.include_router(library_router)
 app.include_router(writes_router)
-app.include_router(previews_router)
-app.include_router(links_router)
 app.include_router(assets_router)
-app.include_router(imports_router)
-app.include_router(llm_router)
-app.include_router(kb_router)
 
 
 @app.get("/healthz")

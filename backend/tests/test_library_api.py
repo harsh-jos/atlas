@@ -6,27 +6,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from knowledge_seed import seed_knowledge
+
 from app.api.library import router as library_router
 from app.auth.service import AuthService
-from app.core.enums import SourceType
 from app.db.base import get_session, get_session_scope
-from app.pipeline.build import build_import
-from app.pipeline.parsing.markdown_parser import parse_markdown
-from app.pipeline.preview import PreviewService
 
 PASSWORD = "correct-horse-battery"
-SAMPLE = """# Vector Search
-
-An overview of searching by meaning rather than by exact keyword matching alone.
-
-## HNSW
-
-Hierarchical navigable small worlds, the index most vector databases reach for by default.
-
-## IVF
-
-Inverted file indexes partition the space into cells and search only the nearest few of them.
-"""
 
 
 @pytest.fixture
@@ -48,18 +34,10 @@ def _register(session, email: str) -> tuple[str, object]:
     user = service.register(email, PASSWORD)
     return service.issue_token(user), user
 
-
-def _import(session, user, name: str = "Vector Search") -> None:
-    doc = parse_markdown(SAMPLE, fallback_title=name, source_type=SourceType.DOCS)
-    mapped = build_import(doc, concept_name=name, scope=f"scope:{name}", min_artifact_chars=1)
-    service = PreviewService(session, user)
-    service.commit(service.park(mapped, scope=f"scope:{name}").id)
-
-
 @pytest.fixture
 def owner(session, client):
     token, user = _register(session, "owner@example.com")
-    _import(session, user)
+    seed_knowledge(session, user)
     return {"Authorization": f"Bearer {token}"}
 
 

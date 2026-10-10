@@ -2,13 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Library, Sparkles, Hammer, Network, Search, Plus, LogOut } from 'lucide-react';
+import { Library, Sparkles, Network, Search, Plus, LogOut } from 'lucide-react';
 import { signOut } from '@/app/login/actions';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-items';
 import { Logo } from '@/components/ui/Logo';
 
-const ICONS = { Library, Sparkles, Hammer, Network, Search } as const;
+const ICONS = { Library, Sparkles, Network, Search } as const;
 
 export interface SidebarProps {
   /** The past-chats list — a Server Component, interleaved in so this stays a client shell. */

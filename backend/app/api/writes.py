@@ -21,7 +21,7 @@ from app.auth.deps import CurrentUser, CurrentUserId, SessionDep
 from app.core.enums import RelationType, SourceType
 from app.db.models import Artifact, Concept, Relation, Source, User
 from app.db.repository import OwnedRepository
-from app.pipeline.writer import text_bytes
+from app.storage.quota import text_bytes
 from app.storage.quota import QuotaExceeded, QuotaService
 
 router = APIRouter(tags=["writes"])

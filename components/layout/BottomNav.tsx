@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Library, Sparkles, Hammer, Network, Search } from 'lucide-react';
+import { Library, Sparkles, Network, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-items';
 
-const ICONS = { Library, Sparkles, Hammer, Network, Search } as const;
+const ICONS = { Library, Sparkles, Network, Search } as const;
 
 export function BottomNav() {
   const pathname = usePathname();

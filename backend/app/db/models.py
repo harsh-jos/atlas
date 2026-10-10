@@ -132,6 +132,8 @@ class Artifact(OwnedRecord):
     )
 
 
+# Retained schema definitions for existing installs. Import and linker routes are archived.
+# Remove these only with a separate migration and an explicit data-retention decision.
 class Preview(OwnedRecord):
     """A built-but-unwritten import, parked between proposal and curation."""
 

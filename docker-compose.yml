@@ -1,7 +1,7 @@
 name: atlas
 
 # One command brings up the whole local stack: `docker compose up --build`.
-# Postgres (with pgvector) + the Python import pipeline + the Next.js app.
+# Postgres (with pgvector), the Python backend, and the Next.js app.
 
 services:
   db:
@@ -21,7 +21,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # The Python backend: API, ingestion pipeline, and the agent. Owns the schema.
+  # The Python backend owns the schema and agent sessions.
   pipeline:
     build: ./backend
     restart: unless-stopped
@@ -31,8 +31,6 @@ services:
       VERTEX_PROJECT: ${VERTEX_PROJECT:-}
       VERTEX_LOCATION: ${VERTEX_LOCATION:-global}
       AGENT_MODEL: ${AGENT_MODEL:-gemini-3.5-flash}
-      JOBS_DB_PATH: /data/jobs.db
-      UPLOADS_DIR: /data/uploads
       ASSETS_DIR: /data/assets
     volumes:
       - pipeline_data:/data
@@ -62,4 +60,3 @@ services:
 volumes:
   pgdata:
   pipeline_data:
-  web_assets:

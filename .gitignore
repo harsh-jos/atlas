@@ -41,7 +41,7 @@ yarn-error.log*
 # companion chrome extension (independent of the main app)
 /atlas-clipper
 
-# uploaded image assets (host dev; dockerized via the web_assets volume)
+# uploaded image assets (host development)
 /uploads
 
 # typescript

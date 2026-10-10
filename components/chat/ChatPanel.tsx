@@ -1,11 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronRight, Copy } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { sendTurn, socketTicket } from '@/app/chat/actions';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
-import { CurationReceipt, type ReceiptData } from '@/components/chat/CurationReceipt';
-import { CurationReviewModal } from '@/components/chat/CurationReviewModal';
 import { Button } from '@/components/ui/Button';
 import type { ChatMessage } from '@/lib/api-types';
 
@@ -15,10 +13,8 @@ const COMPOSER_MAX_HEIGHT = 160;
 
 /** What each tool call is called while the reader waits — the agent's work, made legible. */
 const TOOL_LABELS: Record<string, string> = {
-  search_knowledge_base: 'Checking what you already know',
+  search_knowledge_base: 'Finding saved explanations',
   researcher: 'Researching the open web',
-  preview_source: 'Reading the source',
-  commit_artifacts: 'Saving what you chose',
 };
 
 /** The first-run moment — three or four honest ways to start a research thread. */
@@ -29,9 +25,7 @@ const STARTER_PROMPTS = [
   'Teach me the CAP theorem with concrete examples',
 ];
 
-type Entry =
-  | { kind: 'message'; role: 'you' | 'atlas'; text: string }
-  | { kind: 'receipt'; receipt: ReceiptData };
+type Entry = ChatMessage;
 
 export interface ChatPanelProps {
   /** The session this chat continues — it lives in the URL so a reload reopens the conversation. */
@@ -41,22 +35,18 @@ export interface ChatPanelProps {
 }
 
 export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
-  const [entries, setEntries] = useState<Entry[]>(() =>
-    initialMessages.map((message) => ({ kind: 'message', ...message }))
-  );
+  const [entries, setEntries] = useState<Entry[]>(initialMessages);
   const [activity, setActivity] = useState<string[]>([]);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pendingPreviewIds, setPendingPreviewIds] = useState<string[]>([]);
-  const [reviewOpen, setReviewOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const didMountRef = useRef(false);
 
   const say = useCallback(async (message: string) => {
     setError(null);
     setActivity([]);
-    setEntries((seen) => [...seen, { kind: 'message', role: 'you', text: message }]);
+    setEntries((seen) => [...seen, { role: 'you', text: message }]);
     setPending(true);
 
     const result = await sendTurn(sessionId, message);
@@ -66,35 +56,8 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
       setError(result.error);
       return;
     }
-    setEntries((seen) => [...seen, { kind: 'message', role: 'atlas', text: result.value }]);
+    setEntries((seen) => [...seen, { role: 'atlas', text: result.value }]);
   }, [sessionId]);
-
-  /** A resolved review batch reports itself as a receipt, then the agent narrates what happens next. */
-  const resolveCuration = useCallback(async (note: string, receipt: ReceiptData) => {
-    setError(null);
-    setActivity([]);
-    setEntries((seen) => [...seen, { kind: 'receipt', receipt }]);
-    setPending(true);
-
-    const result = await sendTurn(sessionId, note);
-    setPending(false);
-    setActivity([]);
-    if (result.error !== undefined) {
-      setError(result.error);
-      return;
-    }
-    setEntries((seen) => [...seen, { kind: 'message', role: 'atlas', text: result.value }]);
-  }, [sessionId]);
-
-  const handleReviewDone = useCallback(
-    (note: string, receipt: ReceiptData, resolvedIds: string[]) => {
-      const remaining = pendingPreviewIds.filter((id) => !resolvedIds.includes(id));
-      setPendingPreviewIds(remaining);
-      if (remaining.length === 0) setReviewOpen(false);
-      if (resolvedIds.length > 0) void resolveCuration(note, receipt);
-    },
-    [pendingPreviewIds, resolveCuration]
-  );
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -108,15 +71,10 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
         const message = JSON.parse(event.data) as {
           type: string;
           name?: string;
-          previewId?: string;
         };
         if (message.type === 'agent.tool' && message.name) {
           const name = message.name;
           setActivity((seen) => [...seen, TOOL_LABELS[name] ?? name]);
-        }
-        if (message.type === 'agent.preview' && message.previewId) {
-          const previewId = message.previewId;
-          setPendingPreviewIds((seen) => (seen.includes(previewId) ? seen : [...seen, previewId]));
         }
       };
     })();
@@ -151,13 +109,9 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
           <EmptyState onPick={(prompt) => void say(prompt)} />
         ) : (
           <div className="space-y-6 pb-4 pt-6">
-            {entries.map((entry, index) =>
-              entry.kind === 'receipt' ? (
-                <CurationReceipt key={index} receipt={entry.receipt} />
-              ) : (
-                <MessageRow key={index} role={entry.role} text={entry.text} />
-              )
-            )}
+            {entries.map((entry, index) => (
+              <MessageRow key={index} role={entry.role} text={entry.text} />
+            ))}
 
             {pending && <ThinkingIndicator activity={activity} />}
 
@@ -170,35 +124,8 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
         )}
       </div>
 
-      {pendingPreviewIds.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setReviewOpen(true)}
-          className="focus-ring animate-rise mb-3 flex shrink-0 items-center justify-between gap-3 rounded-card border border-accent-line bg-accent-soft px-4 py-3 text-left transition-colors duration-[var(--dur-fast)] hover:bg-accent-soft/70"
-        >
-          <span className="flex items-center gap-2.5">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-white">
-              {pendingPreviewIds.length}
-            </span>
-            <span className="text-[13.5px] font-medium text-ink">
-              Source{pendingPreviewIds.length === 1 ? '' : 's'} ready to review
-            </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-1 text-[13px] font-medium text-accent">
-            Review
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </span>
-        </button>
-      )}
-
       <Composer draft={draft} pending={pending} onDraftChange={setDraft} onSubmit={submit} />
 
-      <CurationReviewModal
-        open={reviewOpen}
-        previewIds={pendingPreviewIds}
-        onClose={() => setReviewOpen(false)}
-        onDone={handleReviewDone}
-      />
     </div>
   );
 }
