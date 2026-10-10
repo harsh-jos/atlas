@@ -21,6 +21,7 @@ export interface RelationDraft {
 }
 
 export interface EntryDraft {
+  expectedUpdatedAt: string;
   title: string;
   summary: string;
   body: string;
@@ -47,11 +48,12 @@ const blankToNull = (value: string) => value.trim() || null;
 const edgeKey = (edge: { toSlug: string; relationType: RelationType }) =>
   `${edge.relationType}:${edge.toSlug}`;
 
-export async function saveEntry(slug: string, draft: EntryDraft): Promise<ActionResult> {
+export async function saveEntry(slug: string, draft: EntryDraft): Promise<ActionResult<string>> {
   const path = artifactPath(slug);
 
   const result = await attempt(async () => {
     const saved = await apiSend<ArtifactDetail>('PATCH', path, {
+      expectedUpdatedAt: draft.expectedUpdatedAt,
       title: draft.title.trim(),
       summary: blankToNull(draft.summary),
       body: draft.body,
@@ -75,6 +77,7 @@ export async function saveEntry(slug: string, draft: EntryDraft): Promise<Action
     );
 
     await syncRelations(path, saved.relationsFrom, draft.relations);
+    return saved.updatedAt;
   });
 
   if (!result.error) revalidatePath(`/entries/${slug}`);

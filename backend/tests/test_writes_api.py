@@ -320,3 +320,13 @@ def test_graph_shows_concepts_explanations_and_prerequisite_direction(client, se
                and edge['relationType'] == 'requires' for edge in graph['links'])
     assert any(edge['source'] == by_slug[saved['slug']]['id'] and edge['target'] == by_slug[a['slug']]['id']
                and edge['relationType'] == 'explains' for edge in graph['links'])
+
+
+def test_editor_rejects_a_stale_revision(client, owner):
+    slug = _slug(client, owner)
+    before = client.get(f'/artifacts/{slug}', headers=owner).json()
+    payload = {'body': 'first edit', 'expectedUpdatedAt': before['updatedAt']}
+    assert client.patch(f'/artifacts/{slug}', json=payload, headers=owner).status_code == 200
+    payload['body'] = 'stale edit'
+    assert client.patch(f'/artifacts/{slug}', json=payload, headers=owner).status_code == 409
+    assert client.get(f'/artifacts/{slug}', headers=owner).json()['body'] == 'first edit'

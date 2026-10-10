@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.api.library import Payload
+from app.agent.knowledge import lock_owner
 from app.auth.deps import CurrentUser, SessionDep
 from app.core.config import ALLOWED_ASSET_TYPES, get_settings
 from app.db.models import Asset
@@ -91,6 +92,7 @@ def get_asset(asset_id: UUID, session: SessionDep, user: CurrentUser) -> FileRes
 @router.delete("/assets/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_asset(asset_id: UUID, session: SessionDep, user: CurrentUser) -> None:
     """Drops the row, gives the bytes back to the quota, and removes the file."""
+    user = lock_owner(session, user.id)
     assets = AssetRepository(session, user.id)
     asset = _owned(assets, asset_id)
     path, size = _asset_path(asset.id), asset.size

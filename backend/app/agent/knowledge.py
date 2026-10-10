@@ -21,7 +21,7 @@ def bounded(value: str, label: str, maximum: int) -> str:
 
 
 def lock_owner(session: Session, user_id: UUID) -> User:
-    return session.scalars(select(User).where(User.id == user_id).with_for_update()).one()
+    return session.scalars(select(User).where(User.id == user_id).with_for_update().execution_options(populate_existing=True)).one()
 
 
 def owned(session: Session, model, user_id: UUID, slug: str):

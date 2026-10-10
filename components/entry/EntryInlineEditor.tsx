@@ -73,6 +73,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
   const [sources, setSources] = React.useState(saved.sources);
   const [relations, setRelations] = React.useState(saved.relations);
 
+  const [revision, setRevision] = React.useState(artifact.updatedAt);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState<Date | null>(null);
@@ -90,7 +91,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
 
     setIsSaving(true);
     setErrorMessage(null);
-    const result = await saveEntry(artifact.slug, { ...draft, tags: parseTags(tags) });
+    const result = await saveEntry(artifact.slug, { ...draft, tags: parseTags(tags), expectedUpdatedAt: revision });
     setIsSaving(false);
 
     if (result.error) {
@@ -98,6 +99,7 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
       return;
     }
 
+    if (result.value) setRevision(result.value);
     setSavedAt(new Date());
     if (destination === 'reader') router.push(`/entries/${artifact.slug}`);
   }
