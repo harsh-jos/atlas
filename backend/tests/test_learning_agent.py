@@ -129,7 +129,7 @@ def test_research_uses_shared_budget_and_keeps_sources(
 
     async def run():
         reply = await sessions_module.ask(agent, "u1", "s1", "Explain autograd.")
-        assert "Research sources" in reply
+        assert "Sources: [Autograd]" in reply
         assert "docs.pytorch.org" in reply
         history = await sessions_module.read_history("u1", "s1")
         assert len(history) == 2
@@ -207,3 +207,17 @@ def test_timeout_is_saved_as_incomplete(local_sessions, usage_factory, agent_set
 
     asyncio.run(run())
     assert store.totals().unreported_requests == 1
+
+
+@pytest.mark.parametrize("cited", [False, True])
+def test_sources_are_bounded_and_do_not_duplicate_inline_citations(
+    local_sessions, usage_factory, agent_settings, cited
+):
+    limits = RequestLimits(usage_factory(), agent_settings)
+    limits.sources = {f"https://example.com/{i}": f"Reference {i}" for i in range(18)}
+    agent = build_agent([], limits)
+    text = "See [the documentation](https://example.com/2)." if cited else "An explanation."
+    agent.model = ScriptedModel(responses=[answer(text)])
+    reply = asyncio.run(sessions_module.ask(agent, "u1", "s1", "Explain."))
+    assert reply.count("https://") == (1 if cited else 3)
+    assert ("Sources:" in reply) is not cited

@@ -1,6 +1,7 @@
 """ADK callbacks shared by the guide and its research tool."""
 
 import asyncio
+import re
 from uuid import UUID, uuid4
 from urllib.parse import quote, urlparse
 
@@ -88,10 +89,15 @@ class RequestLimits:
 
         if callback_context.agent_name == "atlas" and llm_response.content:
             parts = llm_response.content.parts or []
-            if self.sources and not any(part.function_call for part in parts):
-                links = [
-                    f"[{i}]({quote(url, safe='/:?&=#%+-_.~')})"
-                    for i, url in enumerate(self.sources, 1)
-                ]
-                parts.append(types.Part(text="\n\nResearch sources: " + " · ".join(links)))
+            visible = "".join(part.text or "" for part in parts if not part.thought)
+            if (
+                self.sources
+                and not any(part.function_call for part in parts)
+                and not re.search(r"\[[^\]]+\]\(https?://", visible)
+            ):
+                links = []
+                for url, title in list(self.sources.items())[:3]:
+                    label = re.sub(r"[\[\]\n\r]", "", title)[:100]
+                    links.append(f"[{label}]({quote(url, safe='/:?&=#%+-_.~')})")
+                parts.append(types.Part(text="\n\nSources: " + " · ".join(links)))
                 llm_response.content.parts = parts
