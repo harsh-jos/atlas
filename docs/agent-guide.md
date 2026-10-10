@@ -88,8 +88,35 @@ TypeScript, and diff whitespace checks passed. Scripted ADK runs cover note pers
 chat isolation, opt-out, blocked memory tools, bounded notes, and removal guards.
 PostgreSQL checks cover preference defaults, ownership, consent/revocation, and graph writes.
 
-No live Gemini evaluation was run for this change. Scripted responses verify the harness,
+No live Gemini evaluation was run for the initial harness increment. Scripted responses verify the harness,
 not teaching quality. Live scenarios now include memory choices, saving agreements,
 and a DNS exploration alongside the existing PyTorch regressions. Use the evaluation
 command in the README with a dedicated test account, and inspect persisted effects as
 well as the prose. Existing strict-currency-cap and release-checklist gaps remain.
+
+## Prompt caching
+
+The guide's fixed teaching/platform rules use ADK `static_instruction`. The researcher
+also uses a static instruction. Preferences and conversation notes use the guide's dynamic
+`instruction`, which ADK sends as request content. Tests verify that changing notes leaves
+the system instruction unchanged. This prepares stable content for provider implicit
+caching; it does not create an explicit cache or guarantee a cache hit.
+
+The usage endpoint exposes `cachedInputTokens`, a subset of `inputTokens`, and
+`cacheUnreportedRequests`, the number of requests without reported cache-token metadata.
+A provider-reported zero is a known zero. Missing values, pending requests, and historical
+rows remain unknown. Do not calculate a session hit rate from incomplete coverage.
+Cost estimates still price all input at the standard rate, preserving the conservative
+spending guard. Explicit caching remains off; its creation/storage charges and lifecycle
+would need separate accounting before enabling it.
+
+[The short live smoke test](evaluations/2026-10-10-cache-smoke.json) returned a three-sentence
+Python dictionary explanation in 10 seconds. It used two guide requests and no research
+request, with an estimated cost of $0.008252. Both requests omitted cache-token metadata;
+this does not establish a hit or miss. Concept and context tools completed without errors,
+and the disposable test account was removed. The reply followed the requested short format,
+but did not research or cite its technical claim despite the research instruction. This is
+a smoke test, not proof of teaching quality, source-policy compliance, or caching savings.
+
+Caching increment verification: 185 backend tests passed with no skips, including migration
+and schema checks. Backend/frontend lint, TypeScript, and diff whitespace checks passed.
