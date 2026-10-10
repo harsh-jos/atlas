@@ -40,12 +40,43 @@ def concept_data(row: Concept) -> dict:
     }
 
 
+def preferences(session: Session, user_id: UUID) -> dict:
+    user = session.get(User, user_id, populate_existing=True)
+    if user is None:
+        raise ValueError("Owner not found.")
+    return {"memory_enabled": user.agent_memory_enabled, "auto_save": user.agent_auto_save}
+
+
+def set_preferences(
+    session: Session, user_id: UUID, memory_enabled: bool | None, auto_save: bool | None
+) -> dict:
+    user = lock_owner(session, user_id)
+    if memory_enabled is not None:
+        user.agent_memory_enabled = memory_enabled
+    if auto_save is not None:
+        user.agent_auto_save = auto_save
+    session.flush()
+    return preferences(session, user_id)
+
+
+def require_memory(session: Session, user_id: UUID) -> dict:
+    user = lock_owner(session, user_id)
+    if not user.agent_memory_enabled:
+        raise ValueError("Concept and learning-context memory is disabled. Ask before enabling it.")
+    return {"memory_enabled": True}
+
+
+def require_saving(user: User, user_requested: bool) -> None:
+    if not user_requested and not user.agent_auto_save:
+        raise ValueError("Saving requires a user request or an explicit continuing agreement.")
+
+
 def remember_concept(session: Session, user_id: UUID, name: str, description: str) -> dict:
     name = bounded(name, "Concept name", 200)
     description = bounded(description, "Description", 2000)
     # Stable across retries, including names written in non-Latin scripts.
     slug = slugify(name) or hashlib.sha256(name.casefold().encode()).hexdigest()[:20]
-    lock_owner(session, user_id)
+    require_memory(session, user_id)
     row = session.scalar(select(Concept).where(Concept.user_id == user_id, Concept.slug == slug))
     created = row is None
     if created:
@@ -61,7 +92,7 @@ def connect_concepts(
     if kind not in {"requires", "related_to"}:
         raise ValueError("Connection kind must be requires or related_to.")
     note = bounded(note, "Connection reason", 1000)
-    lock_owner(session, user_id)
+    require_memory(session, user_id)
     source = owned(session, Concept, user_id, from_slug)
     target = owned(session, Concept, user_id, to_slug)
     if source.id == target.id:
@@ -159,6 +190,18 @@ def neighbourhood(session: Session, user_id: UUID, slug: str = "") -> dict:
     }
 
 
+def remove_connection(session: Session, user_id: UUID, connection_id: str) -> dict:
+    lock_owner(session, user_id)
+    row = session.scalar(select(ConceptConnection).where(
+        ConceptConnection.user_id == user_id, ConceptConnection.id == UUID(connection_id)
+    ))
+    if row is None:
+        raise ValueError("Connection not found. Inspect the graph before changing it.")
+    session.delete(row)
+    session.flush()
+    return {"removed": True, "connection_id": connection_id}
+
+
 def read_explanation(session: Session, user_id: UUID, slug: str) -> dict:
     row = owned(session, Artifact, user_id, slug)
     return {
@@ -181,6 +224,7 @@ def save_explanation(
     summary: str,
     body: str,
     source_urls: list[str],
+    user_requested: bool = False,
 ) -> dict:
     title = bounded(title, "Title", 500)
     summary = bounded(summary, "Summary", 2000)
@@ -191,6 +235,7 @@ def save_explanation(
     ):
         raise ValueError("Supply at most 10 valid HTTP source URLs.")
     user = lock_owner(session, user_id)
+    require_saving(user, user_requested)
     concept = owned(session, Concept, user_id, concept_slug)
     key = hashlib.sha256(f"{concept.id}:{title.casefold()}".encode()).hexdigest()[:12]
     slug = f"{slugify(title)[:460] or 'explanation'}-{key}"
@@ -223,11 +268,13 @@ def save_explanation(
 
 
 def revise_explanation(
-    session: Session, user_id: UUID, slug: str, expected_updated_at: str, body: str, summary: str
+    session: Session, user_id: UUID, slug: str, expected_updated_at: str, body: str, summary: str,
+    user_requested: bool = False,
 ) -> dict:
     body = bounded(body, "Explanation", 60000)
     summary = bounded(summary, "Summary", 2000)
     user = lock_owner(session, user_id)
+    require_saving(user, user_requested)
     row = session.scalars(
         select(Artifact).where(Artifact.user_id == user_id, Artifact.slug == slug).with_for_update()
     ).one_or_none()
