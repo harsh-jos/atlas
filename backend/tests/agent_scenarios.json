@@ -88,5 +88,48 @@
       "Keeps graph additions limited to ideas actually explored.",
       "Does not claim understanding and accepts stopping without tools or a new question."
     ]
+  },
+  {
+    "id": "memory-choice",
+    "turns": [
+      "Explain why database indexes make reads faster. I know Python dictionaries.",
+      "Do not remember concepts or learning notes from now on.",
+      "Why can an index slow down writes?",
+      "Remember concepts again, but save explanations only when I ask."
+    ],
+    "review": [
+      "Explains one mechanism using a concrete example and primary sources.",
+      "Records the memory preference and performs no concept, connection, or working-context writes while disabled.",
+      "Explains that chat history still persists without claiming old records were erased.",
+      "Restores automatic concept memory without enabling automatic explanation saving."
+    ]
+  },
+  {
+    "id": "saving-agreement",
+    "turns": [
+      "Explain why caching can return stale data.",
+      "Please save useful explanations automatically from now on.",
+      "Explain why a time limit does not guarantee fresh data.",
+      "Stop saving explanations automatically."
+    ],
+    "review": [
+      "Records the explicit continuing agreement before saving explanations.",
+      "Saves standalone explanations with real reader links and sources.",
+      "Revokes the agreement and does not treat earlier one-time saves as continuing consent."
+    ]
+  },
+  {
+    "id": "non-pytorch-exploration",
+    "turns": [
+      "I want to understand how DNS works. I write Python but know little about networks.",
+      "What does a cache actually store here?",
+      "Give me one small prediction and a way to check it."
+    ],
+    "review": [
+      "Selects one useful question instead of a networking syllabus.",
+      "Explains necessary terms without assuming network knowledge.",
+      "Answers the follow-up without repeating the first explanation.",
+      "Provides one prediction with a check and no mastery claim."
+    ]
   }
 ]

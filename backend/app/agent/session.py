@@ -167,6 +167,7 @@ async def ask(
     message: str,
     on_event: EventSink | None = None,
     turn_id: str | None = None,
+    state_delta: dict | None = None,
 ) -> str:
     """Send one message and return the agent's final reply, reporting progress as it goes."""
     configure_vertex()
@@ -190,6 +191,7 @@ async def ask(
                 user_id=user_id,
                 session_id=session_id,
                 new_message=types.Content(role="user", parts=[types.Part(text=message)]),
+                state_delta=state_delta,
                 run_config=RunConfig(
                     max_llm_calls=settings.agent_max_calls_per_turn + 1,
                     custom_metadata={"atlas_turn_id": turn_id} if turn_id else None,

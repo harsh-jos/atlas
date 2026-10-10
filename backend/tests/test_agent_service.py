@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from contextlib import nullcontext
 from uuid import uuid4
 
 import pytest
@@ -38,7 +39,8 @@ def test_vertex_settings_replace_previous_account(monkeypatch, agent_settings):
 )
 def test_provider_setup_errors_are_clear(monkeypatch, agent_settings, code, phrase):
     monkeypatch.setattr(service, "get_settings", lambda: agent_settings)
-    monkeypatch.setattr(service, "get_session_scope", lambda: None)
+    monkeypatch.setattr(service, "get_session_scope", lambda: lambda: nullcontext())
+    monkeypatch.setattr(service, "preferences", lambda *args: {"memory_enabled": True, "auto_save": False})
     monkeypatch.setattr(service, "build_toolkit", lambda *args, **kwargs: [])
     monkeypatch.setattr(service, "build_agent", lambda *args: object())
 
