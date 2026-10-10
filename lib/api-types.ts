@@ -123,6 +123,20 @@ export interface ChatMessage {
 export interface ChatHistory {
   sessionId: string;
   messages: ChatMessage[];
+  latestTurn: ChatTurn | null;
+}
+
+export interface ChatTurn {
+  id: string;
+  requestId: string;
+  sessionId: string;
+  message: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted';
+  reply: string | null;
+  error: string | null;
+  toolName: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChatSessionSummary {

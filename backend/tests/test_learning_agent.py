@@ -55,6 +55,23 @@ def test_reopened_session_retains_history(local_sessions, usage_factory, agent_s
     assert store.totals().thought_tokens == 20
 
 
+def test_managed_turns_are_tagged_without_duplicating_legacy_history(
+    local_sessions, usage_factory, agent_settings
+):
+    store = usage_factory()
+
+    async def run():
+        legacy = make_agent(store, agent_settings, [answer("A legacy reply.")])
+        await sessions_module.ask(legacy, "u1", "s1", "Old question.")
+        managed = make_agent(store, agent_settings, [answer("A managed reply.")])
+        await sessions_module.ask(managed, "u1", "s1", "New question.", turn_id="turn-1")
+        visible = await sessions_module.read_history("u1", "s1", exclude_managed=True)
+        assert [message.text for message in visible] == ["Old question.", "A legacy reply."]
+        assert len(await sessions_module.read_history("u1", "s1")) == 4
+
+    asyncio.run(run())
+
+
 def test_tool_loop_stops_and_saves_the_notice(local_sessions, usage_factory, agent_settings):
     agent_settings.agent_max_calls_per_turn = 1
 

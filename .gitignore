@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# Python caches (including archived backend code)
+__pycache__/
+*.py[cod]
+
 # next.js
 /.next/
 /out/

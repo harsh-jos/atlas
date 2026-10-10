@@ -1,17 +1,19 @@
 import logging
+import asyncio
 from contextlib import asynccontextmanager
+from contextlib import suppress
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.agent.router import router as agent_router
+from app.agent.worker import run_worker
 from app.api.assets import router as assets_router
 from app.api.library import router as library_router
 from app.api.writes import router as writes_router
 from app.auth.router import router as auth_router
 from app.db.base import get_engine
-from app.realtime.router import router as realtime_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -19,9 +21,13 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    worker = asyncio.create_task(run_worker())
     try:
         yield
     finally:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
         get_engine().dispose()
 
 
@@ -37,7 +43,6 @@ async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
 
 
 app.include_router(auth_router)
-app.include_router(realtime_router)
 app.include_router(agent_router)
 app.include_router(library_router)
 app.include_router(writes_router)

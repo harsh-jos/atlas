@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, Copy } from 'lucide-react';
-import { sendTurn, socketTicket } from '@/app/chat/actions';
+import { sendTurn } from '@/app/chat/actions';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { Button } from '@/components/ui/Button';
-import type { ChatMessage } from '@/lib/api-types';
+import type { ChatHistory, ChatMessage, ChatTurn } from '@/lib/api-types';
 
-const WS_URL = process.env.NEXT_PUBLIC_ATLAS_WS_URL ?? 'ws://localhost:8000/ws';
+const POLL_MS = 1500;
 const COPY_RESET_MS = 1500;
 const COMPOSER_MAX_HEIGHT = 160;
 
@@ -37,59 +38,143 @@ export interface ChatPanelProps {
   /** The session this chat continues — it lives in the URL so a reload reopens the conversation. */
   sessionId: string;
   /** Turns already stored for this session, replayed so a reopened URL is not blank. */
-  initialMessages: ChatMessage[];
+  initialSnapshot: ChatHistory;
 }
 
-export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
-  const [entries, setEntries] = useState<Entry[]>(initialMessages);
-  const [activity, setActivity] = useState<string[]>([]);
+function isActive(turn: ChatTurn | null) {
+  return turn?.status === 'queued' || turn?.status === 'running';
+}
+
+async function readSnapshot<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(path, { cache: 'no-store', signal });
+  if (!response.ok) throw new Error('Could not check the reply. Reconnecting…');
+  return response.json() as Promise<T>;
+}
+
+export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
+  const router = useRouter();
+  const [entries, setEntries] = useState<Entry[]>(initialSnapshot.messages);
+  const [turn, setTurn] = useState<ChatTurn | null>(initialSnapshot.latestTurn);
   const [draft, setDraft] = useState('');
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(initialSnapshot.latestTurn?.error ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const didMountRef = useRef(false);
+  const submissionRef = useRef<{ id: string; message: string } | null>(null);
+  const storageKey = `atlas-submission:${sessionId}`;
+  const pending = submitting || isActive(turn);
+  const activeTurnId = isActive(turn) ? turn?.id : null;
+  const activity = turn?.toolName ? [TOOL_LABELS[turn.toolName] ?? turn.toolName] : [];
 
-  const say = useCallback(async (message: string) => {
-    setError(null);
-    setActivity([]);
-    setEntries((seen) => [...seen, { role: 'you', text: message }]);
-    setPending(true);
-
-    const result = await sendTurn(sessionId, message);
-    setPending(false);
-    setActivity([]);
-    if (result.error !== undefined) {
-      setError(result.error);
-      return;
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const snapshot = await readSnapshot<ChatHistory>(`/api/chat/${encodeURIComponent(sessionId)}`, signal);
+    setEntries(snapshot.messages);
+    setTurn(snapshot.latestTurn);
+    setError(snapshot.latestTurn?.error ?? null);
+    if (submissionRef.current && snapshot.latestTurn?.requestId === submissionRef.current.id) {
+      submissionRef.current = null;
+      try { sessionStorage.removeItem(storageKey); } catch { /* Optional. */ }
+      setDraft('');
     }
-    setEntries((seen) => [...seen, { role: 'atlas', text: result.value }]);
-  }, [sessionId]);
+  }, [sessionId, storageKey]);
 
   useEffect(() => {
-    let socket: WebSocket | null = null;
-    let cancelled = false;
-
-    void (async () => {
-      const ticket = await socketTicket();
-      if (cancelled || ticket.error !== undefined) return;
-      socket = new WebSocket(`${WS_URL}?token=${encodeURIComponent(ticket.value)}`);
-      socket.onmessage = (event) => {
-        const message = JSON.parse(event.data) as {
-          type: string;
-          name?: string;
-        };
-        if (message.type === 'agent.tool' && message.name) {
-          const name = message.name;
-          setActivity((seen) => [...seen, TOOL_LABELS[name] ?? name]);
+    try {
+      const saved = sessionStorage.getItem(storageKey);
+      if (saved) {
+        const submission = JSON.parse(saved) as { id: string; message: string };
+        if (typeof submission.id === 'string' && typeof submission.message === 'string') {
+          if (initialSnapshot.latestTurn?.requestId === submission.id) {
+            sessionStorage.removeItem(storageKey);
+            return;
+          }
+          submissionRef.current = submission;
+          // Storage is browser-only; restore once after the server render has hydrated.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setDraft(submission.message);
         }
-      };
-    })();
+      }
+    } catch { /* Storage may be unavailable; the server still enforces request IDs. */ }
+  }, [storageKey, initialSnapshot.latestTurn?.requestId]);
 
-    return () => {
-      cancelled = true;
-      socket?.close();
+  const say = useCallback(async (message: string) => {
+    if (pending) return;
+    setError(null);
+    setDraft(message);
+    setSubmitting(true);
+    const submission = submissionRef.current?.message === message
+      ? submissionRef.current : { id: crypto.randomUUID(), message };
+    submissionRef.current = submission;
+    try { sessionStorage.setItem(storageKey, JSON.stringify(submission)); } catch { /* Optional. */ }
+    try {
+      const result = await sendTurn(sessionId, message, submission.id);
+      if (result.error !== undefined) {
+        setError(result.error);
+        return;
+      }
+      submissionRef.current = null;
+      try { sessionStorage.removeItem(storageKey); } catch { /* Optional. */ }
+      setDraft('');
+      setTurn(result.value);
+      try { await refresh(); } catch { setError('Your message was accepted. Reconnecting…'); }
+    } catch {
+      setError('Could not confirm your submission. Send the same message again to check it safely.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [sessionId, storageKey, pending, refresh]);
+
+  // Poll only an active turn. Reads never resubmit a message or restart generation.
+  useEffect(() => {
+    if (!activeTurnId) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      if (document.visibilityState === 'hidden') {
+        timer = setTimeout(poll, POLL_MS);
+        return;
+      }
+      try {
+        const latest = await readSnapshot<ChatTurn>(`/api/turns/${activeTurnId}`, controller.signal);
+        if (controller.signal.aborted) return;
+        if (!isActive(latest)) {
+          await refresh(controller.signal);
+          router.refresh();
+          return;
+        }
+        setTurn(latest);
+        setError(latest.error);
+      } catch {
+        if (controller.signal.aborted) return;
+        setError('Could not check the reply. Reconnecting…');
+      }
+      if (!controller.signal.aborted) timer = setTimeout(poll, POLL_MS);
     };
-  }, []);
+    timer = setTimeout(poll, POLL_MS);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [activeTurnId, refresh, router]);
+
+  // A foreground return also picks up work submitted in another tab.
+  useEffect(() => {
+    const controller = new AbortController();
+    const recover = () => {
+      if (document.visibilityState === 'visible') {
+        void refresh(controller.signal).catch(() => {
+          if (!controller.signal.aborted) setError('Could not refresh the conversation. Check your connection.');
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', recover);
+    window.addEventListener('online', recover);
+    return () => {
+      controller.abort();
+      document.removeEventListener('visibilitychange', recover);
+      window.removeEventListener('online', recover);
+    };
+  }, [refresh]);
 
   // Scrolls only this container — never the app-wide scroll region above it.
   useEffect(() => {
@@ -97,12 +182,11 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: didMountRef.current ? 'smooth' : 'auto' });
     didMountRef.current = true;
-  }, [entries, activity]);
+  }, [entries, turn?.toolName]);
 
   const submit = useCallback(() => {
     const message = draft.trim();
     if (!message || pending) return;
-    setDraft('');
     void say(message);
   }, [draft, pending, say]);
 
@@ -121,13 +205,9 @@ export function ChatPanel({ sessionId, initialMessages }: ChatPanelProps) {
 
             {pending && <ThinkingIndicator activity={activity} />}
 
-            {error && (
-              <p role="alert" className="text-[13px] text-danger">
-                {error}
-              </p>
-            )}
           </div>
         )}
+        {error && <p role="alert" className="pb-4 text-[13px] text-danger">{error}</p>}
       </div>
 
       <Composer draft={draft} pending={pending} onDraftChange={setDraft} onSubmit={submit} />

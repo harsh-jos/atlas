@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from uuid import uuid4
 
 import httpx
 
@@ -10,11 +11,17 @@ from app.agent.evaluate import Scenario, run_scenario
 
 def test_live_harness_keeps_one_session_and_requires_review():
     messages = []
+    turn_id = str(uuid4())
 
     def respond(request):
         if request.method == "POST":
             messages.append(json.loads(request.content))
-            return httpx.Response(200, json={"reply": "An explanation to review."})
+            return httpx.Response(202, json={
+                "id": turn_id, "requestId": messages[-1]["request_id"], "sessionId": messages[-1]["session_id"],
+                "message": messages[-1]["message"], "status": "completed",
+                "reply": "An explanation to review.", "error": None, "toolName": None,
+                "createdAt": "2026-10-10T00:00:00Z", "updatedAt": "2026-10-10T00:00:00Z",
+            })
         return httpx.Response(
             200,
             json={
@@ -46,6 +53,7 @@ def test_live_harness_keeps_one_session_and_requires_review():
     result = asyncio.run(run())
     assert len(messages) == 2
     assert messages[0]["session_id"] == messages[1]["session_id"]
+    assert messages[0]["request_id"] != messages[1]["request_id"]
     assert result["review_status"] == "pending"
     assert result["usage"]["total_tokens"] == 35
     assert result["review"] == ["Follows the detour."]

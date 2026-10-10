@@ -77,8 +77,10 @@ token and query counts are recorded; missing usage is marked unknown. An estimat
 spending guard now blocks further calls at the allowance or while any prior request has pending
 or unknown cost. It includes reasoning tokens and reported search queries. The last in-flight
 request can overrun the allowance; this is not a hard currency spending limit. Strict currency
-enforcement remains required before v0.1. Chat uses HTTP turns plus WebSocket progress. Durable
-in-flight recovery and reconnect/replay are not implemented; completed history is persisted.
+enforcement remains required before v0.1. Chat uses HTTP submission and active-turn polling.
+Accepted turns, status, progress, and replies are persisted. Browser navigation does not cancel
+work; queued turns survive restart. Interrupted running turns are reported without automatic
+replay. Mid-generation continuation and user cancellation are not implemented.
 The agent can inspect concept neighbourhoods, remember explored concepts, connect them, and
 save/read/revise Markdown explanations. Saves reuse the same concept/title; revisions check
 that the saved text has not changed. Existing readers and editors support inspection and deletion.

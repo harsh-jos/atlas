@@ -59,7 +59,9 @@ def _event_text(event: Event) -> str | None:
     return text or None
 
 
-async def read_history(user_id: str, session_id: str) -> list[HistoryMessage]:
+async def read_history(
+    user_id: str, session_id: str, *, exclude_managed: bool = False
+) -> list[HistoryMessage]:
     """Replay a persisted conversation as plain messages, so reloading a chat URL restores it.
 
     Tool calls, tool responses, and any non-final model chatter carry no text worth showing —
@@ -74,6 +76,8 @@ async def read_history(user_id: str, session_id: str) -> list[HistoryMessage]:
 
     messages: list[HistoryMessage] = []
     for event in session.events:
+        if exclude_managed and (event.custom_metadata or {}).get("atlas_turn_id"):
+            continue
         text = _event_text(event)
         if text is None:
             continue
@@ -133,6 +137,7 @@ async def ask(
     session_id: str,
     message: str,
     on_event: EventSink | None = None,
+    turn_id: str | None = None,
 ) -> str:
     """Send one message and return the agent's final reply, reporting progress as it goes."""
     configure_vertex()
@@ -153,7 +158,10 @@ async def ask(
                 user_id=user_id,
                 session_id=session_id,
                 new_message=types.Content(role="user", parts=[types.Part(text=message)]),
-                run_config=RunConfig(max_llm_calls=settings.agent_max_calls_per_turn + 1),
+                run_config=RunConfig(
+                    max_llm_calls=settings.agent_max_calls_per_turn + 1,
+                    custom_metadata={"atlas_turn_id": turn_id} if turn_id else None,
+                ),
             ):
                 if on_event:
                     for call in event.get_function_calls():
@@ -179,6 +187,7 @@ async def ask(
                 current,
                 Event(
                     author="atlas",
+                    custom_metadata={"atlas_turn_id": turn_id} if turn_id else None,
                     content=types.Content(role="model", parts=[types.Part(text=notice)]),
                 ),
             )

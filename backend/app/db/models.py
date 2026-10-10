@@ -214,6 +214,30 @@ class AgentRequest(OwnedRecord):
     estimated_cost_microusd: Mapped[int | None] = mapped_column(BigInteger)
 
 
+class AgentTurn(OwnedRecord):
+    """An accepted user message, independent of the HTTP request that submitted it."""
+
+    __tablename__ = "agent_turns"
+    __table_args__ = (
+        UniqueConstraint("user_id", "session_id", "request_id"),
+        Index("ix_agent_turns_owner_session", "user_id", "session_id"),
+        Index(
+            "ix_agent_turns_active_session", "user_id", "session_id", unique=True,
+            postgresql_where=text("status IN ('queued', 'running')"),
+            sqlite_where=text("status IN ('queued', 'running')"),
+        ),
+    )
+
+    session_id: Mapped[str] = mapped_column(String(64))
+    request_id: Mapped[UUID]
+    message: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
+    reply: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    tool_name: Mapped[str | None] = mapped_column(String(200))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ConceptConnection(OwnedRecord):
     """A small orientation graph; 'requires' points from an idea to its prerequisite."""
 

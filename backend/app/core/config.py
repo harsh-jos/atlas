@@ -32,9 +32,6 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = 60 * 24
-    # A browser cannot read the httpOnly session cookie, so sockets open with a brief ticket
-    # instead of the long-lived token ever reaching JavaScript.
-    socket_ticket_ttl_minutes: int = 2
 
     # Per-user ceiling on stored asset + artifact bytes.
     storage_quota_bytes: int = 500 * 1024 * 1024

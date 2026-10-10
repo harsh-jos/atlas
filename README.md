@@ -69,26 +69,34 @@ The usage endpoint reports estimated cost, unpriced requests, and the configured
 
 Estimates use standard Vertex Flash list prices, include reasoning and individual search queries,
 and ignore cached-input discounts, free search allowances, and credits. Each request's estimated
-cost is persisted when usage arrives; later settings changes do not reprice past requests. Unsupported models are
+cost is persisted when usage arrives; later settings changes do not reprice past requests.
+Unsupported models are
 blocked while the guard is enabled. See `backend/app/agent/pricing.py` for the dated pricing source
 and the published January 2027 rate change. This is an admission guard, not a hard billing cap:
 the final in-flight request can exceed the remaining amount. No output-token ceiling is added.
 
 ## Chat transport and interruptions
 
-Chat turns use HTTP: a Next.js Server Action calls `POST /agent/chat` and receives the final reply.
-A separate authenticated WebSocket (`/ws`) carries tool-progress events. There is no SSE or
-token streaming. Progress uses a process-local hub and is broadcast to the user's open sockets;
-events currently have no session filter or replay.
+Chat uses HTTP throughout. `POST /agent/chat` accepts `session_id`, `message`, and a client-generated
+UUID `request_id`. It commits the turn and returns HTTP 202 immediately. Reusing the same request
+ID and message returns that turn; conflicting reuse or a second active turn in the same chat
+returns HTTP 409. `GET /agent/turns/{id}` reports owned status, latest tool progress, reply, and errors.
+`GET /agent/chat/{session_id}` restores the conversation and latest turn, including queued messages.
 
-Switching browser tabs normally leaves the chat mounted and connected. Navigating away unmounts
-it and closes the socket. That socket closing does not itself cancel the HTTP turn. Completed
-replies are persisted through ADK and appear when the chat is reopened. Reopening while the turn
-is still running can show an unfinished history; the UI does not poll for completion or reconnect
-a broken socket automatically. Browser suspension, network loss, or an HTTP/proxy timeout can
-lose live feedback. There is no durable background turn, running-turn status, cancellation
-endpoint, or idempotent retry yet. A backend restart can interrupt an active reply; only events
-already persisted survive. Transport choice alone does not provide resumable execution.
+A backend lifespan worker claims queued turns from PostgreSQL. The browser polls active status
+every 1.5 seconds while visible, and refreshes the saved conversation on completion, foreground
+return, or restored network access. Next.js proxies reads using the httpOnly session cookie;
+no browser-facing backend token or socket ticket is needed. There is no WebSocket, SSE, or token
+streaming. The old WebSocket hub and tests are archived.
+
+Navigating away or closing the browser does not cancel accepted work. Queued work survives a
+backend restart. Graceful shutdown marks active work interrupted. After an abrupt crash, a running
+turn becomes interrupted when its lease expires (reply timeout plus 30 seconds), rather than
+remaining stuck forever. Persisted partial output and saved explanations remain. Running work is
+never automatically replayed: tool writes or provider charges may already have happened.
+No mid-generation continuation or user cancellation endpoint is implemented.
+
+See [the runtime and transport decision](docs/agent-runtime.md) for scope and tradeoffs.
 
 Offline agent tests run with `uv run pytest tests/test_agent_usage.py tests/test_learning_agent.py`
 from `backend/`. They use the real ADK runner with scripted models and make no cloud calls.

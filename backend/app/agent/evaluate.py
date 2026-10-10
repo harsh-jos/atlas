@@ -10,7 +10,7 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel, Field
 
-from app.agent.router import AgentUsage, ChatResponse
+from app.agent.router import AgentUsage, ChatTurn
 
 
 class Scenario(BaseModel):
@@ -24,11 +24,19 @@ async def run_scenario(client: httpx.AsyncClient, scenario: Scenario) -> dict:
     turns = []
     for message in scenario.turns:
         response = await client.post(
-            "/agent/chat", json={"session_id": session_id, "message": message}
+            "/agent/chat", json={"session_id": session_id, "message": message, "request_id": str(uuid4())}
         )
         response.raise_for_status()
-        reply = ChatResponse.model_validate(response.json()).reply
-        turns.append({"message": message, "reply": reply})
+        turn = ChatTurn.model_validate(response.json())
+        async with asyncio.timeout(360):
+            while turn.status in {"queued", "running"}:
+                await asyncio.sleep(0.5)
+                response = await client.get(f"/agent/turns/{turn.id}")
+                response.raise_for_status()
+                turn = ChatTurn.model_validate(response.json())
+        if turn.status != "completed" or not turn.reply:
+            raise RuntimeError(turn.error or "The evaluation turn did not complete.")
+        turns.append({"message": message, "reply": turn.reply})
     response = await client.get(f"/agent/chat/{session_id}/usage")
     response.raise_for_status()
     usage = AgentUsage.model_validate(response.json())

@@ -1,21 +1,20 @@
-"""Chat with the agent over HTTP; what it is doing streams to the caller's WebSocket."""
+"""Submit an owned turn, then read durable status and conversation snapshots over HTTP."""
 
-import logging
 import asyncio
 from dataclasses import asdict
 from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from app.agent.service import AgentUnavailable, load_chat_sessions, load_history, run_turn
+from app.agent.service import load_chat_sessions, load_history
+from app.agent.turns import TurnConflict, TurnStore
 from app.auth.deps import CurrentUserId, SessionScopeDep
 from app.agent.usage import UsageStore
 from app.core.config import get_settings
-
-log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -23,10 +22,22 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=64)
     message: str = Field(min_length=1, max_length=8000)
+    request_id: UUID
 
 
-class ChatResponse(BaseModel):
-    reply: str
+class ChatTurn(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: UUID
+    request_id: UUID
+    session_id: str
+    message: str
+    status: Literal["queued", "running", "completed", "failed", "interrupted"]
+    reply: str | None
+    error: str | None
+    tool_name: str | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class ChatMessage(BaseModel):
@@ -40,6 +51,7 @@ class ChatHistory(BaseModel):
 
     session_id: str
     messages: list[ChatMessage]
+    latest_turn: ChatTurn | None = None
 
 
 class ChatSessionSummary(BaseModel):
@@ -50,29 +62,48 @@ class ChatSessionSummary(BaseModel):
     updated_at: datetime
 
 
-@router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, user_id: CurrentUserId) -> ChatResponse:
-    """One turn. Connect to /ws first to watch the tool calls arrive live."""
-    try:
-        reply = await run_turn(user_id, request.session_id, request.message)
-    except AgentUnavailable as error:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(error)) from None
-    except Exception:
-        # One failed turn must not read as a broken app; the trace goes to the log, not the user.
-        log.exception("agent turn failed")
+@router.post("/chat", response_model=ChatTurn, status_code=status.HTTP_202_ACCEPTED)
+async def chat(request: ChatRequest, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatTurn:
+    """Commit before acknowledging. Retrying the same request ID returns the same turn."""
+    if not get_settings().vertex_project:
         raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY, "The agent could not finish that turn. Try again."
-        ) from None
-    return ChatResponse(reply=reply)
+            status.HTTP_503_SERVICE_UNAVAILABLE, "the agent is not configured: set VERTEX_PROJECT"
+        )
+    try:
+        row = await asyncio.to_thread(
+            TurnStore(scope).submit,
+            user_id,
+            request.session_id,
+            request.request_id,
+            request.message,
+        )
+    except TurnConflict as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from None
+    return ChatTurn(**row)
+
+
+@router.get("/turns/{turn_id}", response_model=ChatTurn)
+async def turn(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatTurn:
+    row = await asyncio.to_thread(TurnStore(scope).get, user_id, turn_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "turn not found")
+    return ChatTurn(**row)
 
 
 @router.get("/chat/{session_id}", response_model=ChatHistory)
-async def history(session_id: str, user_id: CurrentUserId) -> ChatHistory:
+async def history(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatHistory:
     """Prior turns for one session — an unknown id is an empty, not-yet-started conversation."""
     messages = await load_history(user_id, session_id)
+    rows = await asyncio.to_thread(TurnStore(scope).conversation, user_id, session_id)
+    visible = [ChatMessage(role=message.role, text=message.text) for message in messages]
+    for row in rows:
+        visible.append(ChatMessage(role="you", text=row["message"]))
+        if row["reply"]:
+            visible.append(ChatMessage(role="atlas", text=row["reply"]))
     return ChatHistory(
         session_id=session_id,
-        messages=[ChatMessage(role=message.role, text=message.text) for message in messages],
+        messages=visible,
+        latest_turn=ChatTurn(**rows[-1]) if rows else None,
     )
 
 
