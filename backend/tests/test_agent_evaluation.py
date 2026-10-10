@@ -36,6 +36,8 @@ def test_live_harness_keeps_one_session_and_requires_review():
                 "estimatedCostMicrousd": 28_000,
                 "unpricedRequests": 0,
                 "sessionBudgetMicrousd": 5_000_000,
+                "cachedInputTokens": 5,
+                "cacheUnreportedRequests": 0,
             },
         )
 

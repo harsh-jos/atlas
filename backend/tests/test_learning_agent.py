@@ -364,13 +364,15 @@ def test_learning_context_survives_reopening_without_leaking_to_another_chat(
         assert saved.state[CONTEXT_KEY] == notes
         reopened = guide([answer("We explored reuse.")])
         await sessions_module.ask(reopened, "u1", "s1", "Where were we?")
-        assert "Knows dictionaries" in str(reopened.model.requests[0].config.system_instruction)
+        assert "Knows dictionaries" in current_context(reopened.model.requests[0])
+        assert first.model.requests[0].config.system_instruction == reopened.model.requests[0].config.system_instruction
+        assert "Knows dictionaries" not in str(reopened.model.requests[0].config.system_instruction)
         fresh = guide([answer("Let us start with a lookup.")])
         await sessions_module.ask(fresh, "u1", "s2", "Caching?")
-        assert "Knows dictionaries" not in str(fresh.model.requests[0].config.system_instruction)
+        assert "Knows dictionaries" not in str(fresh.model.requests[0].contents)
         other = guide([answer("A cache holds results.")])
         await sessions_module.ask(other, "u2", "s1", "Caching?")
-        assert "Knows dictionaries" not in str(other.model.requests[0].config.system_instruction)
+        assert "Knows dictionaries" not in str(other.model.requests[0].contents)
 
     asyncio.run(run())
 
@@ -400,7 +402,7 @@ def test_preference_tool_clears_notes_and_blocks_subsequent_memory_tools(
         responses = [part.function_response.response for content in agent.model.requests[-1].contents
                      for part in content.parts or [] if part.function_response]
         assert sum("disabled" in str(result) for result in responses) == 2
-        assert "Old notes" not in str(agent.model.requests[-1].config.system_instruction)
+        assert "Old notes" not in current_context(agent.model.requests[-1])
         with store.scope() as db:
             persisted = preferences(db, store.user_id)
         assert persisted == {"memory_enabled": False, "auto_save": False}
@@ -408,7 +410,7 @@ def test_preference_tool_clears_notes_and_blocks_subsequent_memory_tools(
         fresh.model = ScriptedModel(responses=[answer("Memory remains off.")])
         await sessions_module.ask(fresh, "u1", "s2", "Is memory enabled?",
                                   state_delta={PREFERENCES_KEY: persisted})
-        assert '"memory_enabled": false' in str(fresh.model.requests[0].config.system_instruction)
+        assert '"memory_enabled": false' in current_context(fresh.model.requests[0])
         assert (await sessions_module.read_history("u1", "s1"))[-1].text.startswith("Concept memory is off")
 
     asyncio.run(run())
@@ -445,3 +447,28 @@ def test_context_bounds_and_connection_inspection_fail_explicitly(
     assert "500" in errors[0]["message"]
     assert "Inspect" in errors[1]["message"]
     assert "user request" in errors[2]["message"]
+
+
+@pytest.mark.parametrize("cached", [None, 0, 80])
+def test_provider_cache_usage_is_recorded_without_double_counting(
+    local_sessions, usage_factory, agent_settings, cached
+):
+    store = usage_factory()
+    response = answer("A dictionary maps keys to values.")
+    response.usage_metadata.cached_content_token_count = cached
+    agent = make_agent(store, agent_settings, [response])
+    agent.model.model = agent_settings.agent_model
+    asyncio.run(sessions_module.ask(agent, "u1", "s1", "What is a dictionary?"))
+    totals = store.totals()
+    assert totals.cached_input_tokens == (cached or 0)
+    assert totals.cache_unreported_requests == (1 if cached is None else 0)
+    assert totals.input_tokens == 100
+    assert totals.total_tokens == 130
+    # Conservative pricing intentionally does not discount cached input yet.
+    assert totals.estimated_cost_microusd == 188
+    assert usage_factory(owner=1).totals().cached_input_tokens == 0
+
+
+def current_context(request):
+    return next(part.text for content in request.contents for part in content.parts or []
+                if part.text and part.text.startswith("CURRENT CONTEXT"))
