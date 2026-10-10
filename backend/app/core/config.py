@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     database_url: str
     host: str = "127.0.0.1"
     port: int = 8000
+    db_connect_timeout_seconds: int = Field(default=5, ge=1, le=60)
+    db_statement_timeout_seconds: int = Field(default=30, ge=1, le=120)
+    db_lock_timeout_seconds: int = Field(default=5, ge=1, le=60)
 
     # No default: the service must refuse to boot rather than sign tokens with a known secret.
     jwt_secret: str
@@ -52,6 +55,8 @@ class Settings(BaseSettings):
     agent_max_research_per_session: int = Field(default=48, ge=0)
     agent_max_request_bytes: int = Field(default=2_000_000, ge=1024)
     agent_turn_timeout_seconds: int = Field(default=300, ge=1, le=1800)
+    agent_max_active_turns: int = Field(default=100, ge=1)
+    agent_max_active_turns_per_user: int = Field(default=3, ge=1)
     # Admission guard in millionths of USD. Zero explicitly disables it.
     # The last provider call can exceed the remaining amount; this is not a billing cap.
     agent_session_budget_microusd: int = Field(default=5_000_000, ge=0)

@@ -18,7 +18,8 @@ from google.genai import types
 
 from app.agent.usage import AgentLimitReached
 from app.core.config import get_settings
-from app.db.base import database_url
+from app.core.errors import AppError
+from app.db.base import database_url, engine_options
 
 EventSink = Callable[[dict], Awaitable[None]]
 
@@ -39,7 +40,9 @@ def configure_vertex() -> None:
 def get_session_service() -> BaseSessionService:
     """Conversations live in the app database, so a restart does not lose them."""
     # str(URL) masks the password as ***, which silently fails authentication.
-    return DatabaseSessionService(db_url=database_url().render_as_string(hide_password=False))
+    return DatabaseSessionService(
+        db_url=database_url().render_as_string(hide_password=False), **engine_options()
+    )
 
 
 @dataclass(frozen=True)
@@ -164,6 +167,8 @@ async def ask(
                 ),
             ):
                 if on_event:
+                    if event.finish_reason == types.FinishReason.MAX_TOKENS:
+                        await on_event({"type": "agent.incomplete", "code": "provider_truncated"})
                     for call in event.get_function_calls():
                         await on_event({"type": "agent.tool", "name": call.name})
                 if event.author == "atlas" and event.is_final_response():
@@ -173,6 +178,11 @@ async def ask(
                         if on_event:
                             await on_event({"type": "agent.message", "text": text})
     except (AgentLimitReached, TimeoutError, LlmCallsLimitExceededError) as error:
+        code = error.code if isinstance(error, AgentLimitReached) else (
+            "timeout" if isinstance(error, TimeoutError) else "model_limit"
+        )
+        if on_event:
+            await on_event({"type": "agent.incomplete", "code": code})
         reason = "The model-call limit for this reply was reached."
         if isinstance(error, AgentLimitReached):
             reason = str(error)
@@ -197,5 +207,5 @@ async def ask(
     finally:
         await runner.close()
     if not reply:
-        raise RuntimeError("The agent returned no final explanation.")
+        raise AppError("The model returned no explanation. Try a different question.", "provider_no_reply", 502)
     return "\n\n".join(reply)

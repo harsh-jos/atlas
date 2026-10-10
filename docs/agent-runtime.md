@@ -38,7 +38,7 @@ Reserve WebSocket for a concrete need for continuous two-way traffic, such as re
    output are checkpointed on the turn. Existing call, time, and spending guards still apply.
 5. The final reply or failure is stored. Reads observe it independently of the submitting browser.
 
-States: `queued → running → completed | failed | interrupted | cancelled`.
+States: `queued → running → completed | incomplete | failed | interrupted | cancelled`.
 Queued turns can also move directly to `cancelled`.
 
 The unique request key prevents duplicate submission. A partial unique index allows only one
@@ -66,7 +66,8 @@ copy. ADK still sees its complete context. Queued and failed chats also appear i
 The worker runs within the backend lifespan, one turn at a time per process. PostgreSQL claims
 prevent multiple workers from claiming the same row. This keeps the private deployment small;
 it is not a separately supervised worker service. Lease expiry requires a healthy worker to run.
-Queued work can wait behind another conversation. Latest tool status is saved, not a full event log.
+Queued work can wait behind another conversation. Admission is limited to 100 active turns overall
+and 3 per user, checked under database locks; repeated request IDs bypass new-work admission. Latest tool status is saved, not a full event log.
 
 Recovery means recovering state and detecting interrupted work. It does not mean resuming inside
 an interrupted model request. There is deliberately no automatic replay after execution starts:
@@ -102,3 +103,32 @@ queued cancellation, running-tool cancellation, partial replies, completion race
 cancellation, draining database writes, crash recovery, and worker continuation. Lint, TypeScript,
 production build, migration upgrade, and schema checks passed. No browser or live model checks ran
 for Stop.
+
+## Reliability and diagnosis
+
+HTTP errors share `detail`, `code`, and `requestId`; the ID also appears in `X-Request-ID`.
+Worker errors use the persisted turn UUID as their reference. Logs record safe exception types,
+stack locations, tool names, and turn execution duration; they omit exception values and input data.
+Known provider access/capacity/server failures, network errors, database unavailability, and timeouts
+have separate codes. API mutations commit before success is sent. There is no automatic model replay.
+
+Limits, timeouts, and provider truncation produce `incomplete` with an `errorCode`, while retaining
+the visible explanation and notice. Tool errors keep the last 10 safe name/code/message summaries
+in `toolErrors`. The UI shows them independently of the model's account of what happened. A tool
+may recover on a later call; these entries describe errors observed, not an assertion that every
+subsequent attempt failed. Save consent remains a model instruction, not a new approval workflow.
+
+`/healthz` is readiness: database reachable, worker task alive, and recent successful database access.
+`/livez` is process liveness. Both app and ADK engines hide SQL parameters and use connection/pool,
+statement, and lock deadlines. Worker retries only database access; it never replays a started turn.
+Asset cleanup follows commit/rollback, with a dry-run reconciliation command for crash leftovers.
+No browser checks or live model evaluations are needed for these reliability checks.
+
+Reliability verification: 170 backend tests passed with none skipped. Checks cover sanitized
+validation and exception reporting, request references, provider failures, actual PostgreSQL
+statement deadlines, worker readiness, concurrent queue admission, incomplete outcomes, durable
+tool errors, and file cleanup on write/commit/rollback failures. Backend/frontend lint, TypeScript,
+production build, migration upgrade, and schema checks passed. Actual app and ADK connections
+both reported 30-second statement and 5-second lock deadlines. The restarted local API passed
+readiness, liveness, and sanitized-validation checks. Asset reconciliation ran without deletion.
+No browser tests or live model evaluations ran.

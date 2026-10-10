@@ -29,7 +29,7 @@ class RequestLimits:
     ) -> None:
         if len(llm_request.model_dump_json().encode()) > self.settings.agent_max_request_bytes:
             raise AgentLimitReached(
-                "The conversation is too large for one request. Its history is saved."
+                "The conversation is too large for one request. Its history is saved.", "context_limit"
             )
         research = callback_context.agent_name == "researcher"
         request_id = await asyncio.to_thread(

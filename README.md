@@ -13,7 +13,7 @@ The stack is Next.js, a Python FastAPI backend with Google ADK, and PostgreSQL w
 
 1. Copy `.env.example` to `.env` and set a random `JWT_SECRET`.
 2. Start Docker, then run `docker compose up --build`.
-3. Open http://localhost:3000. The backend health endpoint is http://localhost:8000/healthz.
+3. Open http://localhost:3000. The backend readiness endpoint is http://localhost:8000/healthz; /livez checks process liveness.
 
 The agent needs `VERTEX_PROJECT` and Google Application Default Credentials available to the
 backend process. For a local service-account file, set `GOOGLE_APPLICATION_CREDENTIALS`
@@ -94,12 +94,41 @@ backend restart. Graceful shutdown marks active work interrupted. After an abrup
 turn becomes interrupted when its lease expires (reply timeout plus 30 seconds), rather than
 remaining stuck forever. Persisted partial output and saved explanations remain. Running work is
 never automatically replayed: tool writes or provider charges may already have happened.
+Incomplete replies have status `incomplete` and an `errorCode`; tool failures are retained in
+`toolErrors` even when the guide continues. Turn IDs are diagnostic references.
 Use the chat Stop button or `POST /agent/turns/{id}/cancel` to stop an owned turn.
 Queued turns cancel immediately. Running turns stay active with `cancelRequested: true` until
 the worker cancels execution and stores `cancelled`; partial replies and saved work remain.
 Repeated Stop requests are safe, and completed turns are unchanged. An in-flight provider
 request may still be billed. An in-flight database tool is allowed to finish before the chat
 accepts another turn. No mid-generation continuation is implemented.
+
+## Backend failures and capacity
+
+HTTP failures return a safe `detail`, stable `code`, and `requestId`, also sent as `X-Request-ID`.
+Validation reports field names and error types without echoing passwords or request bodies.
+Logs keep exception types and stack locations with request/turn references; application logging
+omits raw exception values, SQL parameters, prompts, and tool arguments. No automatic model
+or mutation retry is introduced. A failed submission can still be checked with its original request ID.
+Database commits finish before mutation success responses are sent.
+
+Readiness checks both PostgreSQL and a live worker with recent successful queue access. `/livez`
+only checks the API process. Database connections wait at most 5 seconds to connect/acquire a
+pool slot, statements have a 30-second server deadline, and lock waits have a 5-second deadline.
+These defaults apply to both app and ADK connections and can be changed in the environment examples.
+A turn may need database cleanup after Stop; these deadlines bound server-side database waits.
+
+At most 100 turns can be queued/running across the app, with 3 per user. Excess submissions
+return `queue_full` (503) or `user_queue_full` (429). Existing request-ID retries remain readable
+at capacity. There is no separate queue broker or monitoring service.
+
+Image uploads read at most the configured limit plus one byte. Files are written through a
+partial file and removed on transaction rollback; deletion removes the file after database commit.
+Filesystem and database changes cannot form one atomic transaction. To inspect crash leftovers,
+run `uv run python -m app.storage.assets` from `backend/`. It reports missing files and old
+unreferenced files. Add `--apply` to remove only unreferenced UUID files older than 24 hours.
+Recent files and referenced files are preserved; missing files require backup restoration or re-upload.
+Deployments should also bound HTTP request bodies at the ingress, before multipart upload parsing.
 
 See [the runtime and transport decision](docs/agent-runtime.md) for scope and tradeoffs.
 

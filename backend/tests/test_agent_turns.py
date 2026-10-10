@@ -359,3 +359,73 @@ def test_worker_continues_after_user_stop(turns, usage_factory, monkeypatch):
                 await task
 
     asyncio.run(run())
+
+
+def test_queue_admission_is_bounded_and_retries_still_work(turns, usage_factory, monkeypatch):
+    from app.core.config import get_settings
+    from app.core.errors import AppError
+    settings = get_settings()
+    monkeypatch.setattr(settings, 'agent_max_active_turns_per_user', 1)
+    monkeypatch.setattr(settings, 'agent_max_active_turns', 2)
+    first = submit(turns, usage_factory)
+    assert submit(turns, usage_factory, request_id=first['request_id']) == first
+    with pytest.raises(AppError) as error:
+        submit(turns, usage_factory, session_id='other')
+    assert error.value.code == 'user_queue_full'
+    turns.submit(usage_factory(owner=1).user_id, 's2', uuid4(), 'Other owner.')
+    monkeypatch.setattr(settings, 'agent_max_active_turns_per_user', 3)
+    with pytest.raises(AppError) as error:
+        submit(turns, usage_factory, session_id='other')
+    assert error.value.code == 'queue_full'
+    turns.cancel(usage_factory().user_id, first['id'])
+    submit(turns, usage_factory, session_id='other')
+
+
+def test_concurrent_admission_cannot_exceed_global_capacity(turns, usage_factory, monkeypatch):
+    from app.core.config import get_settings
+    from app.core.errors import AppError
+    monkeypatch.setattr(get_settings(), 'agent_max_active_turns', 1)
+    def attempt(index):
+        try:
+            turns.submit(usage_factory(owner=index).user_id, 's1', uuid4(), 'Hello')
+            return True
+        except AppError as error:
+            assert error.code == 'queue_full'
+            return False
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(attempt, range(2))) == [False, True]
+
+
+def test_incomplete_and_tool_errors_are_durable_without_parsing_reply(turns, usage_factory, monkeypatch):
+    first = submit(turns, usage_factory)
+    async def incomplete(*args, on_event, **kwargs):
+        await on_event({'type': 'agent.tool_error', 'name': 'save_explanation',
+                        'code': 'storage_quota', 'message': 'Storage is full.'})
+        await on_event({'type': 'agent.incomplete', 'code': 'budget_limit'})
+        return 'Useful partial explanation.'
+    monkeypatch.setattr(worker, 'run_turn', incomplete)
+    asyncio.run(worker.execute(turns, turns.claim(300)))
+    state = turns.get(usage_factory().user_id, first['id'])
+    assert state['status'] == 'incomplete' and state['error_code'] == 'budget_limit'
+    assert state['reply'] == 'Useful partial explanation.'
+    assert state['tool_errors'][0]['code'] == 'storage_quota'
+
+
+def test_tool_failure_does_not_disappear_when_the_model_reports_success(turns, usage_factory, monkeypatch):
+    from contextlib import contextmanager
+    from app.agent.toolkit import build_toolkit
+    first = submit(turns, usage_factory)
+    @contextmanager
+    def broken_scope():
+        raise RuntimeError('private database details')
+        yield
+    async def explanation(*args, on_event, **kwargs):
+        tool = build_toolkit(broken_scope, usage_factory().user_id, on_event=on_event)[0]
+        result = await tool('tensors')
+        assert result['code'] == 'internal_error'
+        return 'A tensor stores values.'
+    monkeypatch.setattr(worker, 'run_turn', explanation)
+    asyncio.run(worker.execute(turns, turns.claim(300)))
+    state = turns.get(usage_factory().user_id, first['id'])
+    assert state['status'] == 'completed'
+    assert state['tool_errors'] and 'private' not in str(state['tool_errors'])

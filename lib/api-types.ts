@@ -131,10 +131,12 @@ export interface ChatTurn {
   requestId: string;
   sessionId: string;
   message: string;
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled';
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled' | 'incomplete';
   cancelRequested: boolean;
   reply: string | null;
   error: string | null;
+  errorCode: string | null;
+  toolErrors: { name: string; code: string; message: string }[];
   toolName: string | null;
   createdAt: string;
   updatedAt: string;

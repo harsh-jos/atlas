@@ -35,7 +35,25 @@ def database_url() -> URL:
 @lru_cache
 def get_engine() -> Engine:
     """Process-wide pooled engine."""
-    return create_engine(database_url(), pool_pre_ping=True)
+    return create_engine(database_url(), **engine_options())
+
+
+def engine_options() -> dict:
+    """Share privacy and bounded database waits with ADK's separate session engine."""
+    settings = get_settings()
+    options = {"pool_pre_ping": True, "hide_parameters": True}
+    if database_url().get_backend_name() == "postgresql":
+        options.update(
+            pool_timeout=settings.db_connect_timeout_seconds,
+            connect_args={
+                "connect_timeout": settings.db_connect_timeout_seconds,
+                "options": (
+                    f"-c statement_timeout={settings.db_statement_timeout_seconds * 1000} "
+                    f"-c lock_timeout={settings.db_lock_timeout_seconds * 1000}"
+                ),
+            },
+        )
+    return options
 
 
 @lru_cache

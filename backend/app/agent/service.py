@@ -4,7 +4,7 @@ import asyncio
 from uuid import UUID
 
 from google.auth.exceptions import DefaultCredentialsError, RefreshError
-from google.genai.errors import ClientError
+from google.genai.errors import APIError
 
 from app.agent.root import build_agent
 from app.agent.limits import RequestLimits
@@ -21,10 +21,14 @@ from app.agent.turns import TurnStore
 from app.agent.toolkit import build_toolkit
 from app.core.config import get_settings
 from app.db.base import get_session_scope
+from app.core.errors import AppError
 
 
-class AgentUnavailable(RuntimeError):
+class AgentUnavailable(AppError):
     """Raised when the agent is not configured, rather than failing mid-conversation."""
+
+    def __init__(self, message: str, code: str = "agent_unavailable"):
+        super().__init__(message, code, 503)
 
 
 async def run_turn(
@@ -40,25 +44,48 @@ async def run_turn(
         raise AgentUnavailable("the agent is not configured: set VERTEX_PROJECT")
 
     limits = RequestLimits(UsageStore(get_session_scope(), user_id, session_id), get_settings())
-    agent = build_agent(build_toolkit(get_session_scope(), user_id), limits)
+    agent = build_agent(build_toolkit(get_session_scope(), user_id, on_event=on_event), limits)
     try:
-        return await ask(
+        reply = await ask(
             agent, str(user_id), session_id, message, on_event=on_event, turn_id=turn_id
         )
+        if limits.truncated and on_event:
+            await on_event({"type": "agent.incomplete", "code": "provider_truncated"})
+        return reply
     except (DefaultCredentialsError, RefreshError):
         raise AgentUnavailable(
-            "Google credentials are missing or expired. Configure Application Default Credentials."
+            "Google credentials are missing or expired. Configure Application Default Credentials.",
+            "provider_credentials",
         ) from None
-    except ClientError as error:
+    except APIError as error:
         messages = {
-            401: "Vertex AI refused the credentials. Check Application Default Credentials.",
-            403: "Vertex AI refused access. Check the project, billing, API access, and permissions.",
-            404: "The configured Vertex AI model is not available to this project or location.",
-            429: "Vertex AI quota or capacity is unavailable. Try again later.",
+            401: (
+                "provider_credentials",
+                "Vertex AI refused the credentials. Check Application Default Credentials.",
+            ),
+            403: (
+                "provider_access",
+                "Vertex AI refused access. Check the project, billing, API access, and permissions.",
+            ),
+            404: (
+                "provider_model",
+                "The configured Vertex AI model is not available to this project or location.",
+            ),
+            429: (
+                "provider_capacity",
+                "Vertex AI quota or capacity is unavailable. Try again later.",
+            ),
         }
         if error.code in messages:
-            raise AgentUnavailable(messages[error.code]) from None
-        raise
+            code, message = messages[error.code]
+            raise AgentUnavailable(message, code) from None
+        if error.code and error.code >= 500:
+            raise AgentUnavailable(
+                "Vertex AI is temporarily unavailable. Try again later.", "provider_unavailable"
+            ) from None
+        raise AgentUnavailable(
+            "Vertex AI could not accept this request.", "provider_request"
+        ) from None
 
 
 async def load_history(user_id: UUID, session_id: str) -> list[HistoryMessage]:

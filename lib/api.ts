@@ -9,7 +9,9 @@ export const TOKEN_COOKIE = 'atlas_token';
 export class ApiError extends Error {
   constructor(
     readonly status: number,
-    message: string
+    message: string,
+    readonly code?: string,
+    readonly requestId?: string,
   ) {
     super(message);
   }
@@ -33,7 +35,14 @@ async function call(path: string, init: RequestInit): Promise<Response> {
 
 /** A failed response as an ApiError carrying the backend's own explanation when it gives one. */
 async function failure(response: Response, label: string): Promise<ApiError> {
-  return new ApiError(response.status, await detail(response, label));
+  try {
+    const body = await response.json() as { detail?: unknown; code?: string; requestId?: string };
+    const message = typeof body.detail === 'string' ? body.detail : `${label} failed: ${response.status}`;
+    const reference = body.requestId ?? response.headers.get('X-Request-ID') ?? undefined;
+    return new ApiError(response.status, reference ? `${message} Reference: ${reference}` : message, body.code, reference);
+  } catch {
+    return new ApiError(response.status, `${label} failed: ${response.status}`);
+  }
 }
 
 /** GET a typed payload. An expired or missing session sends the reader to sign in. */
@@ -91,14 +100,3 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
 }
 
 export const apiPost = <T,>(path: string, body: unknown) => apiSend<T>('POST', path, body);
-
-/** Prefer the backend's own message — it explains quota and validation failures precisely. */
-async function detail(response: Response, label: string): Promise<string> {
-  try {
-    const body = (await response.json()) as { detail?: unknown };
-    if (typeof body.detail === 'string') return body.detail;
-  } catch {
-    // Not JSON; fall through to the generic message.
-  }
-  return `${label} failed: ${response.status}`;
-}

@@ -16,6 +16,10 @@ from app.db.models import AgentRequest
 class AgentLimitReached(RuntimeError):
     """A request was stopped before another model call was sent."""
 
+    def __init__(self, message: str, code: str = "model_limit"):
+        super().__init__(message)
+        self.code = code
+
 
 @dataclass(frozen=True)
 class UsageTotals:
@@ -61,23 +65,23 @@ class UsageStore:
                 sum(row.research for row in turn) >= settings.agent_max_research_per_turn
                 or sum(row.research for row in rows) >= settings.agent_max_research_per_session
             ):
-                raise AgentLimitReached("The research-request limit was reached.")
+                raise AgentLimitReached("The research-request limit was reached.", "research_limit")
             if settings.agent_session_budget_microusd:
                 rates = token_rates(
                     model, settings.vertex_location, datetime.now(timezone.utc).date()
                 )
                 if rates is None:
-                    raise AgentLimitReached("No verified price is configured for this model.")
+                    raise AgentLimitReached("No verified price is configured for this model.", "price_unknown")
                 # A pending request holds the session's remaining budget. Failed or interrupted
                 # requests retain that hold instead of silently being treated as free.
                 if any(row.estimated_cost_microusd is None for row in rows):
                     raise AgentLimitReached(
                         "A previous model request has pending or unknown cost. "
-                        "Further spending in this conversation is blocked."
+                        "Further spending in this conversation is blocked.", "cost_unknown"
                     )
                 spent = sum(row.estimated_cost_microusd for row in rows)
                 if spent >= settings.agent_session_budget_microusd:
-                    raise AgentLimitReached("The spending limit for this conversation was reached.")
+                    raise AgentLimitReached("The spending limit for this conversation was reached.", "budget_limit")
             row = AgentRequest(
                 user_id=self.user_id,
                 session_id=self.session_id,

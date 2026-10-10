@@ -25,6 +25,12 @@ class ChatRequest(BaseModel):
     request_id: UUID
 
 
+class ToolError(BaseModel):
+    name: str
+    code: str
+    message: str
+
+
 class ChatTurn(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
@@ -32,10 +38,12 @@ class ChatTurn(BaseModel):
     request_id: UUID
     session_id: str
     message: str
-    status: Literal["queued", "running", "completed", "failed", "interrupted", "cancelled"]
+    status: Literal["queued", "running", "completed", "failed", "interrupted", "cancelled", "incomplete"]
     cancel_requested: bool
     reply: str | None
     error: str | None
+    error_code: str | None = None
+    tool_errors: list[ToolError] = Field(default_factory=list)
     tool_name: str | None
     created_at: datetime
     updated_at: datetime

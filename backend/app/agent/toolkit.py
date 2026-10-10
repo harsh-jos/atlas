@@ -2,18 +2,21 @@
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from uuid import UUID
 
 from app.agent import knowledge
 from app.db.base import SessionScope
 from app.search import search_artifacts
 from app.storage.quota import QuotaExceeded
+from app.core.errors import describe, report
 
 log = logging.getLogger(__name__)
 
 
-def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
+def build_toolkit(
+    scope: SessionScope, user_id: UUID, *, on_event: Callable[[dict], Awaitable[None]] | None = None
+) -> list[Callable]:
     async def execute(operation, *args):
         def transaction():
             with scope() as session:
@@ -28,14 +31,19 @@ def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
                 # so a new message cannot race a save that is still committing.
                 try:
                     await operation_task
-                except Exception:
-                    log.exception("knowledge operation failed while stopping")
+                except Exception as error:
+                    report(log, error, describe(error).code, tool=operation.__name__)
                 raise
         except (ValueError, QuotaExceeded) as error:
-            return {"error": str(error)}
-        except Exception:
-            log.exception("knowledge tool failed")
-            return {"error": "The saved knowledge operation failed. Do not claim it succeeded."}
+            code = "storage_quota" if isinstance(error, QuotaExceeded) else "invalid_tool_input"
+            message = str(error)
+        except Exception as error:
+            failure = describe(error)
+            code, message = failure.code, failure.message
+            report(log, error, code, tool=operation.__name__)
+        if on_event:
+            await on_event({"type": "agent.tool_error", "name": operation.__name__, "code": code, "message": message})
+        return {"error": message, "code": code}
 
     async def search_knowledge_base(query: str) -> dict:
         """Find saved explanations by text. Exposure does not prove understanding."""

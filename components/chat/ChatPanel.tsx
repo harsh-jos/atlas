@@ -227,6 +227,13 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           </div>
         )}
         {error && <p role="alert" className="pb-4 text-[13px] text-danger">{error}</p>}
+        {!!turn?.toolErrors.length && <p role="status" className="pb-4 text-[13px] text-danger">
+          Some saved-knowledge operations reported errors: {turn.toolErrors.map((issue) => issue.message).join(' ')}
+          {' '}Reference: {turn.id}
+        </p>}
+        {turn && (turn.error || turn.status === 'incomplete') && <p className="pb-4 font-mono text-[11px] text-faint">
+          {turn.errorCode ?? turn.status} · Reference: {turn.id}
+        </p>}
       </div>
 
       <Composer draft={draft} pending={pending} onDraftChange={setDraft} onSubmit={submit}

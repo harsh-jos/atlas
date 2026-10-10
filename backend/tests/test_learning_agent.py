@@ -11,6 +11,7 @@ from agent_fixtures import ScriptedModel, answer
 from app.agent import session as sessions_module
 from app.agent.limits import INCOMPLETE_NOTICE, RequestLimits
 from app.agent.root import build_agent
+from app.core.errors import AppError
 
 
 @pytest.fixture
@@ -213,8 +214,9 @@ def test_interrupted_request_keeps_unknown_cost_and_blocks_retry(
 
     async def run():
         # ADK consumes a provider cancellation and ends its event stream without a reply.
-        with pytest.raises(RuntimeError, match="no final explanation"):
+        with pytest.raises(AppError, match="no explanation") as failure:
             await sessions_module.ask(agent, "u1", "s1", "Explain.")
+        assert failure.value.code == "provider_no_reply"
         retry = make_agent(store, agent_settings, [answer("Must not be sent.")])
         retry.model.model = "gemini-3.8-flash"
         reply = await sessions_module.ask(retry, "u1", "s1", "Try again.")
@@ -307,3 +309,28 @@ def test_sources_are_bounded_and_do_not_duplicate_inline_citations(
     reply = asyncio.run(sessions_module.ask(agent, "u1", "s1", "Explain."))
     assert reply.count("https://") == (1 if cited else 3)
     assert ("Sources:" in reply) is not cited
+
+
+def test_timeout_reports_a_machine_readable_outcome(local_sessions, usage_factory, agent_settings):
+    class SlowModel(ScriptedModel):
+        async def generate_content_async(self, llm_request, stream=False):
+            await asyncio.sleep(1)
+            yield answer('Too late')
+    agent_settings.agent_turn_timeout_seconds = 0.01
+    agent = make_agent(usage_factory(), agent_settings, [])
+    agent.model = SlowModel()
+    events = []
+    async def capture(event):
+        events.append(event)
+    asyncio.run(sessions_module.ask(agent, 'u1', 's1', 'Tensor?', on_event=capture))
+    assert {'type': 'agent.incomplete', 'code': 'timeout'} in events
+
+
+def test_truncation_reports_a_machine_readable_outcome(local_sessions, usage_factory, agent_settings):
+    agent = make_agent(usage_factory(), agent_settings,
+                       [answer('A tensor', finish_reason=types.FinishReason.MAX_TOKENS)])
+    events = []
+    async def capture(event):
+        events.append(event)
+    asyncio.run(sessions_module.ask(agent, 'u1', 's1', 'Tensor?', on_event=capture))
+    assert {'type': 'agent.incomplete', 'code': 'provider_truncated'} in events

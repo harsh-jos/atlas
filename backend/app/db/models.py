@@ -12,6 +12,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -238,6 +239,10 @@ class AgentTurn(OwnedRecord):
     tool_name: Mapped[str | None] = mapped_column(String(200))
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    tool_errors: Mapped[list] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), default=list, server_default=text("'[]'")
+    )
 
 
 class ConceptConnection(OwnedRecord):
