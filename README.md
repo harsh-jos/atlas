@@ -94,7 +94,12 @@ backend restart. Graceful shutdown marks active work interrupted. After an abrup
 turn becomes interrupted when its lease expires (reply timeout plus 30 seconds), rather than
 remaining stuck forever. Persisted partial output and saved explanations remain. Running work is
 never automatically replayed: tool writes or provider charges may already have happened.
-No mid-generation continuation or user cancellation endpoint is implemented.
+Use the chat Stop button or `POST /agent/turns/{id}/cancel` to stop an owned turn.
+Queued turns cancel immediately. Running turns stay active with `cancelRequested: true` until
+the worker cancels execution and stores `cancelled`; partial replies and saved work remain.
+Repeated Stop requests are safe, and completed turns are unchanged. An in-flight provider
+request may still be billed. An in-flight database tool is allowed to finish before the chat
+accepts another turn. No mid-generation continuation is implemented.
 
 See [the runtime and transport decision](docs/agent-runtime.md) for scope and tradeoffs.
 

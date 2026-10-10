@@ -18,7 +18,7 @@ def test_live_harness_keeps_one_session_and_requires_review():
             messages.append(json.loads(request.content))
             return httpx.Response(202, json={
                 "id": turn_id, "requestId": messages[-1]["request_id"], "sessionId": messages[-1]["session_id"],
-                "message": messages[-1]["message"], "status": "completed",
+                "message": messages[-1]["message"], "status": "completed", "cancelRequested": False,
                 "reply": "An explanation to review.", "error": None, "toolName": None,
                 "createdAt": "2026-10-10T00:00:00Z", "updatedAt": "2026-10-10T00:00:00Z",
             })

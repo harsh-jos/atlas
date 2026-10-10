@@ -38,7 +38,8 @@ Reserve WebSocket for a concrete need for continuous two-way traffic, such as re
    output are checkpointed on the turn. Existing call, time, and spending guards still apply.
 5. The final reply or failure is stored. Reads observe it independently of the submitting browser.
 
-States: `queued → running → completed | failed | interrupted`.
+States: `queued → running → completed | failed | interrupted | cancelled`.
+Queued turns can also move directly to `cancelled`.
 
 The unique request key prevents duplicate submission. A partial unique index allows only one
 queued/running turn per owner and conversation. This protects ADK session history from concurrent
@@ -56,6 +57,8 @@ copy. ADK still sees its complete context. Queued and failed chats also appear i
 | Submission acknowledgement is lost | Resending the same message and request UUID returns the same turn. |
 | Network loss while observing | Reads retry; reconnect never resubmits generation. |
 | Restart before a queued turn is claimed | A worker can claim the persisted queue after restart. |
+| Stop before execution | The owned queued turn becomes cancelled and is never claimed. |
+| Stop during execution | A persisted cancellation flag signals the worker; the turn stays running until execution exits, then becomes cancelled. |
 | Graceful shutdown during execution | The active turn is marked interrupted. |
 | Abrupt process failure during execution | Its lease expires after the reply deadline plus 30 seconds, then a worker marks it interrupted. |
 | Provider or tool failure | The error is saved; no automatic model retry. Already committed tool writes remain. |
@@ -70,7 +73,22 @@ an interrupted model request. There is deliberately no automatic replay after ex
 the provider may have charged or a tool may have committed before the crash. Unknown costs remain
 blocked by the spending guard. There is no claim of exactly-once external tool effects.
 
-User cancellation, mid-generation continuation, and token streaming remain outside this increment.
+## Explicit Stop
+
+`POST /agent/turns/{id}/cancel` checks ownership and returns the current turn. It is idempotent:
+terminal turns stay unchanged. A running turn sets `cancelRequested` and keeps the active-session
+lock until cancellation completes. The worker checks this database signal every 0.5 seconds,
+so the API and worker can run in different processes. No broker or process-local task registry
+is required. The UI displays “Stopping…” until the terminal snapshot arrives.
+
+Cancellation propagates through the ADK task and tool coroutines. In-flight synchronous database
+tools drain before the turn is released; a committed save is not rolled back. Partial output
+remains. Completion racing Stop is serialized on the turn row: whichever commits first wins;
+if Stop wins, the terminal state is cancelled. A crashed worker's expired lease also honours
+its saved cancellation request. Provider-side work may continue or be billed after local
+cancellation; unknown usage still blocks further spending under the existing guard.
+
+Mid-generation continuation and token streaming remain outside this increment.
 Checks use scripted models and local storage; no live model evaluation is required for transport work.
 
 Verification for this increment: 136 backend tests passed with none skipped. Backend/frontend
@@ -78,3 +96,9 @@ lint, TypeScript, production build, and Alembic schema checks passed. An isolate
 used a fake agent and `atlas_test`: it left a running chat, returned to its progress, observed
 completion without resubmitting, and restored the reply once after a full reload. No live model
 evaluation ran.
+
+Stop verification: 146 backend tests passed with none skipped, including ownership, idempotency,
+queued cancellation, running-tool cancellation, partial replies, completion races, swallowed
+cancellation, draining database writes, crash recovery, and worker continuation. Lint, TypeScript,
+production build, migration upgrade, and schema checks passed. No browser or live model checks ran
+for Stop.

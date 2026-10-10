@@ -192,3 +192,18 @@ def test_sessions_reports_a_session_with_no_messages_yet(client, token, monkeypa
     assert response.json() == [
         {"sessionId": "s1", "firstMessage": None, "updatedAt": "2026-01-01T00:00:00Z"}
     ]
+
+
+def test_cancel_requires_auth_hides_other_owners_and_is_idempotent(client, session, token, monkeypatch):
+    monkeypatch.setattr(get_settings(), 'vertex_project', 'test-only')
+    turn = client.post('/agent/chat', json=BODY, headers=_auth(token)).json()
+    path = f'/agent/turns/{turn["id"]}/cancel'
+    assert client.post(path).status_code == 401
+    auth = AuthService(session)
+    stranger = auth.issue_token(auth.register('stop-stranger@example.com', PASSWORD))
+    assert client.post(path, headers=_auth(stranger)).status_code == 404
+    stopped = client.post(path, headers=_auth(token))
+    assert stopped.status_code == 200
+    assert stopped.json()['status'] == 'cancelled'
+    assert stopped.json()['cancelRequested'] is True
+    assert client.post(path, headers=_auth(token)).json() == stopped.json()

@@ -3,12 +3,13 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import case, select, update
 
 from app.db.base import SessionScope
 from app.db.models import AgentTurn, User
 
 ACTIVE = ("queued", "running")
+STOPPED = "Stopped. Already saved work remains."
 INTERRUPTED = (
     "This reply was interrupted. It was not automatically retried; already saved work remains."
 )
@@ -27,6 +28,7 @@ def turn_data(row: AgentTurn) -> dict:
             "session_id",
             "message",
             "status",
+            "cancel_requested",
             "reply",
             "error",
             "tool_name",
@@ -99,6 +101,24 @@ class TurnStore:
                 summary["updated_at"] = max(summary["updated_at"], updated_at)
             return list(summaries.values())
 
+    def cancel(self, user_id: UUID, turn_id: UUID) -> dict | None:
+        with self.scope() as session:
+            if session.get_bind().dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            row = session.scalar(
+                select(AgentTurn)
+                .where(AgentTurn.user_id == user_id, AgentTurn.id == turn_id)
+                .with_for_update()
+            )
+            if row is None:
+                return None
+            if row.status in ACTIVE:
+                row.cancel_requested = True
+                if row.status == "queued":
+                    row.status, row.error = "cancelled", STOPPED
+                session.flush()
+            return turn_data(row)
+
     def claim(self, timeout_seconds: int) -> dict | None:
         now = datetime.now(timezone.utc)
         with self.scope() as session:
@@ -107,7 +127,12 @@ class TurnStore:
             session.execute(
                 update(AgentTurn)
                 .where(AgentTurn.status == "running", AgentTurn.lease_until < now)
-                .values(status="interrupted", error=INTERRUPTED, lease_until=None, tool_name=None)
+                .values(
+                    status=case((AgentTurn.cancel_requested, "cancelled"), else_="interrupted"),
+                    error=case((AgentTurn.cancel_requested, STOPPED), else_=INTERRUPTED),
+                    lease_until=None,
+                    tool_name=None,
+                )
             )
             row = session.scalar(
                 select(AgentTurn)
@@ -141,11 +166,17 @@ class TurnStore:
         self, turn_id: UUID, status: str, *, reply: str | None = None, error: str | None = None
     ) -> None:
         with self.scope() as session:
-            values = {"status": status, "error": error, "lease_until": None, "tool_name": None}
-            if reply is not None:
-                values["reply"] = reply
-            session.execute(
-                update(AgentTurn)
+            if session.get_bind().dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            row = session.scalar(
+                select(AgentTurn)
                 .where(AgentTurn.id == turn_id, AgentTurn.status == "running")
-                .values(**values)
+                .with_for_update()
             )
+            if row is None:
+                return
+            row.status = "cancelled" if row.cancel_requested else status
+            row.error = STOPPED if row.cancel_requested else error
+            row.lease_until = row.tool_name = None
+            if reply is not None:
+                row.reply = reply

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Copy } from 'lucide-react';
-import { sendTurn } from '@/app/chat/actions';
+import { cancelTurn, sendTurn } from '@/app/chat/actions';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { Button } from '@/components/ui/Button';
 import type { ChatHistory, ChatMessage, ChatTurn } from '@/lib/api-types';
@@ -57,6 +57,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const [turn, setTurn] = useState<ChatTurn | null>(initialSnapshot.latestTurn);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(initialSnapshot.latestTurn?.error ?? null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const didMountRef = useRef(false);
@@ -190,6 +191,24 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     void say(message);
   }, [draft, pending, say]);
 
+  const stop = async () => {
+    if (!activeTurnId || stopping || turn?.cancelRequested) return;
+    setStopping(true);
+    try {
+      const result = await cancelTurn(activeTurnId);
+      if (result.error !== undefined) {
+        setError(result.error);
+        return;
+      }
+      setTurn(result.value);
+      if (!isActive(result.value)) await refresh();
+    } catch {
+      setError('Could not confirm Stop. You can try again safely.');
+    } finally {
+      setStopping(false);
+    }
+  };
+
   const isEmpty = entries.length === 0 && !pending;
 
   return (
@@ -210,7 +229,9 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         {error && <p role="alert" className="pb-4 text-[13px] text-danger">{error}</p>}
       </div>
 
-      <Composer draft={draft} pending={pending} onDraftChange={setDraft} onSubmit={submit} />
+      <Composer draft={draft} pending={pending} onDraftChange={setDraft} onSubmit={submit}
+        onStop={activeTurnId ? () => void stop() : undefined}
+        stopping={stopping || !!turn?.cancelRequested && isActive(turn)} />
 
     </div>
   );
@@ -326,9 +347,11 @@ interface ComposerProps {
   pending: boolean;
   onDraftChange: (value: string) => void;
   onSubmit: () => void;
+  onStop?: () => void;
+  stopping: boolean;
 }
 
-function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
+function Composer({ draft, pending, onDraftChange, onSubmit, onStop, stopping }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -371,7 +394,9 @@ function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
             <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">⏎</kbd>
             to send
           </span>
-          <Button
+          {onStop ? <Button type="button" onClick={onStop} disabled={stopping}>
+            {stopping ? 'Stopping…' : 'Stop'}
+          </Button> : <Button
             type="submit"
             size="icon"
             disabled={pending || !draft.trim()}
@@ -379,7 +404,7 @@ function Composer({ draft, pending, onDraftChange, onSubmit }: ComposerProps) {
             className="shrink-0"
           >
             <SendIcon />
-          </Button>
+          </Button>}
         </div>
       </div>
     </form>

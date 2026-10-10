@@ -20,7 +20,17 @@ def build_toolkit(scope: SessionScope, user_id: UUID) -> list[Callable]:
                 return operation(session, user_id, *args)
 
         try:
-            return await asyncio.to_thread(transaction)
+            operation_task = asyncio.create_task(asyncio.to_thread(transaction))
+            try:
+                return await asyncio.shield(operation_task)
+            except asyncio.CancelledError:
+                # A database thread cannot be cancelled. Drain it before releasing the turn
+                # so a new message cannot race a save that is still committing.
+                try:
+                    await operation_task
+                except Exception:
+                    log.exception("knowledge operation failed while stopping")
+                raise
         except (ValueError, QuotaExceeded) as error:
             return {"error": str(error)}
         except Exception:

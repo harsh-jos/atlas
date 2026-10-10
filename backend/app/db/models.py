@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     Enum,
     Float,
@@ -236,6 +237,7 @@ class AgentTurn(OwnedRecord):
     error: Mapped[str | None] = mapped_column(Text)
     tool_name: Mapped[str | None] = mapped_column(String(200))
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
 
 class ConceptConnection(OwnedRecord):

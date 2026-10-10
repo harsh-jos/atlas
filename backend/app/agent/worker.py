@@ -12,10 +12,40 @@ log = logging.getLogger(__name__)
 
 
 async def execute(store: TurnStore, turn: dict) -> None:
+    # The database signal works across processes and survives API/worker restarts.
+    task = asyncio.create_task(_execute(store, turn))
+    try:
+        while not task.done():
+            state = await asyncio.to_thread(store.get, turn["user_id"], turn["id"])
+            if state and state["cancel_requested"]:
+                task.cancel()
+                break
+            await asyncio.wait({task}, timeout=0.5)
+        try:
+            await task
+        except asyncio.CancelledError:
+            if asyncio.current_task().cancelling():
+                raise
+    finally:
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        # Covers cancellation before the child had a chance to start its try/finally.
+        await asyncio.to_thread(store.finish, turn["id"], "interrupted", error=INTERRUPTED)
+
+
+async def _execute(store: TurnStore, turn: dict) -> None:
     async def progress(event: dict) -> None:
         await asyncio.to_thread(store.progress, turn["id"], event)
 
     try:
+        state = await asyncio.to_thread(store.get, turn["user_id"], turn["id"])
+        if state and state["cancel_requested"]:
+            await asyncio.to_thread(store.finish, turn["id"], "cancelled")
+            return
         async with asyncio.timeout(get_settings().agent_turn_timeout_seconds + 5):
             reply = await run_turn(
                 turn["user_id"],

@@ -80,7 +80,8 @@ request can overrun the allowance; this is not a hard currency spending limit. S
 enforcement remains required before v0.1. Chat uses HTTP submission and active-turn polling.
 Accepted turns, status, progress, and replies are persisted. Browser navigation does not cancel
 work; queued turns survive restart. Interrupted running turns are reported without automatic
-replay. Mid-generation continuation and user cancellation are not implemented.
+replay. Explicit Stop cancels queued turns or signals running execution, preserving partial
+replies and saved work. Mid-generation continuation is not implemented.
 The agent can inspect concept neighbourhoods, remember explored concepts, connect them, and
 save/read/revise Markdown explanations. Saves reuse the same concept/title; revisions check
 that the saved text has not changed. Existing readers and editors support inspection and deletion.

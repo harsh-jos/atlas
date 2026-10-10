@@ -32,7 +32,8 @@ class ChatTurn(BaseModel):
     request_id: UUID
     session_id: str
     message: str
-    status: Literal["queued", "running", "completed", "failed", "interrupted"]
+    status: Literal["queued", "running", "completed", "failed", "interrupted", "cancelled"]
+    cancel_requested: bool
     reply: str | None
     error: str | None
     tool_name: str | None
@@ -85,6 +86,15 @@ async def chat(request: ChatRequest, user_id: CurrentUserId, scope: SessionScope
 @router.get("/turns/{turn_id}", response_model=ChatTurn)
 async def turn(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatTurn:
     row = await asyncio.to_thread(TurnStore(scope).get, user_id, turn_id)
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "turn not found")
+    return ChatTurn(**row)
+
+
+@router.post("/turns/{turn_id}/cancel", response_model=ChatTurn)
+async def cancel_turn(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatTurn:
+    """Idempotent stop: running work stays active until its worker acknowledges it."""
+    row = await asyncio.to_thread(TurnStore(scope).cancel, user_id, turn_id)
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "turn not found")
     return ChatTurn(**row)

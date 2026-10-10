@@ -178,3 +178,184 @@ def test_restarted_worker_loads_the_persisted_queue(turns, usage_factory, monkey
 
     asyncio.run(run())
     assert calls == [str(accepted["id"])]
+
+
+def test_stop_queued_is_owned_idempotent_and_never_claimed(turns, usage_factory):
+    accepted = submit(turns, usage_factory)
+    owner = usage_factory().user_id
+    assert turns.cancel(usage_factory(owner=1).user_id, accepted['id']) is None
+    stopped = turns.cancel(owner, accepted['id'])
+    assert stopped['status'] == 'cancelled'
+    assert turns.cancel(owner, accepted['id']) == stopped
+    assert turns.claim(300) is None
+    submit(turns, usage_factory)
+
+
+def test_stop_running_waits_for_worker_and_retains_partial_reply(turns, usage_factory, monkeypatch):
+    accepted = submit(turns, usage_factory)
+    owner = usage_factory().user_id
+
+    async def run():
+        started = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def tool(*args, on_event, **kwargs):
+            await on_event({'type': 'agent.message', 'text': 'Partial explanation.'})
+            await on_event({'type': 'agent.tool', 'name': 'researcher'})
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+
+        monkeypatch.setattr(worker, 'run_turn', tool)
+        task = asyncio.create_task(worker.execute(turns, turns.claim(300)))
+        await started.wait()
+        state = turns.cancel(owner, accepted['id'])
+        assert state['status'] == 'running' and state['cancel_requested']
+        with pytest.raises(TurnConflict):
+            submit(turns, usage_factory)
+        async with asyncio.timeout(2):
+            await task
+        assert cancelled.is_set()
+
+    asyncio.run(run())
+    state = turns.get(owner, accepted['id'])
+    assert state['status'] == 'cancelled' and state['reply'] == 'Partial explanation.'
+    assert state['tool_name'] is None
+    turns.finish(accepted['id'], 'completed', reply='Late reply')
+    assert turns.get(owner, accepted['id']) == state
+    submit(turns, usage_factory)
+
+
+def test_stop_before_execution_makes_no_model_call(turns, usage_factory, monkeypatch):
+    accepted = submit(turns, usage_factory)
+    claimed = turns.claim(300)
+    turns.cancel(usage_factory().user_id, accepted['id'])
+
+    async def unexpected(*args, **kwargs):
+        pytest.fail('Stopped work must not start a model call')
+
+    monkeypatch.setattr(worker, 'run_turn', unexpected)
+    asyncio.run(worker.execute(turns, claimed))
+    assert turns.get(usage_factory().user_id, accepted['id'])['status'] == 'cancelled'
+
+
+def test_stop_does_not_change_a_completed_turn(turns, usage_factory):
+    accepted = submit(turns, usage_factory)
+    turns.claim(300)
+    turns.finish(accepted['id'], 'completed', reply='Done.')
+    owner = usage_factory().user_id
+    completed = turns.get(owner, accepted['id'])
+    assert turns.cancel(owner, accepted['id']) == completed
+
+
+def test_stop_wins_race_with_completion(turns, usage_factory):
+    accepted = submit(turns, usage_factory)
+    turns.claim(300)
+    owner = usage_factory().user_id
+    turns.cancel(owner, accepted['id'])
+    turns.finish(accepted['id'], 'completed', reply='Output already produced.')
+    assert turns.get(owner, accepted['id'])['status'] == 'cancelled'
+
+
+def test_stop_still_cancels_when_provider_consumes_cancellation(turns, usage_factory, monkeypatch):
+    accepted = submit(turns, usage_factory)
+    owner = usage_factory().user_id
+
+    async def run():
+        started = asyncio.Event()
+
+        async def consume(*args, **kwargs):
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                return 'Provider returned during cleanup.'
+
+        monkeypatch.setattr(worker, 'run_turn', consume)
+        task = asyncio.create_task(worker.execute(turns, turns.claim(300)))
+        await started.wait()
+        turns.cancel(owner, accepted['id'])
+        async with asyncio.timeout(2):
+            await task
+
+    asyncio.run(run())
+    assert turns.get(owner, accepted['id'])['status'] == 'cancelled'
+
+
+def test_stop_drains_an_inflight_database_tool(turns, usage_factory, monkeypatch):
+    from threading import Event
+    from app.agent.toolkit import build_toolkit
+
+    started, release, finished = Event(), Event(), Event()
+
+    def save(*args):
+        started.set()
+        assert release.wait(2)
+        finished.set()
+        return {'saved': True}
+
+    monkeypatch.setattr('app.agent.toolkit.knowledge.remember_concept', save)
+    tool = next(t for t in build_toolkit(turns.scope, usage_factory().user_id)
+                if t.__name__ == 'remember_concept')
+
+    async def run():
+        task = asyncio.create_task(tool('Tensor', 'Values.'))
+        try:
+            assert await asyncio.to_thread(started.wait, 2)
+            task.cancel()
+            await asyncio.sleep(0.01)
+            assert not task.done()
+        finally:
+            release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert finished.is_set()
+
+    asyncio.run(run())
+
+
+def test_stop_request_survives_worker_crash(turns, usage_factory):
+    accepted = submit(turns, usage_factory)
+    turns.claim(300)
+    owner = usage_factory().user_id
+    turns.cancel(owner, accepted['id'])
+    with turns.scope() as session:
+        session.execute(update(AgentTurn).where(AgentTurn.id == accepted['id']).values(
+            lease_until=datetime.now(timezone.utc) - timedelta(seconds=1)))
+    reopened = TurnStore(turns.scope)
+    assert reopened.claim(300) is None
+    assert reopened.get(owner, accepted['id'])['status'] == 'cancelled'
+
+
+def test_worker_continues_after_user_stop(turns, usage_factory, monkeypatch):
+    first = submit(turns, usage_factory)
+    second = submit(turns, usage_factory, session_id='s2')
+    owner = usage_factory().user_id
+    monkeypatch.setattr(worker, 'get_session_scope', lambda: turns.scope)
+
+    async def run():
+        started = asyncio.Event()
+
+        async def respond(user_id, session_id, *args, **kwargs):
+            if session_id == 's1':
+                started.set()
+                await asyncio.Event().wait()
+            return 'Second conversation completed.'
+
+        monkeypatch.setattr(worker, 'run_turn', respond)
+        task = asyncio.create_task(worker.run_worker())
+        try:
+            async with asyncio.timeout(3):
+                await started.wait()
+                turns.cancel(owner, first['id'])
+                while turns.get(owner, second['id'])['status'] != 'completed':
+                    await asyncio.sleep(0.01)
+            assert turns.get(owner, first['id'])['status'] == 'cancelled'
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+    asyncio.run(run())
