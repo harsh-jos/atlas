@@ -26,7 +26,7 @@ on the host with ADC configured. Run `docker compose up -d db`, then, from `back
 
 ```sh
 uv sync
-uv run alembic upgrade head
+uv run python -m app.db.bootstrap
 uv run uvicorn app.main:app --port 8000
 ```
 
@@ -46,11 +46,50 @@ uv run pytest
 ```
 
 Database tests use a dedicated `atlas_test` database, which they replace. They skip when
-PostgreSQL is unavailable. Never point tests at a shared server with an existing `atlas_test` database.
+PostgreSQL is unavailable locally; CI requires PostgreSQL and fails instead of skipping. The fixture
+rebuilds through Alembic and checks for model/schema drift. Never point tests at a shared server with an existing `atlas_test` database.
+
+## Database deployment
+
+The active backend uses SQLAlchemy ORM with psycopg 3 and Alembic. Docker Compose runs a
+single `migrate` job before the backend, and waits for backend readiness before starting the web app.
+On a different machine or with an external PostgreSQL server, provision a database/login,
+configure `DATABASE_URL` and `JWT_SECRET`, then run from `backend/`:
+
+```sh
+uv sync --frozen
+uv run python -m app.db.bootstrap
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The bootstrap recreates all 17 active schema tables from an empty database, including ADK storage.
+It preserves existing data and can be repeated. Run it once per release before starting replicas;
+replicas refuse startup with pending migrations or missing chat tables. PostgreSQL must provide
+`vector` and `pg_trgm`; the deployment role needs permission to install them, or an administrator
+must install them first. Use TLS for remote connections as required by the database provider.
+Legacy Prisma tables are unused and intentionally excluded; bootstrap does not delete them.
+Production needs no copied data or manual table definitions. The checked-in workflow verifies a
+fresh bootstrap, a repeat bootstrap, and schema drift against PostgreSQL with pgvector.
+
+Each process has separate application and ADK connection pools. `DB_POOL_SIZE` (5) and
+`DB_MAX_OVERFLOW` (10) apply to each, so the default upper bound is 30 connections per process.
+Budget this against the server limit and replica count. `DB_POOL_RECYCLE_SECONDS` defaults to 1800.
+Both pools close at shutdown. `DB_SLOW_QUERY_SECONDS` (1) controls private timing logs for both
+engines; application pool acquisition waits use the same threshold. Logs omit SQL and parameters.
+Use realistic query plans and these timings to tune further; no production load benchmark is claimed.
+
+Library and chat lists paginate at 100 items, managed chat history at 100 turns, legacy chat history
+at 200 messages, and graph views at 200 nodes. Older items remain accessible through page controls.
+The graph displays connections between nodes on the current page. Editor saves send the revision
+last read; stale revisions return 409. Full-text search uses an indexed generated English vector;
+changing its language requires a coordinated schema migration.
+
+[Database audit and remediation record](docs/database-audit-2026-10-10.md).
 
 ## Agent development
 
-Apply migrations with `uv run alembic upgrade head` from `backend/` before running the agent.
+Prepare the complete schema with `uv run python -m app.db.bootstrap` from `backend/` before starting the backend.
+This applies Alembic migrations and creates ADK chat tables under a deployment lock.
 The default is `gemini-3.8-flash` on Vertex AI, with high reasoning. Both the guide and
 research tool use it. Override `AGENT_MODEL` and `AGENT_SEARCH_MODEL` when needed.
 Project access is required. No alternative model is selected automatically.

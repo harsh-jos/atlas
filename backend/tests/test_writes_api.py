@@ -338,3 +338,44 @@ def test_library_and_graph_pages_are_bounded(client, owner):
     assert len(page['nodes']) == 2 and page['hasMore']
     ids = {row['id'] for row in page['nodes']}
     assert all(row['source'] in ids and row['target'] in ids for row in page['links'])
+
+
+def test_parallel_editor_writes_charge_the_final_body(engine):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from uuid import uuid4
+    from sqlalchemy import delete, select
+    from sqlalchemy.orm import sessionmaker
+    from app.api.writes import ArtifactPatch, update_artifact
+    from app.db.models import Artifact, Concept, User
+
+    factory = sessionmaker(engine, expire_on_commit=False)
+    with factory.begin() as db:
+        user = User(email=f'{uuid4()}@example.invalid', password_hash='unused', storage_bytes=10)
+        db.add(user)
+        db.flush()
+        concept = Concept(user_id=user.id, name='Race', slug='race')
+        db.add(concept)
+        db.flush()
+        db.add(Artifact(user_id=user.id, concept_id=concept.id, title='Race', slug='race', body='x'*10))
+        user_id = user.id
+    ready = Barrier(2)
+
+    def edit(length):
+        with factory.begin() as db:
+            user = db.get(User, user_id)
+            ready.wait(timeout=5)
+            update_artifact('race', ArtifactPatch(body='x'*length), db, user)
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(edit, size) for size in (20, 30)]
+            for future in futures:
+                future.result(timeout=10)
+        with factory() as db:
+            user = db.get(User, user_id)
+            body = db.scalar(select(Artifact.body).where(Artifact.user_id == user_id))
+            assert user.storage_bytes == len(body.encode())
+    finally:
+        with factory.begin() as db:
+            db.execute(delete(User).where(User.id == user_id))

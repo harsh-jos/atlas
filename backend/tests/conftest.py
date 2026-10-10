@@ -1,5 +1,6 @@
 """Database fixtures: one scratch database per run, one rolled-back transaction per test."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -31,6 +32,8 @@ def engine():
             connection.execute(text(f'DROP DATABASE IF EXISTS "{_TEST_DATABASE}" WITH (FORCE)'))
             connection.execute(text(f'CREATE DATABASE "{_TEST_DATABASE}"'))
     except OperationalError as error:
+        if os.environ.get("ATLAS_REQUIRE_POSTGRES") == "1":
+            raise
         pytest.skip(f"Postgres unavailable for database tests: {error}")
     finally:
         admin.dispose()
