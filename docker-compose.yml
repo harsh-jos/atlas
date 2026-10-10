@@ -21,7 +21,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # The Python backend owns the schema and agent sessions.
+  # The Python backend validates the schema before serving.
   pipeline:
     build: ./backend
     restart: unless-stopped
@@ -52,8 +52,8 @@ services:
     volumes:
       - pipeline_data:/data
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "${IMPORT_SERVICE_PORT:-8000}:8000"
     healthcheck:
@@ -61,6 +61,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  migrate:
+    build: ./backend
+    command: ["python", "-m", "app.db.bootstrap"]
+    environment: *backend_env
+    depends_on:
+      db:
+        condition: service_healthy
 
   web:
     build: .
@@ -70,7 +78,7 @@ services:
       ATLAS_API_URL: http://pipeline:8000
     depends_on:
       pipeline:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "${WEB_PORT:-3000}:3000"
 

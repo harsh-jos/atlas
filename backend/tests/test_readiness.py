@@ -44,8 +44,23 @@ def test_lifespan_starts_and_stops_worker(monkeypatch):
         finally:
             stopped.append(True)
 
+    async def prepared():
+        pass
+
+    monkeypatch.setattr(main, "prepare_database", prepared)
     monkeypatch.setattr(main, "run_worker", idle)
     with TestClient(main.app):
         assert main.app.state.worker_health.ready()
         assert not main.app.state.worker.done()
     assert stopped and main.app.state.worker.done()
+
+
+def test_failed_schema_setup_prevents_startup(monkeypatch):
+    async def failed():
+        raise RuntimeError("schema not ready")
+    monkeypatch.setattr(main, "prepare_database", failed)
+    import pytest
+    with pytest.raises(RuntimeError, match="schema not ready"):
+        with TestClient(main.app):
+            pass
+    assert not main.app.state.schema_ready

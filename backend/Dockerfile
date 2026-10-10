@@ -24,5 +24,5 @@ COPY alembic ./alembic
 
 EXPOSE 8000
 
-# The backend owns the schema, so it applies migrations before serving.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Run python -m app.db.bootstrap once before starting replicas.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

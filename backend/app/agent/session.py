@@ -12,7 +12,7 @@ from google.adk.agents.run_config import RunConfig
 from google.adk.agents.invocation_context import LlmCallsLimitExceededError
 from google.adk.events.event import Event
 from google.adk.runners import Runner
-from google.adk.sessions import BaseSessionService, DatabaseSessionService
+from google.adk.sessions import DatabaseSessionService
 from google.genai import types
 from sqlalchemy import cast, func, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -39,7 +39,7 @@ def configure_vertex() -> None:
 
 
 @lru_cache
-def get_session_service() -> BaseSessionService:
+def get_session_service() -> DatabaseSessionService:
     """Conversations live in the app database, so a restart does not lose them."""
     # str(URL) masks the password as ***, which silently fails authentication.
     service = DatabaseSessionService(
