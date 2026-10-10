@@ -24,8 +24,3 @@ class UserResponse(BaseModel):
     email: EmailStr
     role: Role
     storage_bytes: int
-
-
-class SocketTicket(BaseModel):
-    ticket: str
-    expires_in: int

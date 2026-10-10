@@ -3,24 +3,20 @@
 import { revalidatePath } from 'next/cache';
 import { type ActionResult, attempt } from '@/lib/actions';
 import { apiGet, apiSend } from '@/lib/api';
-import type { ConceptSummary, ImportSummary, LinkReport, PreviewDetail } from '@/lib/api-types';
+import type { ChatTurn, ChatSessionSummary } from '@/lib/api-types';
 
-/** Where a commit lands: a concept the user already has, or a new one they name. */
-export type Destination =
-  | { kind: 'existing'; conceptId: string }
-  | { kind: 'new'; name: string };
+export async function cancelTurn(turnId: string): Promise<ActionResult<ChatTurn>> {
+  return attempt(() => apiSend<ChatTurn>('POST', `/agent/turns/${encodeURIComponent(turnId)}/cancel`));
+}
 
-/**
- * One turn with the agent. A turn can commit artifacts and always touches the session's
- * place in the sidebar history, so the whole layout is revalidated after.
- */
-export async function sendTurn(sessionId: string, message: string): Promise<ActionResult<string>> {
+/** Send one turn and refresh the saved session list. */
+export async function sendTurn(sessionId: string, message: string, requestId: string): Promise<ActionResult<ChatTurn>> {
   const result = await attempt(async () => {
-    const { reply } = await apiSend<{ reply: string }>('POST', '/agent/chat', {
+    return apiSend<ChatTurn>('POST', '/agent/chat', {
       session_id: sessionId,
       message,
+      request_id: requestId,
     });
-    return reply;
   });
 
   if (result.error === undefined) {
@@ -29,58 +25,7 @@ export async function sendTurn(sessionId: string, message: string): Promise<Acti
   return result;
 }
 
-/**
- * A brief ticket for opening the progress socket. The session cookie is httpOnly, so the
- * browser can never build the socket URL itself.
- */
-export async function socketTicket(): Promise<ActionResult<string>> {
-  return attempt(async () => {
-    const { ticket } = await apiSend<{ ticket: string }>('POST', '/auth/socket-ticket');
-    return ticket;
-  });
-}
 
-/** What a source would become, so the choice can be made against artifacts rather than prose. */
-export async function loadPreview(previewId: string): Promise<ActionResult<PreviewDetail>> {
-  return attempt(() => apiGet<PreviewDetail>(`/previews/${previewId}`));
-}
-
-/** Every concept the user has — the choices for where a commit can land. */
-export async function listConcepts(): Promise<ActionResult<ConceptSummary[]>> {
-  return attempt(() => apiGet<ConceptSummary[]>('/concepts'));
-}
-
-/** Keep only the chosen artifacts, in the chosen concept. Refused server-side if nothing is selected. */
-export async function commitPreview(
-  previewId: string,
-  sourceKeys: string[],
-  destination: Destination
-): Promise<ActionResult<ImportSummary>> {
-  const result = await attempt(() =>
-    apiSend<ImportSummary>('POST', `/previews/${previewId}/commit`, {
-      source_keys: sourceKeys,
-      ...(destination.kind === 'existing'
-        ? { concept_id: destination.conceptId }
-        : { concept_name: destination.name }),
-    })
-  );
-  if (result.error === undefined) {
-    revalidatePath('/');
-  }
-  return result;
-}
-
-export async function discardPreview(previewId: string): Promise<ActionResult<void>> {
-  return attempt(() => apiSend<void>('DELETE', `/previews/${previewId}`));
-}
-
-/** Propose connections for what was just kept. Slow — the caller shows progress meanwhile. */
-export async function proposeLinks(conceptSlug: string): Promise<ActionResult<LinkReport>> {
-  const result = await attempt(() =>
-    apiSend<LinkReport>('POST', '/links/propose', { concept_slug: conceptSlug })
-  );
-  if (result.error === undefined) {
-    revalidatePath('/graph');
-  }
-  return result;
+export async function loadOlderSessions(offset: number): Promise<ActionResult<ChatSessionSummary[]>> {
+  return attempt(() => apiGet<ChatSessionSummary[]>(`/agent/sessions?offset=${Math.max(0, Math.floor(offset))}`));
 }

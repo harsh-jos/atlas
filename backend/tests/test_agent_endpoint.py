@@ -1,10 +1,10 @@
 """The chat route must refuse strangers and fail honestly when the agent is not configured."""
 
 import pytest
+from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.agent import service as service_module
 from app.agent.router import router as agent_router
 from app.auth.service import AuthService
 from app.core.config import get_settings
@@ -12,7 +12,7 @@ from app.db.base import get_session_scope
 
 EMAIL = "chat@example.com"
 PASSWORD = "correct-horse-battery"
-BODY = {"session_id": "s1", "message": "hello"}
+BODY = {"session_id": "s1", "message": "hello", "request_id": str(uuid4())}
 
 
 @pytest.fixture
@@ -63,31 +63,58 @@ def test_chat_reports_an_unconfigured_agent_instead_of_failing_mid_turn(client, 
     assert "VERTEX_PROJECT" in response.json()["detail"]
 
 
-def test_chat_returns_the_agents_reply(client, token, monkeypatch):
-    async def fake_turn(user_id, session_id, message):
-        return f"echo:{message}"
-
-    monkeypatch.setattr(service_module, "run_turn", fake_turn)
-    monkeypatch.setattr("app.agent.router.run_turn", fake_turn)
-
+def test_chat_accepts_and_persists_before_reply(client, token, monkeypatch):
+    monkeypatch.setattr(get_settings(), "vertex_project", "test-only")
     response = client.post("/agent/chat", json=BODY, headers=_auth(token))
-    assert response.status_code == 200
-    assert response.json() == {"reply": "echo:hello"}
+    assert response.status_code == 202
+    data = response.json()
+    assert data["status"] == "queued" and data["reply"] is None
+    assert client.get(f'/agent/turns/{data["id"]}', headers=_auth(token)).json() == data
 
 
-def test_a_failing_turn_is_reported_not_crashed(client, token, monkeypatch):
-    """A tool blowing up used to surface as a 500 with a traceback."""
+def test_retry_returns_same_turn_and_conflicting_message_is_rejected(client, token, monkeypatch):
+    monkeypatch.setattr(get_settings(), "vertex_project", "test-only")
+    first = client.post("/agent/chat", json=BODY, headers=_auth(token)).json()
+    assert client.post("/agent/chat", json=BODY, headers=_auth(token)).json() == first
+    changed = {**BODY, "message": "different"}
+    assert client.post("/agent/chat", json=changed, headers=_auth(token)).status_code == 409
+    second = {**BODY, "request_id": str(uuid4())}
+    assert client.post("/agent/chat", json=second, headers=_auth(token)).status_code == 409
 
-    async def explode(user_id, session_id, message):
-        raise RuntimeError("the model went away")
 
-    monkeypatch.setattr("app.agent.router.run_turn", explode)
+def test_turn_status_requires_auth_and_hides_other_owners(client, session, token, monkeypatch):
+    monkeypatch.setattr(get_settings(), "vertex_project", "test-only")
+    turn = client.post("/agent/chat", json=BODY, headers=_auth(token)).json()
+    path = f'/agent/turns/{turn["id"]}'
+    assert client.get(path).status_code == 401
+    auth = AuthService(session)
+    stranger = auth.issue_token(auth.register("other-chat@example.com", PASSWORD))
+    assert client.get(path, headers=_auth(stranger)).status_code == 404
 
-    response = client.post("/agent/chat", json=BODY, headers=_auth(token))
 
-    assert response.status_code == 502
-    assert "could not finish" in response.json()["detail"]
-    assert "RuntimeError" not in response.text, "internals must not leak to the caller"
+def test_reopened_chat_shows_queued_message_then_completed_reply(client, token, monkeypatch):
+    from app.agent.turns import TurnStore
+    from app.agent.session import HistoryMessage
+
+    monkeypatch.setattr(get_settings(), "vertex_project", "test-only")
+
+    async def legacy(*args):
+        return [HistoryMessage("you", "Old question."), HistoryMessage("atlas", "Old reply.")]
+
+    monkeypatch.setattr("app.agent.router.load_history", legacy)
+    accepted = client.post("/agent/chat", json=BODY, headers=_auth(token)).json()
+    snapshot = client.get("/agent/chat/s1", headers=_auth(token)).json()
+    assert snapshot["latestTurn"]["status"] == "queued"
+    assert snapshot["messages"][-1] == {"role": "you", "text": "hello"}
+    store = TurnStore(client.app.dependency_overrides[get_session_scope]())
+    claimed = store.claim(300)
+    assert str(claimed["id"]) == accepted["id"]
+    store.finish(claimed["id"], "completed", reply="A recovered reply.")
+    snapshot = client.get("/agent/chat/s1", headers=_auth(token)).json()
+    assert snapshot["latestTurn"]["status"] == "completed"
+    assert [message["text"] for message in snapshot["messages"]] == [
+        "Old question.", "Old reply.", "hello", "A recovered reply."
+    ]
 
 
 def test_history_requires_a_token(client):
@@ -102,7 +129,8 @@ def test_history_of_an_unknown_session_is_empty(client, token, monkeypatch):
 
     response = client.get("/agent/chat/never-started", headers=_auth(token))
     assert response.status_code == 200
-    assert response.json() == {"sessionId": "never-started", "messages": []}
+    assert response.json() == {"sessionId": "never-started", "messages": [], "latestTurn": None,
+                               "hasMore": False, "nextBefore": None, "nextLegacyOffset": 0}
 
 
 def test_history_replays_prior_turns(client, token, monkeypatch):
@@ -121,6 +149,8 @@ def test_history_replays_prior_turns(client, token, monkeypatch):
             {"role": "you", "text": "what is a monad"},
             {"role": "atlas", "text": "a burrito"},
         ],
+        "latestTurn": None,
+        "hasMore": False, "nextBefore": None, "nextLegacyOffset": 2,
     }
 
 
@@ -164,3 +194,39 @@ def test_sessions_reports_a_session_with_no_messages_yet(client, token, monkeypa
     assert response.json() == [
         {"sessionId": "s1", "firstMessage": None, "updatedAt": "2026-01-01T00:00:00Z"}
     ]
+
+
+def test_cancel_requires_auth_hides_other_owners_and_is_idempotent(client, session, token, monkeypatch):
+    monkeypatch.setattr(get_settings(), 'vertex_project', 'test-only')
+    turn = client.post('/agent/chat', json=BODY, headers=_auth(token)).json()
+    path = f'/agent/turns/{turn["id"]}/cancel'
+    assert client.post(path).status_code == 401
+    auth = AuthService(session)
+    stranger = auth.issue_token(auth.register('stop-stranger@example.com', PASSWORD))
+    assert client.post(path, headers=_auth(stranger)).status_code == 404
+    stopped = client.post(path, headers=_auth(token))
+    assert stopped.status_code == 200
+    assert stopped.json()['status'] == 'cancelled'
+    assert stopped.json()['cancelRequested'] is True
+    assert client.post(path, headers=_auth(token)).json() == stopped.json()
+
+
+def test_history_cursor_keeps_older_turns_accessible(client, session, token, monkeypatch):
+    from uuid import uuid4
+    from app.core.security import read_access_token
+    from app.db.models import AgentTurn
+
+    async def empty(*args, **kwargs):
+        return []
+    monkeypatch.setattr('app.agent.router.load_history', empty)
+    session.add_all([
+        AgentTurn(user_id=read_access_token(token), session_id='paged', request_id=uuid4(),
+                  message=f'question {i}', status='completed', reply=f'answer {i}')
+        for i in range(103)
+    ])
+    session.flush()
+    first = client.get('/agent/chat/paged', headers=_auth(token)).json()
+    assert first['hasMore'] and len(first['messages']) == 200
+    second = client.get('/agent/chat/paged', params={'before': first['nextBefore']}, headers=_auth(token)).json()
+    assert not second['hasMore'] and len(second['messages']) == 6
+    assert not {row['text'] for row in first['messages']} & {row['text'] for row in second['messages']}

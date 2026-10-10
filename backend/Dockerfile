@@ -1,7 +1,5 @@
 # syntax=docker/dockerfile:1
-# The Atlas backend: API, ingestion pipeline and agent (FastAPI + uvicorn), managed with uv.
-# NOTE: docling pulls in torch, so this image is large (multi-GB) and slow to build
-# the first time. That is inherent to PDF parsing support.
+# The Atlas learning agent and API.
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 WORKDIR /app
@@ -21,8 +19,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev
 
 COPY app ./app
+COPY alembic.ini ./
+COPY alembic ./alembic
 
 EXPOSE 8000
 
-# The backend owns the schema, so it applies migrations before serving.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Run python -m app.db.bootstrap once before starting replicas.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

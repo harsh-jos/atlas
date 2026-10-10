@@ -93,6 +93,7 @@ export interface SearchHit {
 }
 
 export interface GraphNode {
+  nodeKind: 'concept' | 'explanation';
   id: string;
   title: string;
   slug: string;
@@ -104,12 +105,13 @@ export interface GraphNode {
 export interface GraphLink {
   source: string;
   target: string;
-  relationType: RelationType;
+  relationType: RelationType | 'requires' | 'related_to' | 'explains';
   note: string | null;
   origin: Origin;
 }
 
 export interface Graph {
+  hasMore?: boolean;
   nodes: GraphNode[];
   links: GraphLink[];
 }
@@ -120,78 +122,32 @@ export interface ChatMessage {
 }
 
 export interface ChatHistory {
+  hasMore?: boolean;
+  nextBefore?: string | null;
+  nextLegacyOffset?: number;
   sessionId: string;
   messages: ChatMessage[];
+  latestTurn: ChatTurn | null;
+}
+
+export interface ChatTurn {
+  id: string;
+  requestId: string;
+  sessionId: string;
+  message: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'interrupted' | 'cancelled' | 'incomplete';
+  cancelRequested: boolean;
+  reply: string | null;
+  error: string | null;
+  errorCode: string | null;
+  toolErrors: { name: string; code: string; message: string }[];
+  toolName: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ChatSessionSummary {
   sessionId: string;
   firstMessage: string | null;
   updatedAt: string;
-}
-
-export interface ProposedArtifact {
-  sourceKey: string;
-  title: string;
-  breadcrumb: string | null;
-  bytes: number;
-}
-
-export interface PreviewDetail {
-  id: string;
-  conceptName: string;
-  /** The concept the proposed name would extend, if the user already has one by that name. */
-  existingConceptId: string | null;
-  artifacts: ProposedArtifact[];
-  totalBytes: number;
-  alreadyKnown: SearchHit[];
-}
-
-export interface ImportSummary {
-  conceptSlug: string;
-  conceptName: string;
-  artifacts: number;
-  relations: number;
-  pruned: number;
-  bytes: number;
-}
-
-export interface ProposedEdge {
-  fromTitle: string;
-  toTitle: string;
-  relationType: RelationType;
-  note: string;
-  confidence: number;
-}
-
-export interface LinkReport {
-  embedded: number;
-  considered: number;
-  proposed: number;
-  capped: boolean;
-  edges: ProposedEdge[];
-}
-
-/** One selectable LLM backend; `configured` gates it in the Build form. */
-export interface LlmProvider {
-  id: string;
-  label: string;
-  configured: boolean;
-  defaultModel: string;
-  isDefault: boolean;
-}
-
-export interface KbBuildStarted {
-  id: string;
-}
-
-export type KbBuildState = 'running' | 'done' | 'error';
-
-export interface KbBuildStatus {
-  id: string;
-  url: string;
-  status: KbBuildState;
-  log: string[];
-  conceptSlug: string | null;
-  error: string | null;
 }

@@ -1,163 +1,212 @@
 # Atlas
 
-> Where curiosity becomes a knowledge base you own — arrive with a question, research the web
-> with an agent, choose what earns a place, and keep it as durable linked artifacts.
+Explore a subject with expert guidance. Keep useful explanations, see connections,
+and return when curiosity brings you back.
 
-![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=nextdotjs&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat&logo=typescript&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?style=flat&logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
+[Purpose and v0.1 feature list](docs/product.md) is the only product plan.
+The local agent supports exploration, saved explanations, and a small concept graph.
+The v0.1 release checklist is not complete.
 
-Atlas combines Obsidian's permanence with NotebookLM's research. You bring a question; an agent
-searches the open web *and* what you already know, then proposes sources — showing you the exact
-**artifacts** each would produce before anything is written. You choose. What you keep gets a
-beautiful reading view (markdown, HTML, or PDF), typed **relations** to other artifacts, cited
-**sources**, and a place in a **concept**. Search across everything and explore it as a graph.
+## Local development
 
-> **Status:** mid-pivot. The backend, the agent, and the curation loop are built; the frontend
-> reads them but is still the pre-pivot library UI, and there is no chat surface yet. Manual
-> editing is temporarily gone with the Prisma routes that powered it. See the
-> roadmap in [vision](docs/vision.md).
+The stack is Next.js, a Python FastAPI backend with Google ADK, and PostgreSQL with pgvector.
 
-The vision, architecture, and design system live in [`docs/`](docs/) — [vision](docs/vision.md) ·
-[architecture](docs/architecture.md) · [design](docs/design.md) ·
-[learning science](docs/learning-science.md).
+1. Copy `.env.example` to `.env` and set a random `JWT_SECRET`.
+2. Start Docker, then run `docker compose up --build`.
+3. Open http://localhost:3000. The backend readiness endpoint is http://localhost:8000/healthz; /livez checks process liveness.
 
-**Stack:** Next.js 16 (App Router, React 19, Server Components) · TypeScript · Tailwind v4 for the
-frontend, and a Python backend (FastAPI + SQLAlchemy + Alembic + uv) that owns the database, the
-ingestion pipeline and the Google ADK agent. PostgreSQL + pgvector underneath. The frontend holds
-no database connection — it reads the backend's HTTP API. Everything runs locally via Docker.
+The agent needs `VERTEX_PROJECT` and Google Application Default Credentials available to the
+backend process. For a local service-account file, set `GOOGLE_APPLICATION_CREDENTIALS`
+to its absolute path in `backend/.env`. Use `.secrets/vertex.json` in the project root (gitignored, directory mode 700, file mode 600).
+Enable the Vertex AI API in that project, with billing and model access available.
+The service account needs permission to call Vertex AI; it may not have permission to enable APIs.
+Compose does not mount host credentials. For local agent work, run the backend
+on the host with ADC configured. Run `docker compose up -d db`, then, from `backend/`, copy
+`.env.example` to `.env`, set the values, and run:
 
----
-
-## Running Atlas locally (Docker)
-
-The whole stack — web app, database, and import pipeline — comes up with one command.
-
-### Prerequisites
-
-- **Docker Desktop** (macOS/Windows) or **Docker Engine + Compose v2** (Linux). Nothing else.
-- Make sure Docker is actually running (Docker Desktop launched) before the commands below.
-
-### First run
-
-```bash
-git clone https://github.com/harsh-jos/atlas.git
-cd atlas
-cp .env.example .env
-docker compose up --build
+```sh
+uv sync
+uv run python -m app.db.bootstrap
+uv run uvicorn app.main:app --port 8000
 ```
 
-> ⚠️ **Port 5432 conflict (common on dev machines).** If you already run a local PostgreSQL, it
-> occupies `5432` and will shadow the container. In `.env`, set **`POSTGRES_PORT=5433`** and change
-> the port in **`DATABASE_URL`** to `5433` as well (`postgresql://atlas:atlas@localhost:5433/atlas`).
-> This only affects the host-facing port; nothing inside Docker changes.
+From the repo root, run `npm install` and `npm run dev` for the frontend.
+If port 5432 is occupied, change `POSTGRES_PORT` and the host `DATABASE_URL` port together.
+Data survives `docker compose down`. Adding `-v` deletes stored data.
 
-The **first build is slow**: the import pipeline image pulls in docling/torch (multi-GB) for PDF
-parsing. Subsequent starts are fast. The backend container automatically runs database migrations
-(`alembic upgrade head`, which also enables the `pgvector` extension) on every start.
+## Checks
 
-When it's up:
-
-- **App** → http://localhost:3000
-- **Import pipeline health** → http://localhost:8000/healthz
-
-### What's running
-
-| Service    | Image / build        | Host port | Purpose                                                        |
-| ---------- | -------------------- | --------- | ------------------------------------------------------------- |
-| `db`       | `pgvector/pgvector`  | 5432/5433 | PostgreSQL + pgvector. Data in the `pgdata` volume.           |
-| `pipeline` | `./backend`          | 8000      | The Python backend: API, pipeline, agent. Jobs + uploads in `pipeline_data`. |
-| `web`      | `.` (Next.js)        | 3000      | The app. Holds no database connection — reads the backend API. |
-
-### Everyday commands
-
-```bash
-docker compose up -d            # start in the background (add --build after code changes)
-docker compose down             # stop and remove containers (KEEPS your data)
-docker compose down -v          # stop AND delete all data (db, uploads, pipeline jobs)
-docker compose logs -f web      # tail the web app logs (or: db, pipeline)
-docker compose ps               # see status + health of each service
-docker compose exec pipeline uv run alembic upgrade head  # apply migrations manually
-docker compose exec db psql -U atlas -d atlas    # open a psql shell
+```sh
+npx tsc --noEmit
+npm run lint
+npm run build
+cd backend
+uv run ruff check app tests
+uv run pytest
 ```
 
-After changing dependencies, rebuild the image:
+Database tests use a dedicated `atlas_test` database, which they replace. They skip when
+PostgreSQL is unavailable locally; CI requires PostgreSQL and fails instead of skipping. The fixture
+rebuilds through Alembic and checks for model/schema drift. Never point tests at a shared server with an existing `atlas_test` database.
 
-```bash
-docker compose up -d --build web
+## Database deployment
+
+The active backend uses SQLAlchemy ORM with psycopg 3 and Alembic. Docker Compose runs a
+single `migrate` job before the backend, and waits for backend readiness before starting the web app.
+On a different machine or with an external PostgreSQL server, provision a database/login,
+configure `DATABASE_URL` and `JWT_SECRET`, then run from `backend/`:
+
+```sh
+uv sync --frozen
+uv run python -m app.db.bootstrap
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### Environment (`.env`)
+The bootstrap recreates all 17 active schema tables from an empty database, including ADK storage.
+It preserves existing data and can be repeated. Run it once per release before starting replicas;
+replicas refuse startup with pending migrations or missing chat tables. PostgreSQL must provide
+`vector` and `pg_trgm`; the deployment role needs permission to install them, or an administrator
+must install them first. Use TLS for remote connections as required by the database provider.
+Legacy Prisma tables are unused and intentionally excluded; bootstrap does not delete them.
+Production needs no copied data or manual table definitions. The checked-in workflow verifies a
+fresh bootstrap, a repeat bootstrap, and schema drift against PostgreSQL with pgvector.
 
-`docker compose` reads `.env` for these. Inside containers, compose injects `DATABASE_URL` (backend)
-and `ATLAS_API_URL` (frontend) itself — the `DATABASE_URL` below is only used when you run the
-backend **on the host** (see next section).
+Each process has separate application and ADK connection pools. `DB_POOL_SIZE` (5) and
+`DB_MAX_OVERFLOW` (10) apply to each, so the default upper bound is 30 connections per process.
+Budget this against the server limit and replica count. `DB_POOL_RECYCLE_SECONDS` defaults to 1800.
+Both pools close at shutdown. `DB_SLOW_QUERY_SECONDS` (1) controls private timing logs for both
+engines; application pool acquisition waits use the same threshold. Logs omit SQL and parameters.
+Use realistic query plans and these timings to tune further; no production load benchmark is claimed.
 
-| Variable              | Default                                       | Notes                                            |
-| --------------------- | --------------------------------------------- | ------------------------------------------------ |
-| `POSTGRES_USER`       | `atlas`                                        | Database user.                                   |
-| `POSTGRES_PASSWORD`   | `atlas`                                        | Database password (local only).                  |
-| `POSTGRES_DB`         | `atlas`                                        | Database name.                                   |
-| `POSTGRES_PORT`       | `5432`                                         | Host port for Postgres. Use `5433` if 5432 is taken. |
-| `WEB_PORT`            | `3000`                                         | Host port for the app.                           |
-| `IMPORT_SERVICE_PORT` | `8000`                                         | Host port for the pipeline.                      |
-| `DATABASE_URL`        | `postgresql://atlas:atlas@localhost:5432/atlas`| **Host-only** connection (match the port above). |
-| `JWT_SECRET`          | *(required)*                                   | Signs access tokens. The backend refuses to boot without it. |
-| `VERTEX_PROJECT`      | *(empty)*                                      | Google Cloud project; enables the agent. Credentials come from ADC. |
-| `ATLAS_API_URL`       | `http://localhost:8000`                        | Where the frontend finds the backend (host runs only).  |
+Library and chat lists paginate at 100 items, managed chat history at 100 turns, legacy chat history
+at 200 messages, and graph views at 200 nodes. Older items remain accessible through page controls.
+The graph displays connections between nodes on the current page. Editor saves send the revision
+last read; stale revisions return 409. Full-text search uses an indexed generated English vector;
+changing its language requires a coordinated schema migration.
 
-### Persistent data (volumes)
+[Database audit and remediation record](docs/database-audit-2026-10-10.md).
 
-Your data lives in named Docker volumes and **survives `docker compose down`**:
+## Agent development
 
-- `pgdata` — the PostgreSQL database.
-- `pipeline_data` — the import pipeline's job queue and upload staging.
+Prepare the complete schema with `uv run python -m app.db.bootstrap` from `backend/` before starting the backend.
+This applies Alembic migrations and creates ADK chat tables under a deployment lock.
+The default is `gemini-3.8-flash` on Vertex AI, with high reasoning. Both the guide and
+research tool use it. Override `AGENT_MODEL` and `AGENT_SEARCH_MODEL` when needed.
+Project access is required. No alternative model is selected automatically.
 
-`docker compose down -v` deletes all three — use it only for a clean reset.
+The backend environment example lists the request, research, context-size, and time
+limits. SDK retries are disabled so hidden retries do not bypass request accounting.
+`GET /agent/chat/{session_id}/usage` returns owned counts, including requests with unknown usage.
+Research-request limits count grounded model requests, not Google's internal search queries.
+Actual query and token counts come from provider metadata.
+`AGENT_SESSION_BUDGET_MICROUSD` defaults to 5000000 ($5); 0 explicitly disables the spending guard.
+The guard stops further calls once estimated spending reaches the allowance. A pending request
+holds the remaining allowance, so concurrent calls cannot both claim it. Missing usage, an
+interrupted request, or missing research-query metadata blocks further spending in that session.
+Historical requests without cost records also block; start a new chat to continue.
+The usage endpoint reports estimated cost, unpriced requests, and the configured allowance.
 
-### Develop with hot reload (optional)
+Estimates use standard Vertex Flash list prices, include reasoning and individual search queries,
+and ignore cached-input discounts, free search allowances, and credits. Each request's estimated
+cost is persisted when usage arrives; later settings changes do not reprice past requests.
+Unsupported models are
+blocked while the guard is enabled. See `backend/app/agent/pricing.py` for the dated pricing source
+and the published January 2027 rate change. This is an admission guard, not a hard billing cap:
+the final in-flight request can exceed the remaining amount. No output-token ceiling is added.
 
-To iterate on the web app with fast refresh, run only the database in Docker and the app on your
-host:
+## Chat transport and interruptions
 
-```bash
-docker compose up -d db                                   # Postgres + pgvector only
-cd backend && uv sync && uv run alembic upgrade head      # backend deps + schema
-uv run uvicorn app.main:app --port 8000                   # the API, agent and pipeline
-cd .. && npm install && npm run dev                       # http://localhost:3000
+Chat uses HTTP throughout. `POST /agent/chat` accepts `session_id`, `message`, and a client-generated
+UUID `request_id`. It commits the turn and returns HTTP 202 immediately. Reusing the same request
+ID and message returns that turn; conflicting reuse or a second active turn in the same chat
+returns HTTP 409. `GET /agent/turns/{id}` reports owned status, latest tool progress, reply, and errors.
+`GET /agent/chat/{session_id}` restores the conversation and latest turn, including queued messages.
+
+A backend lifespan worker claims queued turns from PostgreSQL. The browser polls active status
+every 1.5 seconds while visible, and refreshes the saved conversation on completion, foreground
+return, or restored network access. Next.js proxies reads using the httpOnly session cookie;
+no browser-facing backend token or socket ticket is needed. There is no WebSocket, SSE, or token
+streaming. The old WebSocket hub and tests are archived.
+
+Navigating away or closing the browser does not cancel accepted work. Queued work survives a
+backend restart. Graceful shutdown marks active work interrupted. After an abrupt crash, a running
+turn becomes interrupted when its lease expires (reply timeout plus 30 seconds), rather than
+remaining stuck forever. Persisted partial output and saved explanations remain. Running work is
+never automatically replayed: tool writes or provider charges may already have happened.
+Incomplete replies have status `incomplete` and an `errorCode`; tool failures are retained in
+`toolErrors` even when the guide continues. Turn IDs are diagnostic references.
+Use the chat Stop button or `POST /agent/turns/{id}/cancel` to stop an owned turn.
+Queued turns cancel immediately. Running turns stay active with `cancelRequested: true` until
+the worker cancels execution and stores `cancelled`; partial replies and saved work remain.
+Repeated Stop requests are safe, and completed turns are unchanged. An in-flight provider
+request may still be billed. An in-flight database tool is allowed to finish before the chat
+accepts another turn. No mid-generation continuation is implemented.
+
+## Backend failures and capacity
+
+HTTP failures return a safe `detail`, stable `code`, and `requestId`, also sent as `X-Request-ID`.
+Validation reports field names and error types without echoing passwords or request bodies.
+Logs keep exception types and stack locations with request/turn references; application logging
+omits raw exception values, SQL parameters, prompts, and tool arguments. No automatic model
+or mutation retry is introduced. A failed submission can still be checked with its original request ID.
+Database commits finish before mutation success responses are sent.
+
+Readiness checks both PostgreSQL and a live worker with recent successful queue access. `/livez`
+only checks the API process. Database connections wait at most 5 seconds to connect/acquire a
+pool slot, statements have a 30-second server deadline, and lock waits have a 5-second deadline.
+These defaults apply to both app and ADK connections and can be changed in the environment examples.
+A turn may need database cleanup after Stop; these deadlines bound server-side database waits.
+
+At most 100 turns can be queued/running across the app, with 3 per user. Excess submissions
+return `queue_full` (503) or `user_queue_full` (429). Existing request-ID retries remain readable
+at capacity. There is no separate queue broker or monitoring service.
+
+Image uploads read at most the configured limit plus one byte. Files are written through a
+partial file and removed on transaction rollback; deletion removes the file after database commit.
+Filesystem and database changes cannot form one atomic transaction. To inspect crash leftovers,
+run `uv run python -m app.storage.assets` from `backend/`. It reports missing files and old
+unreferenced files. Add `--apply` to remove only unreferenced UUID files older than 24 hours.
+Recent files and referenced files are preserved; missing files require backup restoration or re-upload.
+Deployments should also bound HTTP request bodies at the ingress, before multipart upload parsing.
+
+See [the runtime and transport decision](docs/agent-runtime.md) for scope and tradeoffs.
+
+Offline agent tests run with `uv run pytest tests/test_agent_usage.py tests/test_learning_agent.py`
+from `backend/`. They use the real ADK runner with scripted models and make no cloud calls.
+For a live behaviour check, start the backend and set `ATLAS_EVAL_TOKEN` in your shell to a token
+for a dedicated test account. From `backend/`, run one named scenario:
+
+```sh
+uv run python -m app.agent.evaluate --case pytorch-start --output /tmp/atlas-pytorch-eval.json
 ```
 
-`DATABASE_URL` points the backend at the dockerized DB (mind the 5432/5433 port), and
-`ATLAS_API_URL` points the frontend at the backend. See [`backend/README.md`](backend/README.md).
+Live checks use AI credits. Scenarios cover the first explanation, prerequisite detours,
+changes of direction, returning, stopping, and small practice. Read the responses against the
+saved review checklist. A successful API request is not a passing teaching-quality review.
+The language instructions follow STE principles; there is no full dictionary compliance checker yet.
 
-### Troubleshooting
+## Agent memory and graph
 
-- **`docker compose up` fails to connect to the daemon** — Docker Desktop isn't running; start it.
-- **`Ports are not available` / `address already in use`** — something holds `3000`/`5432`/`8000`.
-  Change the matching `*_PORT` in `.env` (for Postgres, also update the `DATABASE_URL` port).
-- **`password authentication failed` when running on the host** — a native Postgres on `5432` is
-  shadowing the container. Publish the container on `5433` (see the port-conflict note above).
-- **Web starts before the DB is ready** — compose waits for the DB healthcheck; if it still races,
-  `docker compose restart web`.
-- **Full reset** — `docker compose down -v && docker compose up --build`.
+The agent can inspect nearby concepts, search/read saved explanations, and remember concepts
+actually explored. It adds `requires` and `related_to` connections with short reasons.
+`requires` points from an idea to its prerequisite; `related_to` is symmetric.
+Ask “keep this” to save an explanation, or ask for a revision after returning.
+Saved explanations appear in the existing library, reader, editor, and graph.
+The graph's `explains` edges come from each explanation's concept membership.
 
----
+Writes are scoped to the authenticated owner, enforce text-storage quota, reuse duplicate
+saves/connections, and reject stale revisions. Concept pages let you remove a connection.
+The agent does not delete explanations; use the existing editor. Saving consent and teaching
+style are model instructions, not a separate deterministic policy checker.
 
-## Project layout
+See [the live review](docs/evaluations/2026-10-10-agent.md) for observations and remaining limits.
 
-```
-atlas/
-├── app/                  # Next.js App Router — pages only, no database access
-├── components/           # UI: entry/, collection/, graph/, layout/, ui/, auth/
-├── lib/                  # api.ts (the backend client), api-types.ts, utils
-├── backend/              # the Python backend
-│   └── app/              #   agent/ · api/ · auth/ · db/ · pipeline/ · jobs/ · realtime/ · storage/
-├── docs/                 # vision, architecture, feature catalog, design system
-├── docker-compose.yml    # the whole local stack
-└── Dockerfile            # the web image
-```
+## Archive
 
-## License
+`archive/` contains retired experiments and their tests, with original paths preserved.
+Snapshots of changed integration files show the old wiring. Archived code is not an active
+package and is excluded from lint, type checks, test discovery, and frontend Docker context.
+It needs deliberate integration before reuse. Historical database migrations remain active
+so existing installations can upgrade without losing their migration history.
 
-Personal project — all rights reserved by the author. No open-source license is currently applied.
+Personal project. No open-source licence is currently applied.

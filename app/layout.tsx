@@ -15,8 +15,8 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Atlas — Personal Knowledge Base',
-  description: 'A structured database-backed technical knowledge base for AI engineers.',
+  title: 'Atlas — Explore and Learn',
+  description: 'Explore a subject with expert guidance and connected explanations.',
 };
 
 export default function RootLayout({

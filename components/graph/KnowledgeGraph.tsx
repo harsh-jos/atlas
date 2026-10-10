@@ -13,6 +13,9 @@ import { cn } from '@/lib/utils';
 import type { Graph, GraphLink as ApiGraphLink, GraphNode as ApiGraphNode } from '@/lib/api-types';
 import { RELATION_INCOMING_LABELS, RELATION_OUTGOING_LABELS } from '@/lib/relations';
 
+const outgoingLabels = { ...RELATION_OUTGOING_LABELS, requires: 'Builds on', related_to: 'Related to', explains: 'Explains' };
+const incomingLabels = { ...RELATION_INCOMING_LABELS, requires: 'Used by', related_to: 'Related to', explains: 'Explained by' };
+
 type GraphNode = NodeObject<ApiGraphNode>;
 type GraphLink = LinkObject<ApiGraphNode, ApiGraphLink>;
 type GraphMethods = ForceGraphMethods<GraphNode, GraphLink>;
@@ -329,9 +332,9 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     for (const link of data.links) {
       const s = resolveId(link.source);
       const t = resolveId(link.target);
-      if (s === selectedId) push(RELATION_OUTGOING_LABELS[link.relationType], t);
+      if (s === selectedId) push(outgoingLabels[link.relationType], t);
       else if (t === selectedId) {
-        const label = RELATION_INCOMING_LABELS[link.relationType];
+        const label = incomingLabels[link.relationType];
         if (label) push(label, s);
       }
     }
@@ -353,6 +356,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         height={dimensions.height}
         backgroundColor={BACKGROUND}
         onRenderFramePre={paintGrid}
+        maxZoom={2}
         nodeRelSize={4}
         nodeCanvasObjectMode={() => 'replace'}
         nodeCanvasObject={paintNode}
@@ -371,7 +375,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         <div className={`pointer-events-auto px-3.5 py-2 ${glass}`}>
           <h1 className="text-sm font-semibold leading-none tracking-[-0.01em] text-ink">Graph</h1>
           <p className="mt-1 text-[12px] leading-none text-faint">
-            {data.nodes.length} entries · {data.links.length} relations
+            {data.nodes.length} ideas and explanations · {data.links.length} connections
           </p>
         </div>
 
@@ -384,7 +388,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Find an entry"
+            placeholder="Find an idea or explanation"
             className="h-9 w-44 rounded-full bg-transparent pl-9 pr-4 text-[13px] text-ink placeholder:text-faint focus:outline-none lg:w-56"
           />
         </form>
@@ -497,10 +501,10 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
           )}
 
           <Link
-            href={`/entries/${selectedNode.slug}`}
+            href={`/${selectedNode.nodeKind === 'concept' ? 'collections' : 'entries'}/${selectedNode.slug}`}
             className="focus-ring mt-4 flex h-8 items-center justify-center gap-1.5 rounded-full border bg-surface text-[13px] font-medium text-ink transition-colors hover:bg-surface-soft"
           >
-            Open entry
+            {selectedNode.nodeKind === 'concept' ? 'Open concept' : 'Read explanation'}
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </aside>

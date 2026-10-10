@@ -1,5 +1,6 @@
 """Write endpoints: every mutation the editor needs, each scoped to the caller."""
 
+from datetime import datetime
 from typing import Annotated, Any, TypeVar
 from uuid import UUID
 
@@ -18,10 +19,11 @@ from app.api.library import (
 )
 from app.api.library import get_artifact as artifact_detail
 from app.auth.deps import CurrentUser, CurrentUserId, SessionDep
+from app.agent.knowledge import lock_owner
 from app.core.enums import RelationType, SourceType
 from app.db.models import Artifact, Concept, Relation, Source, User
 from app.db.repository import OwnedRepository
-from app.pipeline.writer import text_bytes
+from app.storage.quota import text_bytes
 from app.storage.quota import QuotaExceeded, QuotaService
 
 router = APIRouter(tags=["writes"])
@@ -44,6 +46,7 @@ class ConceptRepository(OwnedRepository[Concept]):
 
 
 class ArtifactPatch(Payload):
+    expected_updated_at: datetime | None = None
     title: str | None = None
     summary: str | None = None
     body: str | None = None
@@ -138,8 +141,11 @@ def update_artifact(
     slug: str, patch: ArtifactPatch, session: SessionDep, user: CurrentUser
 ) -> ArtifactDetail:
     """Edits an artifact in place; a rename never re-slugs, so links cannot rot."""
+    user = lock_owner(session, user.id)
     artifact = _found(ArtifactRepository(session, user.id).by_slug(slug), "artifact")
-    fields = patch.model_dump(exclude_unset=True)
+    if patch.expected_updated_at is not None and artifact.updated_at != patch.expected_updated_at:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This explanation changed. Reload before saving.")
+    fields = patch.model_dump(exclude_unset=True, exclude={"expected_updated_at"})
     if "concept_id" in fields:
         _found(ConceptRepository(session, user.id).get(fields["concept_id"]), "concept")
     after = _cost(fields.get("body", artifact.body), fields.get("summary", artifact.summary))
@@ -151,6 +157,7 @@ def update_artifact(
 
 @router.delete("/artifacts/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_artifact(slug: str, session: SessionDep, user: CurrentUser) -> None:
+    user = lock_owner(session, user.id)
     artifacts = ArtifactRepository(session, user.id)
     artifact = _found(artifacts.by_slug(slug), "artifact")
     _charge(session, user, -_cost(artifact.body, artifact.summary))
@@ -161,6 +168,7 @@ def delete_artifact(slug: str, session: SessionDep, user: CurrentUser) -> None:
 def update_concept(
     slug: str, patch: ConceptPatch, session: SessionDep, user_id: CurrentUserId
 ) -> ConceptDetail:
+    lock_owner(session, user_id)
     concept = _found(ConceptRepository(session, user_id).by_slug(slug), "concept")
     _apply(concept, patch.model_dump(exclude_unset=True))
     session.flush()
@@ -170,10 +178,17 @@ def update_concept(
 @router.delete("/concepts/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_concept(slug: str, session: SessionDep, user: CurrentUser) -> None:
     """The foreign key cascades to the artifacts, so their bytes go back first."""
+    user = lock_owner(session, user.id)
     concepts = ConceptRepository(session, user.id)
     concept = _found(concepts.by_slug(slug), "concept")
-    _charge(session, user, -sum(_cost(a.body, a.summary) for a in concept.artifacts))
-    concepts.delete(concept)
+    size = session.scalar(
+        select(func.coalesce(func.sum(
+            func.octet_length(func.coalesce(Artifact.body, ""))
+            + func.octet_length(func.coalesce(Artifact.summary, ""))
+        ), 0)).where(Artifact.user_id == user.id, Artifact.concept_id == concept.id)
+    )
+    _charge(session, user, -size)
+    session.execute(delete(Concept).where(Concept.id == concept.id, Concept.user_id == user.id))
 
 
 @router.put("/artifacts/{slug}/sources", response_model=ArtifactDetail)
@@ -181,6 +196,7 @@ def replace_sources(
     slug: str, sources: list[SourceIn], session: SessionDep, user_id: CurrentUserId
 ) -> ArtifactDetail:
     """Replaces the whole provenance set, the way the import writer does."""
+    lock_owner(session, user_id)
     artifact = _found(ArtifactRepository(session, user_id).by_slug(slug), "artifact")
     artifact.sources = [Source(**source.model_dump()) for source in sources]
     session.flush()
@@ -194,6 +210,7 @@ def create_relation(
     slug: str, payload: RelationIn, session: SessionDep, user_id: CurrentUserId
 ) -> RelationOut:
     """Links two of the caller's own artifacts; repeating an existing edge is a no-op."""
+    lock_owner(session, user_id)
     artifacts = ArtifactRepository(session, user_id)
     source = _found(artifacts.by_slug(slug), "artifact")
     target = _found(artifacts.by_slug(payload.to_slug), "artifact")
@@ -225,6 +242,7 @@ def create_relation(
 def delete_relation(
     slug: str, payload: RelationRef, session: SessionDep, user_id: CurrentUserId
 ) -> None:
+    lock_owner(session, user_id)
     artifacts = ArtifactRepository(session, user_id)
     source = _found(artifacts.by_slug(slug), "artifact")
     target = _found(artifacts.by_slug(payload.to_slug), "artifact")
@@ -252,3 +270,19 @@ def list_artifacts(
         ArtifactOption(id=row_id, title=title, slug=slug, concept_name=name, concept_color=color)
         for row_id, title, slug, name, color in session.execute(statement)
     ]
+
+
+@router.delete("/concept-connections/{connection_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_concept_connection(
+    connection_id: UUID, session: SessionDep, user_id: CurrentUserId
+) -> None:
+    from app.db.models import ConceptConnection
+
+    lock_owner(session, user_id)
+    row = session.scalar(
+        select(ConceptConnection).where(
+            ConceptConnection.id == connection_id, ConceptConnection.user_id == user_id
+        )
+    )
+    _found(row, "connection")
+    session.delete(row)

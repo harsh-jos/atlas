@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { type ActionResult, attempt } from '@/lib/actions';
 import { apiGet, apiSend, apiUpload } from '@/lib/api';
-import type { ArtifactDetail, Relation, RelationType, SourceType } from '@/lib/api-types';
+import type { ArtifactDetail, ConceptSummary, Relation, RelationType, SourceType } from '@/lib/api-types';
 
 export interface SourceDraft {
   sourceType: SourceType;
@@ -21,6 +21,7 @@ export interface RelationDraft {
 }
 
 export interface EntryDraft {
+  expectedUpdatedAt: string;
   title: string;
   summary: string;
   body: string;
@@ -47,11 +48,12 @@ const blankToNull = (value: string) => value.trim() || null;
 const edgeKey = (edge: { toSlug: string; relationType: RelationType }) =>
   `${edge.relationType}:${edge.toSlug}`;
 
-export async function saveEntry(slug: string, draft: EntryDraft): Promise<ActionResult> {
+export async function saveEntry(slug: string, draft: EntryDraft): Promise<ActionResult<string>> {
   const path = artifactPath(slug);
 
   const result = await attempt(async () => {
     const saved = await apiSend<ArtifactDetail>('PATCH', path, {
+      expectedUpdatedAt: draft.expectedUpdatedAt,
       title: draft.title.trim(),
       summary: blankToNull(draft.summary),
       body: draft.body,
@@ -75,6 +77,7 @@ export async function saveEntry(slug: string, draft: EntryDraft): Promise<Action
     );
 
     await syncRelations(path, saved.relationsFrom, draft.relations);
+    return saved.updatedAt;
   });
 
   if (!result.error) revalidatePath(`/entries/${slug}`);
@@ -118,4 +121,9 @@ export async function uploadAsset(form: FormData): Promise<ActionResult<string>>
 
 export async function searchArtifacts(query: string): Promise<ArtifactOption[]> {
   return apiGet<ArtifactOption[]>(`/artifacts?${new URLSearchParams({ q: query })}`);
+}
+
+
+export async function loadMoreConcepts(offset: number): Promise<ActionResult<ConceptSummary[]>> {
+  return attempt(() => apiGet<ConceptSummary[]>(`/concepts?offset=${Math.max(0, Math.floor(offset))}`));
 }

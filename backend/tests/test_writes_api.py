@@ -6,29 +6,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from knowledge_seed import seed_knowledge
+
 from app.api.library import router as library_router
 from app.api.writes import router as writes_router
 from app.auth.service import AuthService
 from app.core.config import get_settings
-from app.core.enums import SourceType
 from app.db.base import get_session, get_session_scope
-from app.pipeline.build import build_import
-from app.pipeline.parsing.markdown_parser import parse_markdown
-from app.pipeline.preview import PreviewService
 
 PASSWORD = "correct-horse-battery"
-SAMPLE = """# Vector Search
-
-An overview of searching by meaning rather than by exact keyword matching alone.
-
-## HNSW
-
-Hierarchical navigable small worlds, the index most vector databases reach for by default.
-
-## IVF
-
-Inverted file indexes partition the space into cells and search only the nearest few of them.
-"""
 
 
 @pytest.fixture
@@ -51,18 +37,10 @@ def _register(session, email: str) -> tuple[str, object]:
     user = service.register(email, PASSWORD)
     return service.issue_token(user), user
 
-
-def _import(session, user, name: str = "Vector Search") -> None:
-    doc = parse_markdown(SAMPLE, fallback_title=name, source_type=SourceType.DOCS)
-    mapped = build_import(doc, concept_name=name, scope=f"scope:{name}", min_artifact_chars=1)
-    service = PreviewService(session, user)
-    service.commit(service.park(mapped, scope=f"scope:{name}").id)
-
-
 @pytest.fixture
 def owner_user(session, client):
     token, user = _register(session, "owner@example.com")
-    _import(session, user)
+    seed_knowledge(session, user)
     return user, {"Authorization": f"Bearer {token}"}
 
 
@@ -127,7 +105,7 @@ def test_renaming_an_artifact_keeps_its_slug(client, owner):
 
 def test_an_artifact_can_be_moved_to_another_concept(client, session, owner_user):
     user, headers = owner_user
-    _import(session, user, "Indexing")
+    seed_knowledge(session, user, "Indexing")
     concept = client.get("/concepts/indexing", headers=headers).json()["concept"]
     slug = _slug(client, headers)
     body = client.patch(f"/artifacts/{slug}", json={"conceptId": concept["id"]}, headers=headers)
@@ -138,7 +116,7 @@ def test_moving_an_artifact_into_another_users_concept_is_not_found(
     client, session, owner, stranger_user
 ):
     stranger, stranger_headers = stranger_user
-    _import(session, stranger, "Theirs")
+    seed_knowledge(session, stranger, "Theirs")
     concept = client.get("/concepts/theirs", headers=stranger_headers).json()["concept"]
     slug = _slug(client, owner)
     response = client.patch(f"/artifacts/{slug}", json={"conceptId": concept["id"]}, headers=owner)
@@ -256,7 +234,7 @@ def test_repeating_a_relation_is_a_no_op(client, owner):
 
 def test_relating_to_another_users_artifact_is_not_found(client, owner, stranger, session):
     _, stranger_user = _register(session, "third@example.com")
-    _import(session, stranger_user, name="Their Notes")
+    seed_knowledge(session, stranger_user, name="Their Notes")
     mine = _slug(client, owner)
     theirs = client.get("/concepts/their-notes", headers=stranger).status_code
 
@@ -306,3 +284,98 @@ def test_no_mutation_reaches_another_users_rows(client, owner, stranger):
         assert response.status_code == 404, f"{method} {path}"
 
     assert client.get(f"/artifacts/{slug}", headers=owner).json()["title"] != "hijacked"
+
+
+def test_concept_neighbourhood_and_removal_are_owned(client, session, owner_user, stranger_user):
+    from app.agent.knowledge import remember_concept, connect_concepts
+
+    user, headers = owner_user
+    _, other_headers = stranger_user
+    a = remember_concept(session, user.id, "Autograd", "Records operations.")
+    b = remember_concept(session, user.id, "Gradient", "Describes change.")
+    edge = connect_concepts(session, user.id, a["slug"], b["slug"], "requires", "Autograd computes gradients.")
+    path = f'/concepts/{a["slug"]}/neighbourhood'
+    assert client.get(path, headers=other_headers).status_code == 404
+    data = client.get(path, headers=headers).json()
+    assert data["connections"][0]["slug"] == b["slug"]
+    delete_path = f'/concept-connections/{edge["id"]}'
+    assert client.delete(delete_path, headers=other_headers).status_code == 404
+    assert client.delete(delete_path, headers=headers).status_code == 204
+    assert client.get(path, headers=headers).json()["connections"] == []
+
+
+def test_graph_shows_concepts_explanations_and_prerequisite_direction(client, session, owner_user):
+    from app.agent.knowledge import remember_concept, connect_concepts, save_explanation
+
+    user, headers = owner_user
+    a = remember_concept(session, user.id, "Autograd", "Records operations.")
+    b = remember_concept(session, user.id, "Gradient", "Describes change.")
+    connect_concepts(session, user.id, a["slug"], b["slug"], "requires", "Computes gradients.")
+    saved = save_explanation(session, user.id, a["slug"], "How does autograd work?", "Records operations.", "Example.", [])
+    graph = client.get('/graph', headers=headers).json()
+    by_slug = {node['slug']: node for node in graph['nodes']}
+    assert by_slug[a['slug']]['nodeKind'] == 'concept'
+    assert by_slug[saved['slug']]['nodeKind'] == 'explanation'
+    assert any(edge['source'] == by_slug[a['slug']]['id'] and edge['target'] == by_slug[b['slug']]['id']
+               and edge['relationType'] == 'requires' for edge in graph['links'])
+    assert any(edge['source'] == by_slug[saved['slug']]['id'] and edge['target'] == by_slug[a['slug']]['id']
+               and edge['relationType'] == 'explains' for edge in graph['links'])
+
+
+def test_editor_rejects_a_stale_revision(client, owner):
+    slug = _slug(client, owner)
+    before = client.get(f'/artifacts/{slug}', headers=owner).json()
+    payload = {'body': 'first edit', 'expectedUpdatedAt': before['updatedAt']}
+    assert client.patch(f'/artifacts/{slug}', json=payload, headers=owner).status_code == 200
+    payload['body'] = 'stale edit'
+    assert client.patch(f'/artifacts/{slug}', json=payload, headers=owner).status_code == 409
+    assert client.get(f'/artifacts/{slug}', headers=owner).json()['body'] == 'first edit'
+
+
+def test_library_and_graph_pages_are_bounded(client, owner):
+    assert len(client.get('/concepts?limit=1', headers=owner).json()) == 1
+    page = client.get('/graph?limit=2', headers=owner).json()
+    assert len(page['nodes']) == 2 and page['hasMore']
+    ids = {row['id'] for row in page['nodes']}
+    assert all(row['source'] in ids and row['target'] in ids for row in page['links'])
+
+
+def test_parallel_editor_writes_charge_the_final_body(engine):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from uuid import uuid4
+    from sqlalchemy import delete, select
+    from sqlalchemy.orm import sessionmaker
+    from app.api.writes import ArtifactPatch, update_artifact
+    from app.db.models import Artifact, Concept, User
+
+    factory = sessionmaker(engine, expire_on_commit=False)
+    with factory.begin() as db:
+        user = User(email=f'{uuid4()}@example.invalid', password_hash='unused', storage_bytes=10)
+        db.add(user)
+        db.flush()
+        concept = Concept(user_id=user.id, name='Race', slug='race')
+        db.add(concept)
+        db.flush()
+        db.add(Artifact(user_id=user.id, concept_id=concept.id, title='Race', slug='race', body='x'*10))
+        user_id = user.id
+    ready = Barrier(2)
+
+    def edit(length):
+        with factory.begin() as db:
+            user = db.get(User, user_id)
+            ready.wait(timeout=5)
+            update_artifact('race', ArtifactPatch(body='x'*length), db, user)
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures = [pool.submit(edit, size) for size in (20, 30)]
+            for future in futures:
+                future.result(timeout=10)
+        with factory() as db:
+            user = db.get(User, user_id)
+            body = db.scalar(select(Artifact.body).where(Artifact.user_id == user_id))
+            assert user.storage_bytes == len(body.encode())
+    finally:
+        with factory.begin() as db:
+            db.execute(delete(User).where(User.id == user_id))

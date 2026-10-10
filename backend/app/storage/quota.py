@@ -47,3 +47,8 @@ class QuotaService:
             .execution_options(synchronize_session="fetch")
         )
         self.session.execute(statement)
+
+
+def text_bytes(*parts: str | None) -> int:
+    """Stored text size in UTF-8 bytes."""
+    return sum(len(part.encode()) for part in parts if part)

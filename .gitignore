@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# Python caches (including archived backend code)
+__pycache__/
+*.py[cod]
+
 # next.js
 /.next/
 /out/
@@ -41,9 +45,12 @@ yarn-error.log*
 # companion chrome extension (independent of the main app)
 /atlas-clipper
 
-# uploaded image assets (host dev; dockerized via the web_assets volume)
+# uploaded image assets (host development)
 /uploads
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local service-account credentials
+/.secrets/

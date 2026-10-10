@@ -35,3 +35,10 @@ export async function deleteConcept(slug: string): Promise<ActionResult> {
   revalidatePath('/');
   redirect('/');
 }
+
+export async function removeConceptConnection(slug: string, id: string): Promise<ActionResult> {
+  const result = await attempt(() => apiSend('DELETE', `/concept-connections/${encodeURIComponent(id)}`));
+  if (result.error) return result;
+  revalidatePath(`/collections/${slug}`);
+  return { value: undefined };
+}

@@ -9,6 +9,8 @@ from app.auth.service import AuthService
 from app.core.config import get_settings
 from app.db.base import get_session
 from app.db.models import User
+from app.core.http_errors import ErrorMiddleware, http_error
+from starlette.exceptions import HTTPException
 
 PASSWORD = "correct-horse-battery"
 PNG = b"\x89PNG\r\n\x1a\n" + b"pretend pixels"
@@ -25,8 +27,19 @@ def assets_dir(tmp_path, monkeypatch):
 @pytest.fixture
 def client(session, assets_dir):
     app = FastAPI()
+    app.add_middleware(ErrorMiddleware)
+    app.add_exception_handler(HTTPException, http_error)
     app.include_router(assets_router)
-    app.dependency_overrides[get_session] = lambda: session
+    def request_session():
+        # Commit fixture setup, then mirror the production dependency's transaction boundary.
+        session.commit()
+        try:
+            yield session
+            session.commit()
+        except BaseException:
+            session.rollback()
+            raise
+    app.dependency_overrides[get_session] = request_session
     with TestClient(app) as test_client:
         yield test_client
 
@@ -122,3 +135,89 @@ def test_delete_removes_the_row_the_file_and_the_charge(client, owner, assets_di
     assert client.get(url, headers=headers).status_code == 404
     assert list(assets_dir.iterdir()) == []
     assert user.storage_bytes == 0
+
+
+def test_missing_file_has_an_actionable_owned_error(client, owner, assets_dir):
+    url = _upload(client, owner[0]).json()['url']
+    next(assets_dir.iterdir()).unlink()
+    response = client.get(url, headers=owner[0])
+    assert response.status_code == 404 and response.json()['code'] == 'asset_missing'
+
+
+def test_file_is_removed_when_database_transaction_rolls_back(session, assets_dir):
+    from uuid import uuid4
+    from app.storage.assets import write
+    path = assets_dir / str(uuid4())
+    write(session, path, PNG)
+    assert path.exists()
+    session.rollback()
+    assert not path.exists() and not path.with_suffix('.part').exists()
+
+
+def test_failed_delete_keeps_the_file_when_database_rolls_back(session, assets_dir):
+    from uuid import uuid4
+    from app.storage.assets import delete_after_commit
+    path = assets_dir / str(uuid4())
+    assets_dir.mkdir()
+    path.write_bytes(PNG)
+    delete_after_commit(session, path)
+    session.rollback()
+    assert path.read_bytes() == PNG
+
+
+def test_partial_file_write_is_cleaned_up(session, assets_dir, monkeypatch):
+    from pathlib import Path
+    from uuid import uuid4
+    from app.storage.assets import write
+    path = assets_dir / str(uuid4())
+    def fail(*args):
+        raise OSError('disk failure')
+    monkeypatch.setattr(Path, 'replace', fail)
+    with pytest.raises(OSError):
+        write(session, path, PNG)
+    assert list(assets_dir.iterdir()) == []
+
+
+def test_reconciliation_is_dry_by_default_and_preserves_recent_and_referenced_files(
+    client, owner, assets_dir, session, monkeypatch
+):
+    import os
+    from contextlib import contextmanager
+    from time import time
+    from uuid import uuid4
+    from app.storage import assets
+    url = _upload(client, owner[0]).json()['url']
+    referenced = assets_dir / url.rsplit('/', 1)[-1]
+    orphan, recent = assets_dir / str(uuid4()), assets_dir / str(uuid4())
+    orphan.write_bytes(PNG)
+    recent.write_bytes(PNG)
+    os.utime(orphan, (time() - 90000, time() - 90000))
+    os.utime(referenced, (time() - 90000, time() - 90000))
+    @contextmanager
+    def scope():
+        yield session
+    monkeypatch.setattr(assets, 'get_session_scope', lambda: scope)
+    result = assets.reconcile()
+    assert result['orphanFiles'] == [orphan.name] and result['missingFiles'] == 0
+    assert orphan.exists()
+    assets.reconcile(apply=True)
+    assert not orphan.exists() and recent.exists() and referenced.exists()
+
+
+def test_commit_failure_returns_unavailable_and_removes_new_file(client, owner, assets_dir, session, monkeypatch):
+    from sqlalchemy import func, select
+    from sqlalchemy.exc import OperationalError
+    from app.db.models import Asset
+    original = session.commit
+    calls = []
+    def fail_commit():
+        calls.append(True)
+        if len(calls) == 1:
+            return original()  # The fixture's setup boundary.
+        raise OperationalError('private SQL', {}, RuntimeError('private DB failure'))
+    monkeypatch.setattr(session, 'commit', fail_commit)
+    response = _upload(client, owner[0])
+    assert response.status_code == 503 and response.json()['code'] == 'database_unavailable'
+    assert not list(assets_dir.iterdir())
+    assert session.scalar(select(func.count()).select_from(Asset)) == 0
+    assert owner[1].storage_bytes == 0

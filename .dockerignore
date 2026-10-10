@@ -8,11 +8,13 @@ npm-debug.log*
 .DS_Store
 
 # Secrets never belong in an image — env is injected by docker compose.
+.secrets
 .env
 .env.*
 
-# Built separately as its own service; also carries a heavy local .venv/torch.
-import-pipeline
+# The backend is built separately.
+backend
+archive
 
 # Local-only design inspiration (large binaries).
 docs/design-taste
