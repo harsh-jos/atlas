@@ -129,7 +129,8 @@ def test_history_of_an_unknown_session_is_empty(client, token, monkeypatch):
 
     response = client.get("/agent/chat/never-started", headers=_auth(token))
     assert response.status_code == 200
-    assert response.json() == {"sessionId": "never-started", "messages": [], "latestTurn": None}
+    assert response.json() == {"sessionId": "never-started", "messages": [], "latestTurn": None,
+                               "hasMore": False, "nextBefore": None, "nextLegacyOffset": 0}
 
 
 def test_history_replays_prior_turns(client, token, monkeypatch):
@@ -149,6 +150,7 @@ def test_history_replays_prior_turns(client, token, monkeypatch):
             {"role": "atlas", "text": "a burrito"},
         ],
         "latestTurn": None,
+        "hasMore": False, "nextBefore": None, "nextLegacyOffset": 2,
     }
 
 
@@ -207,3 +209,24 @@ def test_cancel_requires_auth_hides_other_owners_and_is_idempotent(client, sessi
     assert stopped.json()['status'] == 'cancelled'
     assert stopped.json()['cancelRequested'] is True
     assert client.post(path, headers=_auth(token)).json() == stopped.json()
+
+
+def test_history_cursor_keeps_older_turns_accessible(client, session, token, monkeypatch):
+    from uuid import uuid4
+    from app.core.security import read_access_token
+    from app.db.models import AgentTurn
+
+    async def empty(*args, **kwargs):
+        return []
+    monkeypatch.setattr('app.agent.router.load_history', empty)
+    session.add_all([
+        AgentTurn(user_id=read_access_token(token), session_id='paged', request_id=uuid4(),
+                  message=f'question {i}', status='completed', reply=f'answer {i}')
+        for i in range(103)
+    ])
+    session.flush()
+    first = client.get('/agent/chat/paged', headers=_auth(token)).json()
+    assert first['hasMore'] and len(first['messages']) == 200
+    second = client.get('/agent/chat/paged', params={'before': first['nextBefore']}, headers=_auth(token)).json()
+    assert not second['hasMore'] and len(second['messages']) == 6
+    assert not {row['text'] for row in first['messages']} & {row['text'] for row in second['messages']}

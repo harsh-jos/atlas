@@ -53,6 +53,8 @@ async function readSnapshot<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const router = useRouter();
+  const [historyPage, setHistoryPage] = useState(initialSnapshot);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [entries, setEntries] = useState<Entry[]>(initialSnapshot.messages);
   const [turn, setTurn] = useState<ChatTurn | null>(initialSnapshot.latestTurn);
   const [draft, setDraft] = useState('');
@@ -70,6 +72,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const refresh = useCallback(async (signal?: AbortSignal) => {
     const snapshot = await readSnapshot<ChatHistory>(`/api/chat/${encodeURIComponent(sessionId)}`, signal);
     setEntries(snapshot.messages);
+    setHistoryPage(snapshot);
     setTurn(snapshot.latestTurn);
     setError(snapshot.latestTurn?.error ?? null);
     if (submissionRef.current && snapshot.latestTurn?.requestId === submissionRef.current.id) {
@@ -209,6 +212,22 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     }
   };
 
+  async function loadEarlier() {
+    if (loadingEarlier) return;
+    setLoadingEarlier(true);
+    try {
+      const query = new URLSearchParams({ legacy_offset: String(historyPage.nextLegacyOffset ?? 0) });
+      if (historyPage.nextBefore) query.set('before', historyPage.nextBefore);
+      const older = await readSnapshot<ChatHistory>(`/api/chat/${encodeURIComponent(sessionId)}?${query}`);
+      setEntries((current) => [...older.messages, ...current]);
+      setHistoryPage(older);
+    } catch {
+      setError('Could not load earlier messages. Try again.');
+    } finally {
+      setLoadingEarlier(false);
+    }
+  }
+
   const isEmpty = entries.length === 0 && !pending;
 
   return (
@@ -218,6 +237,11 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           <EmptyState onPick={(prompt) => void say(prompt)} />
         ) : (
           <div className="space-y-6 pb-4 pt-6">
+            {historyPage.hasMore && (
+              <Button type="button" disabled={loadingEarlier} onClick={() => void loadEarlier()}>
+                {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
+              </Button>
+            )}
             {entries.map((entry, index) => (
               <MessageRow key={index} role={entry.role} text={entry.text} />
             ))}

@@ -14,8 +14,8 @@ from google.adk.events.event import Event
 from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from google.genai import types
-from sqlalchemy import cast, func, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import cast, func, select, literal
+from sqlalchemy.dialects.postgresql import JSONB, JSONPATH
 from google.adk.sessions.schemas.v1 import StorageEvent, StorageSession
 
 from app.agent.usage import AgentLimitReached
@@ -84,6 +84,11 @@ async def read_history(
             .where(StorageEvent.app_name == get_settings().agent_app_name,
                    StorageEvent.user_id == user_id, StorageEvent.session_id == session_id,
                    data["custom_metadata"]["atlas_turn_id"].astext.is_(None),
+                   data["partial"].astext.is_distinct_from("true"),
+                   func.jsonb_path_exists(
+                       data, cast(literal('$.content.parts[*] ? (exists(@.text) && (@.thought == false || !exists(@.thought)))'), JSONPATH)),
+                   ~func.jsonb_path_exists(data, cast(literal('$.content.parts[*].function_call'), JSONPATH)),
+                   ~func.jsonb_path_exists(data, cast(literal('$.content.parts[*].function_response'), JSONPATH)),
                    (data["content"]["role"].astext == "user") | (data["author"].astext == "atlas"))
             .order_by(StorageEvent.timestamp.desc(), StorageEvent.id.desc())
             .limit(limit).offset(offset)

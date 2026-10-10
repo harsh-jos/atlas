@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import case, func, select, update
+from sqlalchemy import case, func, select, update, tuple_
 
 from app.db.base import SessionScope
 from app.db.models import AgentTurn, User
@@ -78,14 +78,20 @@ class TurnStore:
             session.flush()
             return turn_data(row)
 
-    def conversation(self, user_id: UUID, session_id: str) -> list[dict]:
+    def conversation(self, user_id: UUID, session_id: str, limit: int = 101,
+                     before: UUID | None = None) -> list[dict]:
         with self.scope() as session:
-            rows = session.scalars(
-                select(AgentTurn)
-                .where(AgentTurn.user_id == user_id, AgentTurn.session_id == session_id)
-                .order_by(AgentTurn.created_at, AgentTurn.id)
-            )
-            return [turn_data(row) for row in rows]
+            statement = select(AgentTurn).where(
+                AgentTurn.user_id == user_id, AgentTurn.session_id == session_id)
+            if before is not None:
+                cursor = session.scalar(statement.where(AgentTurn.id == before))
+                if cursor is None:
+                    return []
+                statement = statement.where(
+                    tuple_(AgentTurn.created_at, AgentTurn.id) < (cursor.created_at, cursor.id))
+            rows = session.scalars(statement.order_by(
+                AgentTurn.created_at.desc(), AgentTurn.id.desc()).limit(limit)).all()
+            return [turn_data(row) for row in reversed(rows)]
 
     def get(self, user_id: UUID, turn_id: UUID) -> dict | None:
         with self.scope() as session:

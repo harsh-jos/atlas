@@ -61,6 +61,9 @@ class ChatHistory(BaseModel):
     session_id: str
     messages: list[ChatMessage]
     latest_turn: ChatTurn | None = None
+    has_more: bool = False
+    next_before: UUID | None = None
+    next_legacy_offset: int = 0
 
 
 class ChatSessionSummary(BaseModel):
@@ -109,19 +112,32 @@ async def cancel_turn(turn_id: UUID, user_id: CurrentUserId, scope: SessionScope
 
 
 @router.get("/chat/{session_id}", response_model=ChatHistory)
-async def history(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatHistory:
-    """Prior turns for one session — an unknown id is an empty, not-yet-started conversation."""
-    messages = await load_history(user_id, session_id)
-    rows = await asyncio.to_thread(TurnStore(scope).conversation, user_id, session_id)
+async def history(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep,
+                  before: UUID | None = None,
+                  legacy_offset: int = Query(0, ge=0, le=1000000)) -> ChatHistory:
+    """A bounded page, newest first in storage and chronological on the wire."""
+    rows = await asyncio.to_thread(TurnStore(scope).conversation, user_id, session_id, 101, before)
+    managed_more = len(rows) > 100
+    if managed_more:
+        rows = rows[1:]
+    messages = []
+    if not managed_more:
+        messages = (await load_history(user_id, session_id) if legacy_offset == 0
+                    else await load_history(user_id, session_id, offset=legacy_offset))
+    legacy_more = len(messages) > 200
+    if legacy_more:
+        messages = messages[1:]
     visible = [ChatMessage(role=message.role, text=message.text) for message in messages]
     for row in rows:
         visible.append(ChatMessage(role="you", text=row["message"]))
         if row["reply"]:
             visible.append(ChatMessage(role="atlas", text=row["reply"]))
     return ChatHistory(
-        session_id=session_id,
-        messages=visible,
+        session_id=session_id, messages=visible,
         latest_turn=ChatTurn(**rows[-1]) if rows else None,
+        has_more=managed_more or legacy_more,
+        next_before=rows[0]["id"] if rows else before,
+        next_legacy_offset=legacy_offset + len(messages),
     )
 
 

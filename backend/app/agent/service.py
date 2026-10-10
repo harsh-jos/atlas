@@ -88,9 +88,9 @@ async def run_turn(
         ) from None
 
 
-async def load_history(user_id: UUID, session_id: str) -> list[HistoryMessage]:
+async def load_history(user_id: UUID, session_id: str, offset: int = 0) -> list[HistoryMessage]:
     """The prior turns of one conversation, so a chat URL reopens where it left off."""
-    return await read_history(str(user_id), session_id, exclude_managed=True)
+    return await read_history(str(user_id), session_id, exclude_managed=True, limit=201, offset=offset)
 
 
 async def load_chat_sessions(user_id: UUID, limit: int = 100, offset: int = 0) -> list[SessionSummary]:

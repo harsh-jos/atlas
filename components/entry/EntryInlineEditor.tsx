@@ -6,7 +6,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { html } from '@codemirror/lang-html';
 import { AlertCircle, Check, Eye, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { deleteEntry, saveEntry, uploadAsset, type SourceDraft } from '@/app/entries/actions';
+import { deleteEntry, saveEntry, uploadAsset, loadMoreConcepts, type SourceDraft } from '@/app/entries/actions';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -62,6 +62,17 @@ function parseTags(value: string) {
 
 export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps) {
   const router = useRouter();
+  const [conceptOptions, setConceptOptions] = React.useState(concepts);
+  const [moreConcepts, setMoreConcepts] = React.useState(concepts.length === 100);
+  const [loadingConcepts, setLoadingConcepts] = React.useState(false);
+  async function moreCollections() {
+    setLoadingConcepts(true);
+    const result = await loadMoreConcepts(conceptOptions.length);
+    setLoadingConcepts(false);
+    if (result.error !== undefined) { setErrorMessage(result.error); return; }
+    setConceptOptions((current) => [...current, ...result.value]);
+    setMoreConcepts(result.value.length === 100);
+  }
   const saved = React.useMemo(() => toDraft(artifact), [artifact]);
 
   const [title, setTitle] = React.useState(saved.title);
@@ -235,12 +246,16 @@ export function EntryInlineEditor({ artifact, concepts }: EntryInlineEditorProps
               onChange={(event) => setConceptId(event.target.value)}
               className="focus-ring h-9 rounded-field border bg-surface px-3 text-sm text-ink transition-colors hover:border-hairline-strong"
             >
-              {concepts.map((concept) => (
+              {!conceptOptions.some((row) => row.id === artifact.concept.id) && (
+                <option value={artifact.concept.id}>{artifact.concept.name}</option>
+              )}
+              {conceptOptions.map((concept) => (
                 <option key={concept.id} value={concept.id}>
                   {concept.name}
                 </option>
               ))}
             </select>
+            {moreConcepts && <button type="button" className="text-xs text-muted" disabled={loadingConcepts} onClick={() => void moreCollections()}>More collections</button>}
           </label>
         </div>
 

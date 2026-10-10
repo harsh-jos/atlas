@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { type ActionResult, attempt } from '@/lib/actions';
 import { apiGet, apiSend, apiUpload } from '@/lib/api';
-import type { ArtifactDetail, Relation, RelationType, SourceType } from '@/lib/api-types';
+import type { ArtifactDetail, ConceptSummary, Relation, RelationType, SourceType } from '@/lib/api-types';
 
 export interface SourceDraft {
   sourceType: SourceType;
@@ -121,4 +121,9 @@ export async function uploadAsset(form: FormData): Promise<ActionResult<string>>
 
 export async function searchArtifacts(query: string): Promise<ArtifactOption[]> {
   return apiGet<ArtifactOption[]>(`/artifacts?${new URLSearchParams({ q: query })}`);
+}
+
+
+export async function loadMoreConcepts(offset: number): Promise<ActionResult<ConceptSummary[]>> {
+  return attempt(() => apiGet<ConceptSummary[]>(`/concepts?offset=${Math.max(0, Math.floor(offset))}`));
 }

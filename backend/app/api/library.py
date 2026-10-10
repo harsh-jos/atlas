@@ -138,6 +138,7 @@ class GraphLink(Payload):
 
 
 class Graph(Payload):
+    has_more: bool = False
     nodes: list[GraphNode]
     links: list[GraphLink]
 
@@ -155,8 +156,9 @@ def _concept_detail(concept, artifact_count: int) -> ConceptDetail:
 
 
 @router.get("/concepts", response_model=list[ConceptSummary])
-def list_concepts(session: SessionDep, user_id: CurrentUserId) -> list[ConceptSummary]:
-    return [ConceptSummary(**row) for row in library.list_concepts(session, user_id)]
+def list_concepts(session: SessionDep, user_id: CurrentUserId,
+                  limit: int = Query(100, ge=1, le=101), offset: int = Query(0, ge=0, le=1000000)) -> list[ConceptSummary]:
+    return [ConceptSummary(**row) for row in library.list_concepts(session, user_id, limit, offset)]
 
 
 @router.get("/concepts/{slug}", response_model=ConceptPage)
@@ -229,8 +231,9 @@ def search(
 
 
 @router.get("/graph", response_model=Graph)
-def graph(session: SessionDep, user_id: CurrentUserId) -> Graph:
-    return Graph(**library.get_graph(session, user_id))
+def graph(session: SessionDep, user_id: CurrentUserId,
+          limit: int = Query(200, ge=1, le=500), offset: int = Query(0, ge=0, le=1000000)) -> Graph:
+    return Graph(**library.get_graph(session, user_id, limit, offset))
 
 
 @router.get("/concepts/{slug}/neighbourhood")

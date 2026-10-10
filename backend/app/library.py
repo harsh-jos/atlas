@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import Select, asc, desc, func, select
+from sqlalchemy import Select, asc, desc, func, select, literal, union_all
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import Artifact, Concept, ConceptConnection, Relation, Source
@@ -37,7 +37,7 @@ def _owned(model: type, user_id: UUID) -> Select:
     return select(model).where(model.user_id == user_id)
 
 
-def list_concepts(session: Session, user_id: UUID) -> list[dict[str, Any]]:
+def list_concepts(session: Session, user_id: UUID, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
     """Every concept with its size and most recently touched artifact."""
     counts = (
         select(Artifact.concept_id, func.count().label("count"))
@@ -59,7 +59,7 @@ def list_concepts(session: Session, user_id: UUID) -> list[dict[str, Any]]:
         .outerjoin(counts, counts.c.concept_id == Concept.id)
         .outerjoin(latest, (latest.c.concept_id == Concept.id) & (latest.c.position == 1))
         .where(Concept.user_id == user_id)
-        .order_by(Concept.updated_at.desc(), Concept.id)
+        .order_by(Concept.updated_at.desc(), Concept.id).limit(limit).offset(offset)
     )
     return [dict(row._mapping) for row in rows]
 
@@ -156,91 +156,46 @@ def _edges(session: Session, user_id: UUID, near, far, artifact_id: UUID) -> lis
     ]
 
 
-def get_graph(session: Session, user_id: UUID) -> dict[str, list[dict]]:
-    """Concepts and saved explanations, with their owned connections for the graph view."""
-    rows = session.execute(
-        select(
-            Artifact.id,
-            Artifact.title,
-            Artifact.slug,
-            Artifact.summary,
-            Concept.name,
-            Concept.color,
-            Artifact.concept_id,
-            Artifact.origin,
-        )
-        .join(Concept, Concept.id == Artifact.concept_id)
-        .where(Artifact.user_id == user_id)
-        .order_by(asc(Artifact.title))
-    ).all()
+def get_graph(session: Session, user_id: UUID, limit: int = 200, offset: int = 0) -> dict:
+    """A bounded induced subgraph; include only edges whose endpoints are visible."""
+    explanations = (
+        select(Artifact.id, Artifact.title, Artifact.slug, Artifact.summary,
+               Concept.name.label("concept_name"), Concept.color.label("concept_color"),
+               Artifact.concept_id, Artifact.origin, literal("explanation").label("node_kind"))
+        .join(Concept, Concept.id == Artifact.concept_id).where(Artifact.user_id == user_id)
+    )
+    concepts = select(
+        Concept.id, Concept.name, Concept.slug, Concept.description, Concept.name, Concept.color,
+        literal(None), literal(None), literal("concept"),
+    ).where(Concept.user_id == user_id)
+    combined = union_all(explanations, concepts).subquery()
+    rows = session.execute(select(combined).order_by(
+        combined.c.title, combined.c.id).limit(limit + 1).offset(offset)).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    ids = [row.id for row in rows]
     links = session.execute(
-        select(
-            Relation.from_id,
-            Relation.to_id,
-            Relation.relation_type,
-            Relation.note,
-            Relation.origin,
-        ).where(Relation.user_id == user_id)
+        select(Relation.from_id, Relation.to_id, Relation.relation_type, Relation.note, Relation.origin)
+        .where(Relation.user_id == user_id, Relation.from_id.in_(ids), Relation.to_id.in_(ids))
     ).all()
-    graph = {
-        "nodes": [
-            {
-                "id": artifact_id,
-                "title": title,
-                "slug": slug,
-                "summary": summary,
-                "concept_name": concept_name,
-                "concept_color": color or _FALLBACK_COLOUR,
-                "node_kind": "explanation",
-            }
-            for artifact_id, title, slug, summary, concept_name, color, _, _ in rows
-        ],
+    connections = session.execute(
+        select(ConceptConnection.from_id, ConceptConnection.to_id, ConceptConnection.kind,
+               ConceptConnection.note, ConceptConnection.origin)
+        .where(ConceptConnection.user_id == user_id,
+               ConceptConnection.from_id.in_(ids), ConceptConnection.to_id.in_(ids))
+    ).all()
+    return {
+        "nodes": [{"id": row.id, "title": row.title, "slug": row.slug, "summary": row.summary,
+                   "concept_name": row.concept_name,
+                   "concept_color": row.concept_color or _FALLBACK_COLOUR,
+                   "node_kind": row.node_kind} for row in rows],
         "links": [
-            {
-                "source": source,
-                "target": target,
-                "relation_type": kind,
-                "note": note,
-                "origin": origin,
-            }
-            for source, target, kind, note, origin in links
+            {"source": source, "target": target, "relation_type": kind, "note": note, "origin": origin}
+            for source, target, kind, note, origin in [*links, *connections]
+        ] + [
+            {"source": row.id, "target": row.concept_id, "relation_type": "explains",
+             "note": None, "origin": row.origin}
+            for row in rows if row.node_kind == "explanation" and row.concept_id in ids
         ],
+        "has_more": has_more,
     }
-
-    concepts = session.scalars(_owned(Concept, user_id).order_by(Concept.name)).all()
-    concept_ids = {row.id for row in concepts}
-    for concept in concepts:
-        graph["nodes"].append(
-            {
-                "id": concept.id,
-                "title": concept.name,
-                "slug": concept.slug,
-                "summary": concept.description,
-                "concept_name": concept.name,
-                "concept_color": concept.color or _FALLBACK_COLOUR,
-                "node_kind": "concept",
-            }
-        )
-    for artifact_id, _, _, _, _, _, concept_id, origin in rows:
-        if concept_id in concept_ids:
-            graph["links"].append(
-                {
-                    "source": artifact_id,
-                    "target": concept_id,
-                    "relation_type": "explains",
-                    "note": None,
-                    "origin": origin,
-                }
-            )
-    for edge in session.scalars(_owned(ConceptConnection, user_id)):
-        if edge.from_id in concept_ids and edge.to_id in concept_ids:
-            graph["links"].append(
-                {
-                    "source": edge.from_id,
-                    "target": edge.to_id,
-                    "relation_type": edge.kind,
-                    "note": edge.note,
-                    "origin": edge.origin,
-                }
-            )
-    return graph

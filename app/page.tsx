@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { apiGet } from '@/lib/api';
 import type { ConceptSummary } from '@/lib/api-types';
 import { CollectionShelf } from '@/components/collection/CollectionShelf';
@@ -7,8 +8,11 @@ import { Library } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export default async function HomePage() {
-  const concepts = await apiGet<ConceptSummary[]>('/concepts');
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
+  const query = await searchParams;
+  const page = Math.max(1, Math.min(10000, Math.floor(Number(query.page) || 1)));
+  const rows = await apiGet<ConceptSummary[]>(`/concepts?limit=101&offset=${(page - 1) * 100}`);
+  const concepts = rows.slice(0, 100);
 
   return (
     <PageContainer>
@@ -35,6 +39,10 @@ export default async function HomePage() {
           />
         ))}
       </div>
+      <nav className="mt-6 flex gap-4 text-sm" aria-label="Library pages">
+        {page > 1 && <Link href={`/?page=${page - 1}`}>Previous</Link>}
+        {rows.length > 100 && <Link href={`/?page=${page + 1}`}>Next</Link>}
+      </nav>
     </PageContainer>
   );
 }

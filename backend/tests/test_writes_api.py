@@ -330,3 +330,11 @@ def test_editor_rejects_a_stale_revision(client, owner):
     payload['body'] = 'stale edit'
     assert client.patch(f'/artifacts/{slug}', json=payload, headers=owner).status_code == 409
     assert client.get(f'/artifacts/{slug}', headers=owner).json()['body'] == 'first edit'
+
+
+def test_library_and_graph_pages_are_bounded(client, owner):
+    assert len(client.get('/concepts?limit=1', headers=owner).json()) == 1
+    page = client.get('/graph?limit=2', headers=owner).json()
+    assert len(page['nodes']) == 2 and page['hasMore']
+    ids = {row['id'] for row in page['nodes']}
+    assert all(row['source'] in ids and row['target'] in ids for row in page['links'])

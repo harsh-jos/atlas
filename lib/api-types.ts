@@ -111,6 +111,7 @@ export interface GraphLink {
 }
 
 export interface Graph {
+  hasMore?: boolean;
   nodes: GraphNode[];
   links: GraphLink[];
 }
@@ -121,6 +122,9 @@ export interface ChatMessage {
 }
 
 export interface ChatHistory {
+  hasMore?: boolean;
+  nextBefore?: string | null;
+  nextLegacyOffset?: number;
   sessionId: string;
   messages: ChatMessage[];
   latestTurn: ChatTurn | null;

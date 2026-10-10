@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { type ActionResult, attempt } from '@/lib/actions';
-import { apiSend } from '@/lib/api';
-import type { ChatTurn } from '@/lib/api-types';
+import { apiGet, apiSend } from '@/lib/api';
+import type { ChatTurn, ChatSessionSummary } from '@/lib/api-types';
 
 export async function cancelTurn(turnId: string): Promise<ActionResult<ChatTurn>> {
   return attempt(() => apiSend<ChatTurn>('POST', `/agent/turns/${encodeURIComponent(turnId)}/cancel`));
@@ -23,4 +23,9 @@ export async function sendTurn(sessionId: string, message: string, requestId: st
     revalidatePath('/', 'layout');
   }
   return result;
+}
+
+
+export async function loadOlderSessions(offset: number): Promise<ActionResult<ChatSessionSummary[]>> {
+  return attempt(() => apiGet<ChatSessionSummary[]>(`/agent/sessions?offset=${Math.max(0, Math.floor(offset))}`));
 }
