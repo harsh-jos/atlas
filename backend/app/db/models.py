@@ -265,6 +265,18 @@ class AgentTurn(OwnedRecord):
     tool_errors: Mapped[list] = mapped_column(
         JSON().with_variant(JSONB(), "postgresql"), default=list, server_default=text("'[]'")
     )
+    event_sequence: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
+
+
+class AgentTurnEvent(Base):
+    """Ordered, committed stream frames; notifications only wake readers of this log."""
+
+    __tablename__ = "agent_turn_events"
+    turn_id: Mapped[UUID] = mapped_column(
+        ForeignKey("agent_turns.id", ondelete="CASCADE"), primary_key=True
+    )
+    sequence: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
 
 
 class ConceptConnection(OwnedRecord):

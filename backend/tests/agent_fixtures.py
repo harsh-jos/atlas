@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.agent.usage import UsageStore
 from app.core.config import Settings
-from app.db.models import AgentRequest, AgentTurn, User
+from app.db.models import AgentRequest, AgentTurn, AgentTurnEvent, User
 
 
 @pytest.fixture
@@ -44,6 +44,7 @@ def usage_factory(tmp_path):
     User.__table__.create(engine)
     AgentRequest.__table__.create(engine)
     AgentTurn.__table__.create(engine)
+    AgentTurnEvent.__table__.create(engine)
     factory = sessionmaker(engine, expire_on_commit=False)
     with factory.begin() as session:
         users = [User(email=f"test{i}@example.com", password_hash="x") for i in range(2)]

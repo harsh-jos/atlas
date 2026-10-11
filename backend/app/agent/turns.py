@@ -3,10 +3,10 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import case, func, select, update, tuple_
+from sqlalchemy import func, select, tuple_
 
 from app.db.base import SessionScope
-from app.db.models import AgentTurn, User
+from app.db.models import AgentTurn, AgentTurnEvent, User
 from app.core.config import get_settings
 from app.core.errors import AppError
 
@@ -45,6 +45,38 @@ def turn_data(row: AgentTurn) -> dict:
 class TurnStore:
     def __init__(self, scope: SessionScope):
         self.scope = scope
+
+    @staticmethod
+    def _event(session, row: AgentTurn, data: dict) -> None:
+        # Callers hold the turn lock. The log, snapshot and notification commit together.
+        row.event_sequence += 1
+        session.add(AgentTurnEvent(turn_id=row.id, sequence=row.event_sequence, data=data))
+        if session.get_bind().dialect.name == "postgresql":
+            session.execute(select(func.pg_notify(f"atlas_turn_{row.id.hex}", "changed")))
+
+    def stream_snapshot(self, user_id: UUID, turn_id: UUID) -> tuple[dict, int, list] | None:
+        with self.scope() as session:
+            row = session.scalar(select(AgentTurn).where(
+                AgentTurn.user_id == user_id, AgentTurn.id == turn_id
+            ).with_for_update(read=True))
+            if row is None:
+                return None
+            # Lock prevents a writer advancing the snapshot between reading it and its cursor.
+            tools = session.scalars(select(AgentTurnEvent).where(
+                AgentTurnEvent.turn_id == turn_id,
+                AgentTurnEvent.data["type"].as_string().in_(
+                    ("agent.tool", "agent.tool_result", "agent.tool_error")
+                ),
+            ).order_by(AgentTurnEvent.sequence.desc()).limit(100)).all()
+            return turn_data(row), row.event_sequence, [event.data for event in reversed(tools)]
+
+    def events(self, user_id: UUID, turn_id: UUID, after: int) -> list[dict]:
+        with self.scope() as session:
+            rows = session.scalars(select(AgentTurnEvent).join(AgentTurn).where(
+                AgentTurn.user_id == user_id, AgentTurnEvent.turn_id == turn_id,
+                AgentTurnEvent.sequence > after,
+            ).order_by(AgentTurnEvent.sequence).limit(250)).all()
+            return [{"id": row.sequence, "data": row.data} for row in rows]
 
     def submit(self, user_id: UUID, session_id: str, request_id: UUID, message: str) -> dict:
         with self.scope() as session:
@@ -134,6 +166,8 @@ class TurnStore:
                 if row.status == "queued":
                     row.status, row.error = "cancelled", STOPPED
                     row.error_code = "cancelled"
+                self._event(session, row, {"type": "turn.status", "status": row.status,
+                                           "cancelRequested": True})
                 session.flush()
             return turn_data(row)
 
@@ -142,17 +176,15 @@ class TurnStore:
         with self.scope() as session:
             if session.get_bind().dialect.name == "sqlite":
                 session.connection().exec_driver_sql("BEGIN IMMEDIATE")
-            session.execute(
-                update(AgentTurn)
-                .where(AgentTurn.status == "running", AgentTurn.lease_until < now)
-                .values(
-                    status=case((AgentTurn.cancel_requested, "cancelled"), else_="interrupted"),
-                    error=case((AgentTurn.cancel_requested, STOPPED), else_=INTERRUPTED),
-                    error_code=case((AgentTurn.cancel_requested, "cancelled"), else_="interrupted"),
-                    lease_until=None,
-                    tool_name=None,
-                )
-            )
+            expired = session.scalars(select(AgentTurn).where(
+                AgentTurn.status == "running", AgentTurn.lease_until < now
+            ).with_for_update(skip_locked=True)).all()
+            for stale in expired:
+                stale.status = "cancelled" if stale.cancel_requested else "interrupted"
+                stale.error = STOPPED if stale.cancel_requested else INTERRUPTED
+                stale.error_code = stale.status
+                stale.lease_until = stale.tool_name = None
+                self._event(session, stale, {"type": "turn.status", "status": stale.status})
             row = session.scalar(
                 select(AgentTurn)
                 .where(AgentTurn.status == "queued")
@@ -164,6 +196,7 @@ class TurnStore:
                 return None
             row.status = "running"
             row.lease_until = now + timedelta(seconds=timeout_seconds + 30)
+            self._event(session, row, {"type": "turn.status", "status": "running"})
             session.flush()
             return {**turn_data(row), "user_id": row.user_id}
 
@@ -178,12 +211,20 @@ class TurnStore:
                 return
             if event["type"] == "agent.tool":
                 row.tool_name = event["name"]
+            elif event["type"] == "agent.tool_result":
+                if row.tool_name == event["name"]:
+                    row.tool_name = None
+            elif event["type"] == "agent.delta":
+                row.tool_name = None
+                row.reply = (row.reply or "") + event["text"]
             elif event["type"] == "agent.message":
-                row.reply = "\n\n".join(filter(None, [row.reply, event["text"]]))
+                row.tool_name = None
+                row.reply = event.get("reply", "\n\n".join(filter(None, [row.reply, event["text"]])))
             elif event["type"] == "agent.tool_error":
                 row.tool_errors = [*row.tool_errors, {
                     "name": event["name"], "code": event["code"], "message": event["message"]
                 }][-10:]
+            self._event(session, row, event)
 
     def finish(
         self, turn_id: UUID, status: str, *, reply: str | None = None, error: str | None = None,
@@ -207,3 +248,4 @@ class TurnStore:
             row.lease_until = row.tool_name = None
             if reply is not None:
                 row.reply = reply
+            self._event(session, row, {"type": "turn.status", "status": row.status})

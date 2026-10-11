@@ -100,3 +100,24 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
 }
 
 export const apiPost = <T,>(path: string, body: unknown) => apiSend<T>('POST', path, body);
+
+/** Forward an SSE body without buffering it; credentials remain server-side. */
+export async function apiStream(path: string, request: Request): Promise<Response> {
+  const lastId = request.headers.get('Last-Event-ID');
+  const response = await call(path, {
+    signal: request.signal,
+    headers: {
+      ...(await authorization()),
+      Accept: 'text/event-stream',
+      ...(lastId ? { 'Last-Event-ID': lastId } : {}),
+    },
+  });
+  if (!response.ok) throw await failure(response, 'Chat stream');
+  return new Response(response.body, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Accel-Buffering': 'no',
+    },
+  });
+}

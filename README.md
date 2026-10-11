@@ -62,7 +62,7 @@ uv run python -m app.db.bootstrap
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-The bootstrap recreates all 17 active schema tables from an empty database, including ADK storage.
+The bootstrap recreates all 18 active schema tables from an empty database, including ADK storage.
 It preserves existing data and can be repeated. Run it once per release before starting replicas;
 replicas refuse startup with pending migrations or missing chat tables. PostgreSQL must provide
 `vector` and `pg_trgm`; the deployment role needs permission to install them, or an administrator
@@ -127,11 +127,22 @@ ID and message returns that turn; conflicting reuse or a second active turn in t
 returns HTTP 409. `GET /agent/turns/{id}` reports owned status, latest tool progress, reply, and errors.
 `GET /agent/chat/{session_id}` restores the conversation and latest turn, including queued messages.
 
-A backend lifespan worker claims queued turns from PostgreSQL. The browser polls active status
-every 1.5 seconds while visible, and refreshes the saved conversation on completion, foreground
-return, or restored network access. Next.js proxies reads using the httpOnly session cookie;
-no browser-facing backend token or socket ticket is needed. There is no WebSocket, SSE, or token
-streaming. The old WebSocket hub and tests are archived.
+A backend lifespan worker claims queued turns from PostgreSQL. The browser subscribes to
+`GET /agent/turns/{id}/events` through a Next.js SSE proxy. ADK streams visible response chunks;
+the stream also carries tool starts, completions, safe failures, and terminal turn snapshots.
+Event IDs are persisted transactionally with the turn state. Reconnection replays events after
+`Last-Event-ID`; a new subscription receives the current reply and recent tool activity.
+The browser no longer polls turn status. Next.js forwards the stream without buffering and
+authenticates with the httpOnly session cookie; no browser-facing backend token is needed.
+The old WebSocket hub and tests are archived.
+
+Live SSE delivery uses PostgreSQL LISTEN/NOTIFY and one dedicated connection per active stream.
+If `DATABASE_URL` uses a transaction-mode pooler, set `DATABASE_LISTEN_URL` to the provider's
+direct/session connection URL. Migrations also require a direct connection for their session lock.
+The stream sends heartbeats and checks durable state every 15 seconds as a recovery fallback.
+The worker still polls the work queue and cancellation flags; SSE changes observation, not execution.
+Hosting must support long-lived unbuffered HTTP responses. The worker needs background CPU;
+deploying to Lambda still requires a separate execution/queue adaptation.
 
 Navigating away or closing the browser does not cancel accepted work. Queued work survives a
 backend restart. Graceful shutdown marks active work interrupted. After an abrupt crash, a running

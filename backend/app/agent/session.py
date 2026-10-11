@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 
 from google.adk.agents import Agent
-from google.adk.agents.run_config import RunConfig
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.agents.invocation_context import LlmCallsLimitExceededError
 from google.adk.events.event import Event
 from google.adk.runners import Runner
@@ -184,6 +184,7 @@ async def ask(
 
     runner = Runner(app_name=app_name, agent=agent, session_service=sessions)
     reply: list[str] = []
+    partial = ""
     settings = get_settings()
     try:
         async with asyncio.timeout(settings.agent_turn_timeout_seconds):
@@ -193,6 +194,7 @@ async def ask(
                 new_message=types.Content(role="user", parts=[types.Part(text=message)]),
                 state_delta=state_delta,
                 run_config=RunConfig(
+                    streaming_mode=StreamingMode.SSE,
                     max_llm_calls=settings.agent_max_calls_per_turn + 1,
                     custom_metadata={"atlas_turn_id": turn_id} if turn_id else None,
                 ),
@@ -200,14 +202,29 @@ async def ask(
                 if on_event:
                     if event.finish_reason == types.FinishReason.MAX_TOKENS:
                         await on_event({"type": "agent.incomplete", "code": "provider_truncated"})
-                    for call in event.get_function_calls():
-                        await on_event({"type": "agent.tool", "name": call.name})
-                if event.author == "atlas" and event.is_final_response():
+                    if not event.partial:
+                        for call in event.get_function_calls():
+                            await on_event({"type": "agent.tool", "name": call.name,
+                                            "callId": call.id})
+                        for result in event.get_function_responses():
+                            await on_event({"type": "agent.tool_result", "name": result.name,
+                                            "callId": result.id})
+                if event.author == "atlas":
                     text = _event_text(event)
                     if text:
-                        reply.append(text)
-                        if on_event:
-                            await on_event({"type": "agent.message", "text": text})
+                        if event.partial:
+                            delta = ("\n\n" if reply and not partial else "") + text
+                            partial += text
+                            if on_event:
+                                await on_event({"type": "agent.delta", "text": delta})
+                        else:
+                            # ADK yields an aggregate after the chunks. Replace, never append
+                            # that aggregate to the already-streamed snapshot a second time.
+                            reply.append(text)
+                            partial = ""
+                            if on_event:
+                                await on_event({"type": "agent.message", "text": text,
+                                                "reply": "\n\n".join(reply)})
     except (AgentLimitReached, TimeoutError, LlmCallsLimitExceededError) as error:
         code = error.code if isinstance(error, AgentLimitReached) else (
             "timeout" if isinstance(error, TimeoutError) else "model_limit"
@@ -232,11 +249,19 @@ async def ask(
                     content=types.Content(role="model", parts=[types.Part(text=notice)]),
                 ),
             )
+        if partial:
+            reply.append(partial)
+            partial = ""
         reply.append(notice)
         if on_event:
-            await on_event({"type": "agent.message", "text": notice})
+            await on_event({"type": "agent.message", "text": notice, "reply": "\n\n".join(reply)})
     finally:
         await runner.close()
+    if partial:
+        # A stream without its aggregate is not a confirmed complete model response.
+        if on_event:
+            await on_event({"type": "agent.incomplete", "code": "provider_stream_interrupted"})
+        reply.append(partial)
     if not reply:
         raise AppError("The model returned no explanation. Try a different question.", "provider_no_reply", 502)
     return "\n\n".join(reply)

@@ -73,6 +73,7 @@ class Settings(BaseSettings):
 
     # Uploaded images, one file per asset id.
     assets_dir: str = "uploads/assets"
+    database_listen_url: str | None = None
     max_asset_bytes: int = 10 * 1024 * 1024
 
 

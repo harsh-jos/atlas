@@ -1,6 +1,7 @@
 # Agent execution and transport
 
-Decision: 10 October 2026. Target: a private Atlas release, not a general job platform.
+Decision: 10 October 2026; SSE transport update: 11 October 2026.
+Target: a private Atlas release, not a general job platform.
 
 ## Why the previous split existed
 
@@ -15,18 +16,21 @@ A socket is a connection; it is not a durable execution record.
 
 ## Current choice
 
-Use ordinary HTTP to submit a turn and read its status. The same turn record contains both
-tool progress and the reply. Poll only an active turn; idle chats create no polling traffic.
-The client pauses polling while hidden and refreshes on visibility and network recovery.
+Use ordinary HTTP to submit a turn, then subscribe to its server-sent events. The original
+1.5-second browser polling was chosen for whole replies; streaming text is now a requirement.
+`GET /agent/turns/{id}` remains available for snapshots and diagnosis, but the UI does not poll it.
 
-Atlas currently delivers whole replies, and tool progress is infrequent. Polling at 1.5 seconds
-is sufficient for this release and requires no streaming proxy, heartbeat, socket registry,
-message broker, or event replay log. It is not intended for high-frequency token updates.
+`GET /agent/turns/{id}/events` checks ownership and carries visible text chunks, authoritative
+message aggregates, tool starts/completions/errors, and turn status. ADK uses `StreamingMode.SSE`.
+Private reasoning and the research subagent's text are excluded. Final aggregates replace the
+streamed reply instead of duplicating it, including citations and notices added by callbacks.
 
-If token streaming becomes a product requirement, keep HTTP submission and replace polling
-with one SSE subscription carrying progress and reply events. Persist event IDs before sending
-them and support replay after reconnect. SSE is a one-way server-to-browser channel, matching
-that use case. See [MDN's SSE guide](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events).
+Each event gets a per-turn sequence under the turn row lock and commits with the snapshot change.
+A fresh subscription receives the current snapshot, its sequence, and up to 100 recent tool events.
+Reconnection uses `Last-Event-ID` to replay only missing events from `agent_turn_events`, then
+continues live. Terminal streams send the final snapshot and close. No reconnect starts model work.
+SSE is a one-way server-to-browser channel, matching this use case.
+See [MDN's SSE guide](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events).
 Reserve WebSocket for a concrete need for continuous two-way traffic, such as realtime voice.
 
 ## Execution
@@ -35,7 +39,8 @@ Reserve WebSocket for a concrete need for continuous two-way traffic, such as re
 2. The authenticated submission transaction commits an owned `agent_turns` row before HTTP 202.
 3. A worker claims queued rows with a short database lock, then releases the database connection.
 4. Google ADK runs using its existing persisted sessions and owned tools. Progress and visible
-   output are checkpointed on the turn. Existing call, time, and spending guards still apply.
+   output are checkpointed on the turn and appended to its event log. Existing call, time,
+   and spending guards still apply.
 5. The final reply or failure is stored. Reads observe it independently of the submitting browser.
 
 States: `queued → running → completed | incomplete | failed | interrupted | cancelled`.
@@ -67,7 +72,23 @@ The worker runs within the backend lifespan, one turn at a time per process. Pos
 prevent multiple workers from claiming the same row. This keeps the private deployment small;
 it is not a separately supervised worker service. Lease expiry requires a healthy worker to run.
 Queued work can wait behind another conversation. Admission is limited to 100 active turns overall
-and 3 per user, checked under database locks; repeated request IDs bypass new-work admission. Latest tool status is saved, not a full event log.
+and 3 per user, checked under database locks; repeated request IDs bypass new-work admission.
+Tool events and text chunks persist for replay alongside the latest turn snapshot.
+
+Live streams use a dedicated PostgreSQL session connection each, listening on a per-turn channel.
+Writers issue transactional NOTIFY after appending events. A listener subscribes before reading
+its snapshot/log, closing the setup race; the log remains authoritative if notifications coalesce.
+Heartbeats and a durable-state recovery check run every 15 seconds. A database/network failure
+closes the stream; EventSource reconnects with its last delivered cursor. Connections close when
+the observer leaves. Next.js proxies the body directly and forwards the reconnect cursor using
+the httpOnly session cookie. The stream stays connected while a tab is hidden.
+
+LISTEN requires a direct/session connection. Set `DATABASE_LISTEN_URL` if the application URL
+uses a transaction-mode pooler; bootstrap also needs a direct connection for its session lock.
+One connection per active observer suits this private deployment; larger deployments should share
+listeners. Event logs currently live as long as their turn (cascade-deleted with it); no timed
+retention/compaction job is introduced. Streaming does not make the lifespan worker suitable for
+Lambda or request-only CPU allocation: queue claiming and cancellation still poll independently.
 
 Recovery means recovering state and detecting interrupted work. It does not mean resuming inside
 an interrupted model request. There is deliberately no automatic replay after execution starts:
@@ -89,7 +110,7 @@ if Stop wins, the terminal state is cancelled. A crashed worker's expired lease 
 its saved cancellation request. Provider-side work may continue or be billed after local
 cancellation; unknown usage still blocks further spending under the existing guard.
 
-Mid-generation continuation and token streaming remain outside this increment.
+Mid-generation continuation remains outside this increment. Visible text now streams over SSE.
 Checks use scripted models and local storage; no live model evaluation is required for transport work.
 
 Verification for this increment: 136 backend tests passed with none skipped. Backend/frontend
