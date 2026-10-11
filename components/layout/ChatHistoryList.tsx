@@ -55,7 +55,7 @@ export function ChatHistoryList({
                 'focus-ring flex h-9 items-center rounded-lg px-3 text-[13px] transition-colors duration-[var(--dur-fast)]',
                 active
                   ? 'bg-black/[0.055] font-medium text-ink'
-                  : 'text-ink/85 hover:bg-black/[0.035] hover:text-ink',
+                  : 'text-ink hover:bg-black/[0.035] hover:text-ink',
               )}
             >
               <span className="truncate">

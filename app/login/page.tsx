@@ -8,7 +8,7 @@ export default function LoginPage() {
       <div className="relative hidden w-[48%] shrink-0 flex-col justify-between overflow-hidden border-r bg-[#eff8fe] px-12 py-10 lg:flex xl:px-16">
         <Logo className="relative z-10 text-3xl" />
         <div className="relative z-10 py-12">
-          <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent-line bg-white/70 px-3 py-1.5 text-[11px] text-accent">
+          <span className="mb-6 inline-flex items-center gap-2 rounded-md border border-accent-line bg-white/70 px-3 py-1.5 text-[11px] text-accent">
             <Sparkles className="size-3.5" />A space for your curiosity
           </span>
           <h2 className="max-w-md text-[44px] font-medium leading-[1.13] tracking-[-0.04em] text-ink">

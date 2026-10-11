@@ -7,9 +7,9 @@
   --canvas: #f5f8fb;
   --surface: #ffffff;
   --surface-soft: #f0f5f9;
-  --ink: #1b2b3e;
-  --muted: #5d7083;
-  --faint: #718296;
+  --ink: #000000;
+  --muted: #595959;
+  --faint: #737373;
   --hairline: #e2eaf1;
   --hairline-strong: #cbd8e4;
   --accent: #0878b0;
@@ -104,7 +104,7 @@
   --color-danger-soft: var(--danger-soft);
   --color-danger-line: var(--danger-line);
 
-  /* Radius steps: cards 12, inputs 10, buttons are pills. */
+  /* Radius steps: cards 12, inputs 10, controls 6–8. */
   --radius-card: 12px;
   --radius-field: 10px;
 

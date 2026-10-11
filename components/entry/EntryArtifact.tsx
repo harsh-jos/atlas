@@ -85,7 +85,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
               <div className="mb-4 flex items-center justify-between gap-4">
                 <Link
                   href={`/collections/${artifact.concept.slug}`}
-                  className="focus-ring group inline-flex min-w-0 items-center gap-1 rounded-full bg-surface-soft py-1.5 pl-2 pr-3 text-[12.5px] font-medium text-muted transition-colors duration-[var(--dur-fast)] hover:bg-accent-soft hover:text-accent"
+                  className="focus-ring group inline-flex min-w-0 items-center gap-1 rounded-md bg-surface-soft py-1.5 pl-2 pr-3 text-[12.5px] font-medium text-muted transition-colors duration-[var(--dur-fast)] hover:bg-accent-soft hover:text-accent"
                 >
                   <ChevronLeft
                     className="h-3.5 w-3.5 shrink-0 text-faint transition-colors group-hover:text-accent"
