@@ -472,7 +472,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         <div
           className={`absolute bottom-16 left-3 max-h-[30%] overflow-y-auto px-2 py-2 sm:bottom-3 ${glass}`}
         >
-          <p className="mb-1 px-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-faint">
+          <p className="mb-1 px-1.5 font-sans text-xs font-medium text-faint">
             Concepts
           </p>
           <ul className="flex flex-col">
@@ -564,7 +564,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
             <div className="mt-4 space-y-3 border-t pt-4">
               {selectedRelations.map((group) => (
                 <div key={group.label}>
-                  <p className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-faint">
+                  <p className="mb-1.5 font-sans text-xs font-medium text-faint">
                     {group.label}
                   </p>
                   <div className="flex flex-wrap gap-1.5">

@@ -420,43 +420,45 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           setShowJump(away);
         }}
       >
-        {isEmpty ? (
-          <EmptyState onPick={setDraft} />
-        ) : (
-          <div className="space-y-6 pb-6 pt-5">
-            {historyPage.hasMore && (
-              <Button
-                type="button"
-                disabled={loadingEarlier}
-                onClick={() => void loadEarlier()}
-              >
-                {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
-              </Button>
-            )}
-            {entries.map((entry, index) => (
-              <MessageRow key={index} role={entry.role} text={entry.text} />
-            ))}
+        <div className="mx-auto w-full max-w-[var(--chat-measure)]">
+          {isEmpty ? (
+            <EmptyState onPick={setDraft} />
+          ) : (
+            <div className="space-y-6 pb-6 pt-5">
+              {historyPage.hasMore && (
+                <Button
+                  type="button"
+                  disabled={loadingEarlier}
+                  onClick={() => void loadEarlier()}
+                >
+                  {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
+                </Button>
+              )}
+              {entries.map((entry, index) => (
+                <MessageRow key={index} role={entry.role} text={entry.text} />
+              ))}
 
-            {pending && <ThinkingIndicator activity={activity} />}
-          </div>
-        )}
-        {error && (
-          <p role="alert" className="px-1 pb-3 text-[13px] text-danger">
-            {error}
-          </p>
-        )}
-        {!!turn?.toolErrors.length && (
-          <p role="status" className="px-1 pb-3 text-[13px] text-danger">
-            Some saved-knowledge operations reported errors:{' '}
-            {turn.toolErrors.map((issue) => issue.message).join(' ')} Reference:{' '}
-            {turn.id}
-          </p>
-        )}
-        {turn && (turn.error || turn.status === 'incomplete') && (
-          <p className="pb-4 font-mono text-[11px] text-faint">
-            {turn.errorCode ?? turn.status} · Reference: {turn.id}
-          </p>
-        )}
+              {pending && <ThinkingIndicator activity={activity} />}
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="px-1 pb-3 text-[13px] text-danger">
+              {error}
+            </p>
+          )}
+          {!!turn?.toolErrors.length && (
+            <p role="status" className="px-1 pb-3 text-[13px] text-danger">
+              Some saved-knowledge operations reported errors:{' '}
+              {turn.toolErrors.map((issue) => issue.message).join(' ')} Reference:{' '}
+              {turn.id}
+            </p>
+          )}
+          {turn && (turn.error || turn.status === 'incomplete') && (
+            <p className="pb-4 font-mono text-[11px] text-faint">
+              {turn.errorCode ?? turn.status} · Reference: {turn.id}
+            </p>
+          )}
+        </div>
       </ScrollArea>
 
       {showJump && (
@@ -488,7 +490,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   if (role === 'you') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eff0f2] px-4 py-2.5 text-sm leading-relaxed text-ink">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eff0f2] px-3.5 py-2 text-sm leading-relaxed text-ink">
           {text}
         </div>
       </div>
@@ -542,12 +544,12 @@ function ThinkingIndicator({ activity }: { activity: string[] }) {
         {activity.map((label, index) => (
           <p
             key={index}
-            className="animate-rise font-mono text-[11.5px] text-faint"
+            className="animate-rise text-xs text-faint"
           >
             {label}…
           </p>
         ))}
-        <p className="font-mono text-[11.5px] text-faint">Thinking…</p>
+        <p className="text-xs text-faint">Thinking…</p>
       </div>
     </div>
   );
@@ -627,7 +629,7 @@ function Composer({
         onSubmit();
       }}
     >
-      <div className="rounded-[22px] border border-black/10 bg-white px-4 pb-2.5 pt-2.5 shadow-[0_2px_8px_#00000003] transition-shadow focus-within:border-hairline-strong focus-within:shadow-[0_0_0_3px_#eaf6fd]">
+      <div className="mx-auto w-full max-w-[var(--chat-measure)] rounded-[20px] border border-black/10 bg-white px-3.5 py-2 shadow-[0_2px_8px_#00000003] transition-shadow focus-within:border-hairline-strong focus-within:shadow-[0_0_0_3px_#eaf6fd]">
         <Textarea
           ref={textareaRef}
           value={draft}
@@ -653,7 +655,7 @@ function Composer({
             Atlas
           </span>
           <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-1 font-mono text-[11px] text-faint sm:flex">
+            <span className="hidden items-center gap-1 text-[11px] text-faint sm:flex">
               <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">
                 ⏎
               </kbd>
@@ -670,7 +672,7 @@ function Composer({
                 size="icon"
                 disabled={pending || !draft.trim()}
                 aria-label="Send message"
-                className="shrink-0 rounded-full"
+                className="size-8 shrink-0 rounded-full"
               >
                 <SendIcon />
               </Button>

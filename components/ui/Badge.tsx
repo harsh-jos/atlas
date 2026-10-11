@@ -19,7 +19,7 @@ function Badge({ className, variant = 'default', ...props }: BadgeProps) {
     <ShadcnBadge
       variant="outline"
       className={cn(
-        'inline-flex select-none items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[11px] font-medium leading-none',
+        'inline-flex select-none items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium leading-none',
         (variant === 'default' || variant === 'secondary') &&
           'border-hairline bg-surface-soft text-muted',
         (variant === 'accent' || variant === 'info') &&

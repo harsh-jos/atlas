@@ -72,7 +72,7 @@ export function EntryMetadata({ metadata }: EntryMetadataProps) {
   if (rows.length <= COLLAPSE_THRESHOLD) {
     return (
       <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[13px] leading-6">
-        <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+        <span className="shrink-0 font-sans text-xs font-medium text-faint">
           Details
         </span>
         {list}
@@ -83,7 +83,7 @@ export function EntryMetadata({ metadata }: EntryMetadataProps) {
   return (
     <details className="group text-[13px] leading-6">
       <summary className="focus-ring flex cursor-pointer list-none items-baseline gap-1.5 [&::-webkit-details-marker]:hidden">
-        <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+        <span className="shrink-0 font-sans text-xs font-medium text-faint">
           Details
         </span>
         <span className="text-faint">{rows.length} fields</span>

@@ -63,7 +63,7 @@ export default function LoginPage() {
           <div className="mb-12 lg:hidden">
             <Logo className="text-3xl" />
           </div>
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+          <p className="mb-3 font-sans text-xs font-medium text-accent">
             Your learning space
           </p>
           <h1 className="text-[32px] font-semibold tracking-[-0.035em] text-ink">
