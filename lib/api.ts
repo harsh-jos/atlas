@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { supabaseServer, usesSupabase } from '@/lib/supabase/server';
 
 /** The Python backend is the only source of data; nothing here touches a database. */
 const API_URL = process.env.ATLAS_API_URL ?? 'http://localhost:8000';
@@ -19,8 +20,17 @@ export class ApiError extends Error {
 
 const UNREACHABLE = 'Could not reach Atlas. Is the backend running?';
 
+export async function accessToken(): Promise<string | undefined> {
+  if (!usesSupabase()) return (await cookies()).get(TOKEN_COOKIE)?.value;
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.auth.getClaims();
+  if (error || !data?.claims) return undefined;
+  // Session supplies the serialized token only after claims have been verified.
+  return (await supabase.auth.getSession()).data.session?.access_token;
+}
+
 async function authorization(): Promise<Record<string, string>> {
-  const token = (await cookies()).get(TOKEN_COOKIE)?.value;
+  const token = await accessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -100,3 +110,24 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
 }
 
 export const apiPost = <T,>(path: string, body: unknown) => apiSend<T>('POST', path, body);
+
+/** Forward an SSE body without buffering it; credentials remain server-side. */
+export async function apiStream(path: string, request: Request): Promise<Response> {
+  const lastId = request.headers.get('Last-Event-ID');
+  const response = await call(path, {
+    signal: request.signal,
+    headers: {
+      ...(await authorization()),
+      Accept: 'text/event-stream',
+      ...(lastId ? { 'Last-Event-ID': lastId } : {}),
+    },
+  });
+  if (!response.ok) throw await failure(response, 'Chat stream');
+  return new Response(response.body, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Accel-Buffering': 'no',
+    },
+  });
+}

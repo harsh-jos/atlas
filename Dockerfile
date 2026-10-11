@@ -1,28 +1,18 @@
 # syntax=docker/dockerfile:1
-# Next.js web app. Kept deliberately simple (single stage) for local-first dev:
-# dev deps (typescript) stay in the image for the build.
-FROM node:22-slim
-
+FROM node:22-slim AS build
 WORKDIR /app
-
-# ca-certificates for outbound TLS.
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends openssl ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-
-# Install dependencies first so this layer caches across source changes.
-# `npm install` (not `npm ci`) because native/wasm optional deps (turbopack,
-# tailwind oxide) resolve per-platform, and the lockfile is generated on macOS —
-# `npm ci`'s strict cross-platform check fails on the Linux-only variants.
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
-RUN npm install --no-audit --no-fund
-
+RUN npm ci --no-audit --no-fund
 COPY . .
-
-# Pages are dynamic and fetch from the API, so no database is needed at build time.
 RUN npm run build
 
+FROM node:22-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+COPY --from=build --chown=node:node /app/public ./public
+USER node
 EXPOSE 3000
-
-# Apply migrations against the live DB, then serve. `migrate deploy` is idempotent.
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]

@@ -7,7 +7,7 @@ carries a default in this file. Nothing else in the codebase hardcodes a tunable
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Schema-bound, so deliberately NOT environment-driven: changing it needs a migration and a
@@ -36,8 +36,14 @@ class Settings(BaseSettings):
     db_statement_timeout_seconds: int = Field(default=30, ge=1, le=120)
     db_lock_timeout_seconds: int = Field(default=5, ge=1, le=60)
 
-    # No default: the service must refuse to boot rather than sign tokens with a known secret.
-    jwt_secret: str
+    # Local signing requires an explicit secret; hosted auth validates Supabase JWKS.
+    auth_provider: Literal["local", "supabase"] = "local"
+    supabase_url: str | None = None
+    supabase_jwt_audience: str = "authenticated"
+    supabase_service_key: str | None = None
+    storage_backend: Literal["local", "supabase"] = "local"
+    supabase_storage_bucket: str = "atlas-assets"
+    jwt_secret: str | None = None
     jwt_algorithm: str = "HS256"
     access_token_ttl_minutes: int = 60 * 24
 
@@ -73,7 +79,20 @@ class Settings(BaseSettings):
 
     # Uploaded images, one file per asset id.
     assets_dir: str = "uploads/assets"
+    agent_stream_start_timeout_seconds: int = Field(default=60, ge=10, le=300)
     max_asset_bytes: int = 10 * 1024 * 1024
+
+    @model_validator(mode="after")
+    def deployment_requirements(self):
+        if self.auth_provider == "local" and not self.jwt_secret:
+            raise ValueError("JWT_SECRET is required for local auth")
+        if self.auth_provider == "supabase" or self.storage_backend == "supabase":
+            if not self.supabase_url or not self.supabase_url.startswith("https://"):
+                raise ValueError("SUPABASE_URL must be an HTTPS project URL")
+            self.supabase_url = self.supabase_url.rstrip("/")
+        if self.storage_backend == "supabase" and not self.supabase_service_key:
+            raise ValueError("SUPABASE_SERVICE_KEY is required for private object storage")
+        return self
 
 
 @lru_cache

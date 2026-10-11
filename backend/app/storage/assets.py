@@ -6,7 +6,11 @@ from pathlib import Path
 from time import time
 from uuid import UUID
 
+import httpx
+from urllib.parse import quote
+
 from sqlalchemy import event, select
+from app.core.errors import AppError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -17,10 +21,48 @@ from app.db.models import Asset
 log = logging.getLogger(__name__)
 
 
+def _remote() -> bool:
+    return get_settings().storage_backend == "supabase"
+
+
+def storage_request(method: str, route: str, **kwargs) -> httpx.Response:
+    settings = get_settings()
+    key = settings.supabase_service_key
+    headers = {"apikey": key}
+    # Legacy service_role keys are JWTs; newer secret keys belong only in apikey.
+    if key and not key.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {key}"
+    headers.update(kwargs.pop("headers", {}))
+    try:
+        response = httpx.request(method, f"{settings.supabase_url}/storage/v1/{route}",
+                                headers=headers, timeout=30, **kwargs)
+    except httpx.HTTPError:
+        raise AppError("Image storage is unavailable. Try again later.", "storage_unavailable", 503) from None
+    if response.status_code >= 400 and response.status_code != 404:
+        raise AppError("Image storage is unavailable. Try again later.", "storage_unavailable", 503)
+    return response
+
+
+def object_route(path: Path, *, authenticated: bool = False) -> str:
+    bucket = quote(get_settings().supabase_storage_bucket, safe="")
+    return f"object/{'authenticated/' if authenticated else ''}{bucket}/{quote(path.name, safe='')}"
+
+
+def read(path: Path) -> bytes:
+    response = storage_request("GET", object_route(path, authenticated=True))
+    if response.status_code == 404:
+        raise AppError("This saved image is missing. Upload it again.", "asset_missing", 404)
+    return response.content
+
+
 def remove(path: Path) -> None:
     try:
-        path.unlink(missing_ok=True)
-    except OSError as error:
+        if _remote():
+            bucket = quote(get_settings().supabase_storage_bucket, safe="")
+            storage_request("DELETE", f"object/{bucket}", json={"prefixes": [path.name]})
+        else:
+            path.unlink(missing_ok=True)
+    except (OSError, AppError) as error:
         report(log, error, "asset_cleanup_failed")
 
 
@@ -38,8 +80,16 @@ def rolled_back(session: Session) -> None:
         remove(path)
 
 
-def write(session: Session, path: Path, data: bytes) -> None:
+def write(session: Session, path: Path, data: bytes, mime_type: str = "application/octet-stream") -> None:
     session.connection()  # Ensure rollback hooks run even before the first row is written.
+    if _remote():
+        # Register compensation before the network call; a timeout can occur after upload.
+        session.info.setdefault("asset_rollback", []).append(path)
+        response = storage_request("POST", object_route(path), content=data,
+                                   headers={"Content-Type": mime_type, "x-upsert": "false"})
+        if response.status_code == 404:
+            raise AppError("Image storage bucket is missing.", "storage_unavailable", 503)
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".part")
     session.info.setdefault("asset_rollback", []).extend([temporary, path])
@@ -59,6 +109,8 @@ def delete_after_commit(session: Session, path: Path) -> None:
 
 def reconcile(*, apply: bool = False) -> dict:
     """Only remove unreferenced UUID files older than a day. Default is a dry run."""
+    if _remote():
+        raise ValueError("Filesystem reconciliation is only for local storage. See deployment.md for remote cleanup.")
     with get_session_scope()() as session:
         referenced = {str(id) for id in session.scalars(select(Asset.id))}
     directory = Path(get_settings().assets_dir)

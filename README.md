@@ -62,7 +62,7 @@ uv run python -m app.db.bootstrap
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-The bootstrap recreates all 17 active schema tables from an empty database, including ADK storage.
+The bootstrap recreates all 18 active schema tables from an empty database, including ADK storage.
 It preserves existing data and can be repeated. Run it once per release before starting replicas;
 replicas refuse startup with pending migrations or missing chat tables. PostgreSQL must provide
 `vector` and `pg_trgm`; the deployment role needs permission to install them, or an administrator
@@ -127,25 +127,23 @@ ID and message returns that turn; conflicting reuse or a second active turn in t
 returns HTTP 409. `GET /agent/turns/{id}` reports owned status, latest tool progress, reply, and errors.
 `GET /agent/chat/{session_id}` restores the conversation and latest turn, including queued messages.
 
-A backend lifespan worker claims queued turns from PostgreSQL. The browser polls active status
-every 1.5 seconds while visible, and refreshes the saved conversation on completion, foreground
-return, or restored network access. Next.js proxies reads using the httpOnly session cookie;
-no browser-facing backend token or socket ticket is needed. There is no WebSocket, SSE, or token
-streaming. The old WebSocket hub and tests are archived.
+The browser opens `GET /agent/turns/{id}/events` through the Next.js SSE proxy. That request
+atomically claims and executes its specific owned turn. ADK streams visible response chunks,
+tool starts, completions, safe failures, and terminal snapshots. Progress commits before delivery;
+`Last-Event-ID` replays saved events without rerunning an interrupted turn.
 
-Navigating away or closing the browser does not cancel accepted work. Queued work survives a
-backend restart. Graceful shutdown marks active work interrupted. After an abrupt crash, a running
-turn becomes interrupted when its lease expires (reply timeout plus 30 seconds), rather than
-remaining stuck forever. Persisted partial output and saved explanations remain. Running work is
-never automatically replayed: tool writes or provider charges may already have happened.
-Incomplete replies have status `incomplete` and an `errorCode`; tool failures are retained in
-`toolErrors` even when the guide continues. Turn IDs are diagnostic references.
-Use the chat Stop button or `POST /agent/turns/{id}/cancel` to stop an owned turn.
-Queued turns cancel immediately. Running turns stay active with `cancelRequested: true` until
-the worker cancels execution and stores `cancelled`; partial replies and saved work remain.
-Repeated Stop requests are safe, and completed turns are unchanged. An in-flight provider
-request may still be billed. An in-flight database tool is allowed to finish before the chat
-accepts another turn. No mid-generation continuation is implemented.
+There is no queue worker or background polling. A local async event wakes delivery when progress
+commits; 15-second heartbeats do not query the database. No LISTEN connection is needed. The first
+stream owns execution; simultaneous connections cannot execute it again.
+
+Closing the stream or navigating away interrupts generation. Partial output and committed tool
+writes remain. Graceful shutdown marks interruption; abrupt crashes expire after the turn timeout
+plus 30 seconds on the next claim/submission. Unopened submissions expire after 60 seconds.
+The Stop button and endpoint have been removed. No automatic model retry or continuation is added.
+
+The hosted setup uses Supabase Auth, Postgres, and private Storage with two Cloud Run services.
+Local auth and disk uploads remain available for development. See [deployment setup](docs/deployment.md)
+for configuration, migrations, provider setup, credentials, and the connection-lifetime trade-off.
 
 ## Backend failures and capacity
 
@@ -156,11 +154,11 @@ omits raw exception values, SQL parameters, prompts, and tool arguments. No auto
 or mutation retry is introduced. A failed submission can still be checked with its original request ID.
 Database commits finish before mutation success responses are sent.
 
-Readiness checks both PostgreSQL and a live worker with recent successful queue access. `/livez`
+Readiness checks schema setup and PostgreSQL. `/livez`
 only checks the API process. Database connections wait at most 5 seconds to connect/acquire a
 pool slot, statements have a 30-second server deadline, and lock waits have a 5-second deadline.
 These defaults apply to both app and ADK connections and can be changed in the environment examples.
-A turn may need database cleanup after Stop; these deadlines bound server-side database waits.
+A turn may need database cleanup after disconnect; these deadlines bound server-side database waits.
 
 At most 100 turns can be queued/running across the app, with 3 per user. Excess submissions
 return `queue_full` (503) or `user_queue_full` (429). Existing request-ID retries remain readable

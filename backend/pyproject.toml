@@ -13,7 +13,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.14",
     "pgvector>=0.3",
-    "pyjwt>=2.10",
+    "pyjwt[crypto]>=2.10",
     "pwdlib[argon2]>=0.2",
     "email-validator>=2.2",
     "google-adk==2.5.0",

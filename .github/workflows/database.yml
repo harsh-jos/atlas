@@ -1,4 +1,4 @@
-name: Database schema and focused regressions
+name: Database schema and backend regressions
 on:
   push:
   pull_request:
@@ -37,9 +37,5 @@ jobs:
           uv run python -m app.db.bootstrap
           uv run python -m app.db.bootstrap
           uv run alembic check
-      - name: Focused database regressions (Postgres must be available)
-        run: >-
-          uv run pytest -q tests/test_database_limits.py tests/test_chat_projections.py
-          tests/test_writes_api.py::test_editor_rejects_a_stale_revision
-          tests/test_writes_api.py::test_parallel_editor_writes_charge_the_final_body
-          tests/test_agent_endpoint.py::test_history_cursor_keeps_older_turns_accessible
+      - name: Backend regressions (Postgres must be available)
+        run: uv run pytest -q

@@ -11,3 +11,9 @@ jobs.db
 # Secrets are injected by docker compose.
 .env
 .env.*
+
+# Credentials and repository metadata never belong in a runtime image.
+.git
+.secrets
+.aws
+*.pem

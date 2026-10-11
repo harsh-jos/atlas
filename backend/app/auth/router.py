@@ -1,6 +1,7 @@
 """Auth endpoints: register, log in, identify the caller."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from app.core.config import get_settings
 
 from app.auth.deps import CurrentUser, SessionDep
 from app.auth.schemas import Credentials, TokenResponse, UserResponse
@@ -9,7 +10,12 @@ from app.auth.service import AuthService, EmailTaken, InvalidCredentials
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def local_auth_only():
+    if get_settings().auth_provider != "local":
+        raise HTTPException(404, "Use Supabase to sign in")
+
+
+@router.post("/register", dependencies=[Depends(local_auth_only)], response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(credentials: Credentials, session: SessionDep) -> UserResponse:
     try:
         user = AuthService(session).register(credentials.email, credentials.password)
@@ -18,7 +24,7 @@ def register(credentials: Credentials, session: SessionDep) -> UserResponse:
     return UserResponse.model_validate(user)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", dependencies=[Depends(local_auth_only)], response_model=TokenResponse)
 def login(credentials: Credentials, session: SessionDep) -> TokenResponse:
     service = AuthService(session)
     try:

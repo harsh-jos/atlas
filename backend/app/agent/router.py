@@ -1,4 +1,4 @@
-"""Submit an owned turn, then read durable status and conversation snapshots over HTTP."""
+"""Submit owned turns, stream durable events, and restore conversation snapshots."""
 
 import asyncio
 from dataclasses import asdict
@@ -6,12 +6,14 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 from app.agent.service import load_chat_sessions, load_history
 from app.agent.turns import TurnConflict, TurnStore
+from app.agent.stream import events as stream_events
 from app.auth.deps import CurrentUserId, SessionScopeDep
 from app.agent.usage import UsageStore
 from app.core.config import get_settings
@@ -102,13 +104,31 @@ async def turn(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep) ->
     return ChatTurn(**row)
 
 
-@router.post("/turns/{turn_id}/cancel", response_model=ChatTurn)
-async def cancel_turn(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatTurn:
-    """Idempotent stop: running work stays active until its worker acknowledges it."""
-    row = await asyncio.to_thread(TurnStore(scope).cancel, user_id, turn_id)
-    if row is None:
+@router.get("/turns/{turn_id}/events")
+async def turn_events(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep,
+                      last_event_id: str | None = Header(None)):
+    store = TurnStore(scope)
+    state = await asyncio.to_thread(store.stream_snapshot, user_id, turn_id)
+    if state is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "turn not found")
-    return ChatTurn(**row)
+    after = None
+    if last_event_id is not None:
+        try:
+            after = int(last_event_id)
+        except ValueError:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid event cursor") from None
+        if after < 0 or after > state[1]:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid event cursor")
+
+    def snapshot(row, tools):
+        return {"type": "turn.snapshot", "turn": ChatTurn(**row).model_dump(
+            mode="json", by_alias=True), "tools": tools}
+
+    return StreamingResponse(
+        stream_events(store, user_id, turn_id, after, snapshot),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/chat/{session_id}", response_model=ChatHistory)

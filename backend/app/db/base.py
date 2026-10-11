@@ -46,6 +46,23 @@ def get_engine() -> Engine:
 
 def observe_engine(engine: Engine) -> None:
     """Log slow operations without SQL text or parameters, including the ADK engine."""
+    if get_settings().auth_provider == "supabase":
+        @event.listens_for(engine, "connect")
+        def configure_hosted_session(connection, record):
+            # Supavisor does not forward arbitrary libpq startup options. Session mode
+            # supports SET, so apply deadlines explicitly after each physical connection.
+            settings = get_settings()
+            autocommit = connection.autocommit
+            connection.autocommit = True
+            cursor = connection.cursor()
+            try:
+                cursor.execute(f"SET SESSION statement_timeout = {settings.db_statement_timeout_seconds * 1000}")
+                cursor.execute(f"SET SESSION lock_timeout = {settings.db_lock_timeout_seconds * 1000}")
+                cursor.execute("SET SESSION search_path = public, extensions")
+            finally:
+                cursor.close()
+                connection.autocommit = autocommit
+
     @event.listens_for(engine, "before_cursor_execute")
     def started(connection, cursor, statement, parameters, context, executemany):
         context.atlas_started = monotonic()
@@ -71,10 +88,13 @@ def engine_options() -> dict:
                 "connect_timeout": settings.db_connect_timeout_seconds,
                 "options": (
                     f"-c statement_timeout={settings.db_statement_timeout_seconds * 1000} "
-                    f"-c lock_timeout={settings.db_lock_timeout_seconds * 1000}"
+                    f"-c lock_timeout={settings.db_lock_timeout_seconds * 1000} "
+                    "-c search_path=public,extensions"
                 ),
             },
         )
+    if settings.auth_provider == "supabase" and "connect_args" in options:
+        options["connect_args"].pop("options", None)
     return options
 
 

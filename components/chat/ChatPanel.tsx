@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Check,
@@ -13,17 +13,15 @@ import {
   BookOpen,
   ArrowDown,
   SquarePen,
-  Square,
   LoaderCircle,
 } from 'lucide-react';
 import { Textarea } from '@/components/shadcn/textarea';
 import { ScrollArea } from '@/components/shadcn/scroll-area';
-import { cancelTurn, sendTurn } from '@/app/chat/actions';
+import { sendTurn } from '@/app/chat/actions';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { Button } from '@/components/ui/Button';
 import type { ChatHistory, ChatMessage, ChatTurn } from '@/lib/api-types';
 
-const POLL_MS = 1500;
 const COPY_RESET_MS = 1500;
 const COMPOSER_MAX_HEIGHT = 160;
 
@@ -67,6 +65,17 @@ const STARTER_PROMPTS = [
 
 type Entry = ChatMessage;
 
+type ToolEvent = {
+  type: 'agent.tool' | 'agent.tool_result' | 'agent.tool_error';
+  name: string;
+  callId?: string;
+  message?: string;
+};
+
+function historyWithoutLatestReply(snapshot: ChatHistory): Entry[] {
+  return snapshot.latestTurn?.reply ? snapshot.messages.slice(0, -1) : snapshot.messages;
+}
+
 export interface ChatPanelProps {
   /** The session this chat continues — it lives in the URL so a reload reopens the conversation. */
   sessionId: string;
@@ -88,11 +97,14 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const router = useRouter();
   const [historyPage, setHistoryPage] = useState(initialSnapshot);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
-  const [entries, setEntries] = useState<Entry[]>(initialSnapshot.messages);
+  const [entries, setEntries] = useState<Entry[]>(() => historyWithoutLatestReply(initialSnapshot));
   const [turn, setTurn] = useState<ChatTurn | null>(initialSnapshot.latestTurn);
+  const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
+  const visibleEntries = useMemo(() => turn?.reply
+    ? [...entries, { role: 'atlas' as const, text: turn.reply }]
+    : entries, [entries, turn]);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(
     initialSnapshot.latestTurn?.error ?? null,
   );
@@ -116,7 +128,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         `/api/chat/${encodeURIComponent(sessionId)}`,
         signal,
       );
-      setEntries(snapshot.messages);
+      setEntries(historyWithoutLatestReply(snapshot));
       setHistoryPage(snapshot);
       setTurn(snapshot.latestTurn);
       setError(snapshot.latestTurn?.error ?? null);
@@ -190,12 +202,13 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           /* Optional. */
         }
         setDraft('');
+        setEntries((current) => [
+          ...current,
+          ...(turn?.reply ? [{ role: 'atlas' as const, text: turn.reply }] : []),
+          { role: 'you', text: message },
+        ]);
+        setToolEvents([]);
         setTurn(result.value);
-        try {
-          await refresh();
-        } catch {
-          setError('Your message was accepted. Reconnecting…');
-        }
       } catch {
         setError(
           'Could not confirm your submission. Send the same message again to check it safely.',
@@ -204,50 +217,79 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         setSubmitting(false);
       }
     },
-    [sessionId, storageKey, pending, refresh],
+    [sessionId, storageKey, pending, turn],
   );
 
-  // Poll only an active turn. Reads never resubmit a message or restart generation.
+  // The first SSE request owns execution; reconnects replay saved events without rerunning it.
   useEffect(() => {
     if (!activeTurnId) return;
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-    const poll = async () => {
-      if (document.visibilityState === 'hidden') {
-        timer = setTimeout(poll, POLL_MS);
+    const source = new EventSource(`/api/turns/${activeTurnId}/events`);
+    let cursor = -1;
+    source.onmessage = (message) => {
+      const event = JSON.parse(message.data);
+      const sequence = Number(message.lastEventId);
+      if (event.type !== 'turn.snapshot' && sequence <= cursor) return;
+      cursor = sequence;
+      if (event.type === 'stream.conflict') {
+        source.close();
+        setError('This reply is open in another connection. Reload after it finishes.');
         return;
       }
-      try {
-        const latest = await readSnapshot<ChatTurn>(
-          `/api/turns/${activeTurnId}`,
-          controller.signal,
-        );
-        if (controller.signal.aborted) return;
-        if (!isActive(latest)) {
-          await refresh(controller.signal);
-          router.refresh();
-          return;
-        }
+      if (event.type === 'turn.snapshot') {
+        const latest = event.turn as ChatTurn;
         setTurn(latest);
+        setToolEvents(event.tools ?? []);
         setError(latest.error);
-      } catch {
-        if (controller.signal.aborted) return;
-        setError('Could not check the reply. Reconnecting…');
+        if (!isActive(latest)) {
+          source.close();
+          router.refresh();
+        }
+      } else if (event.type === 'agent.delta') {
+        setTurn((current) => current && {
+          ...current, reply: (current.reply ?? '') + event.text, toolName: null,
+        });
+      } else if (event.type === 'agent.message') {
+        setTurn((current) => current && {
+          ...current,
+          reply: event.reply ?? [current.reply, event.text].filter(Boolean).join('\n\n'),
+          toolName: null,
+        });
+      } else if (event.type === 'turn.status') {
+        // A terminal status is immediately followed by its authoritative snapshot.
+        if (event.status === 'running' || event.status === 'queued') {
+          setTurn((current) => current && {
+            ...current, status: event.status,
+            cancelRequested: event.cancelRequested ?? current.cancelRequested,
+          });
+        }
+      } else if (event.type === 'agent.tool' || event.type === 'agent.tool_result' || event.type === 'agent.tool_error') {
+        setToolEvents((current) => [...current, event as ToolEvent].slice(-100));
+        setTurn((current) => current && {
+          ...current,
+          toolName: event.type === 'agent.tool' ? event.name : null,
+          toolErrors: event.type === 'agent.tool_error'
+            ? [...current.toolErrors, { name: event.name, code: event.code, message: event.message }].slice(-10)
+            : current.toolErrors,
+        });
       }
-      if (!controller.signal.aborted) timer = setTimeout(poll, POLL_MS);
     };
-    timer = setTimeout(poll, POLL_MS);
+    source.onopen = () => setError(null);
+    source.onerror = () => {
+      if (!controller.signal.aborted)
+        setError('Connection interrupted. Reconnecting to the reply…');
+    };
     return () => {
       controller.abort();
-      clearTimeout(timer);
+      source.close();
     };
-  }, [activeTurnId, refresh, router]);
+  }, [activeTurnId, router]);
 
   // A foreground return also picks up work submitted in another tab.
   useEffect(() => {
     const controller = new AbortController();
     const recover = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !activeTurnId) {
         void refresh(controller.signal).catch(() => {
           if (!controller.signal.aborted)
             setError(
@@ -263,7 +305,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       document.removeEventListener('visibilitychange', recover);
       window.removeEventListener('online', recover);
     };
-  }, [refresh]);
+  }, [refresh, activeTurnId]);
 
   const scrollToLatest = useCallback(() => {
     const el = scrollRef.current;
@@ -281,7 +323,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   // New replies follow the bottom only while the reader is already there.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || (entries.length === 0 && !pending)) return;
+    if (!el || (visibleEntries.length === 0 && !pending)) return;
     const anchor = prependAnchorRef.current;
     if (anchor) {
       el.scrollTop = anchor.top + el.scrollHeight - anchor.height;
@@ -299,31 +341,13 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       });
     }
     didMountRef.current = true;
-  }, [entries, turn?.toolName, pending]);
+  }, [visibleEntries, turn?.toolName, pending]);
 
   const submit = useCallback(() => {
     const message = draft.trim();
     if (!message || pending) return;
     void say(message);
   }, [draft, pending, say]);
-
-  const stop = async () => {
-    if (!activeTurnId || stopping || turn?.cancelRequested) return;
-    setStopping(true);
-    try {
-      const result = await cancelTurn(activeTurnId);
-      if (result.error !== undefined) {
-        setError(result.error);
-        return;
-      }
-      setTurn(result.value);
-      if (!isActive(result.value)) await refresh();
-    } catch {
-      setError('Could not confirm Stop. You can try again safely.');
-    } finally {
-      setStopping(false);
-    }
-  };
 
   async function loadEarlier() {
     if (loadingEarlier) return;
@@ -351,16 +375,16 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     }
   }
 
-  const isEmpty = entries.length === 0 && !pending;
+  const isEmpty = visibleEntries.length === 0 && !pending;
 
   return (
     <div className="relative flex h-full w-full min-w-0 flex-col bg-[#fdfdfd]">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 px-4 sm:px-8">
         <h1 className="min-w-0 truncate text-[13px] font-medium text-ink">
-          {entries[0]?.text || 'New conversation'}
+          {visibleEntries[0]?.text || 'New conversation'}
         </h1>
         <div className="flex shrink-0 items-center gap-1">
-          {entries.length > 0 && (
+          {visibleEntries.length > 0 && (
             <Button
               variant="ghost"
               size="icon"
@@ -371,7 +395,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
               onClick={() => {
                 void navigator.clipboard
                   .writeText(
-                    entries
+                    visibleEntries
                       .map(
                         (entry) =>
                           `${entry.role === 'you' ? 'You' : 'Atlas'}: ${entry.text}`,
@@ -434,10 +458,24 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
                   {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
                 </Button>
               )}
-              {entries.map((entry, index) => (
+              {visibleEntries.map((entry, index) => (
                 <MessageRow key={index} role={entry.role} text={entry.text} />
               ))}
 
+              {toolEvents.length > 0 && (
+                <details className="rounded-lg border border-black/5 px-3 py-2 text-xs text-muted" open={pending}>
+                  <summary className="cursor-pointer">Tool activity</summary>
+                  <ol className="mt-2 space-y-1.5" aria-live="polite">
+                    {toolEvents.map((event, index) => (
+                      <li key={index} className={event.type === 'agent.tool_error' ? 'text-danger' : ''}>
+                        {event.type === 'agent.tool' ? 'Started' : event.type === 'agent.tool_result' ? 'Finished' : 'Failed'}
+                        {': '}{TOOL_LABELS[event.name] ?? event.name}
+                        {event.message ? ` — ${event.message}` : ''}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
               {pending && <ThinkingIndicator activity={activity} />}
             </div>
           )}
@@ -479,8 +517,6 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         pending={pending}
         onDraftChange={setDraft}
         onSubmit={submit}
-        onStop={activeTurnId ? () => void stop() : undefined}
-        stopping={stopping || (!!turn?.cancelRequested && isActive(turn))}
       />
     </div>
   );
@@ -600,8 +636,6 @@ interface ComposerProps {
   pending: boolean;
   onDraftChange: (value: string) => void;
   onSubmit: () => void;
-  onStop?: () => void;
-  stopping: boolean;
 }
 
 function Composer({
@@ -609,8 +643,6 @@ function Composer({
   pending,
   onDraftChange,
   onSubmit,
-  onStop,
-  stopping,
 }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -661,12 +693,6 @@ function Composer({
               </kbd>
               send · Shift + Enter for a new line
             </span>
-            {onStop ? (
-              <Button type="button" onClick={onStop} disabled={stopping}>
-                <Square className="size-3" />
-                {stopping ? 'Stopping…' : 'Stop'}
-              </Button>
-            ) : (
               <Button
                 type="submit"
                 size="icon"
@@ -676,7 +702,6 @@ function Composer({
               >
                 <SendIcon />
               </Button>
-            )}
           </div>
         </div>
       </div>
