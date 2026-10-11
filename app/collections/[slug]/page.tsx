@@ -188,7 +188,7 @@ function PageLink({
   children: React.ReactNode;
 }) {
   const className =
-    'focus-ring inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]';
+    'focus-ring inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]';
 
   if (disabled) {
     return (

@@ -22,7 +22,7 @@ export function SortMenu({ conceptSlug, sort, tag }: SortMenuProps) {
           onClick={onClick}
           aria-expanded={open}
           aria-label="Sort"
-          className="focus-ring flex h-8 items-center gap-1.5 rounded-md border px-3 text-[12.5px] font-medium text-ink transition-colors duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink"
+          className="focus-ring flex h-7 items-center gap-1 rounded-full border px-2.5 text-[12.5px] font-medium text-ink transition-colors duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink"
         >
           <ArrowUpDown className="h-3.5 w-3.5" aria-hidden="true" />
           {activeLabel}

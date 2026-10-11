@@ -79,7 +79,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     {result.tags.slice(0, 4).map((tag) => (
                       <span
                         key={tag}
-                        className="rounded-md bg-surface-soft px-2 py-0.5"
+                        className="rounded-full bg-surface-soft px-2 py-0.5"
                       >
                         {tag}
                       </span>

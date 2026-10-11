@@ -424,7 +424,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           {isEmpty ? (
             <EmptyState onPick={setDraft} />
           ) : (
-            <div className="space-y-6 pb-6 pt-5">
+            <div className="space-y-3 pb-4 pt-4">
               {historyPage.hasMore && (
                 <Button
                   type="button"
@@ -467,7 +467,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
             variant="secondary"
             size="sm"
             onClick={scrollToLatest}
-            className="pointer-events-auto gap-1.5 rounded-lg bg-white shadow-sm"
+            className="pointer-events-auto gap-1.5 rounded-full bg-white shadow-sm"
           >
             <ArrowDown className="size-3.5" />
             Back to latest
@@ -490,7 +490,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   if (role === 'you') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-[#eff0f2] px-3.5 py-2 text-sm leading-relaxed text-ink">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eff0f2] px-3 py-1.5 text-sm leading-5 text-ink">
           {text}
         </div>
       </div>
@@ -629,7 +629,7 @@ function Composer({
         onSubmit();
       }}
     >
-      <div className="mx-auto w-full max-w-[var(--chat-measure)] rounded-xl border border-black/10 bg-white px-3.5 py-2 shadow-[0_2px_8px_#00000003] transition-shadow focus-within:border-hairline-strong focus-within:shadow-[0_0_0_3px_#eaf6fd]">
+      <div className="mx-auto w-full max-w-[var(--chat-measure)] rounded-2xl border border-black/10 bg-white px-3 py-1.5 shadow-[0_2px_8px_#00000003] transition-shadow focus-within:border-hairline-strong focus-within:shadow-[0_0_0_3px_#eaf6fd]">
         <Textarea
           ref={textareaRef}
           value={draft}
@@ -647,7 +647,7 @@ function Composer({
           rows={1}
           aria-label="Message Atlas"
           placeholder="Ask Atlas…"
-          className="min-h-10 max-h-40 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-2 text-base text-ink shadow-none placeholder:text-faint focus-visible:ring-0"
+          className="min-h-8 max-h-40 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-1.5 text-base text-ink shadow-none placeholder:text-faint focus-visible:ring-0"
         />
         <div className="mt-1 flex items-center justify-between gap-3">
           <span className="flex items-center gap-1.5 text-xs text-ink">
@@ -672,7 +672,7 @@ function Composer({
                 size="icon"
                 disabled={pending || !draft.trim()}
                 aria-label="Send message"
-                className="size-8 shrink-0 rounded-lg"
+                className="size-8 shrink-0 rounded-full"
               >
                 <SendIcon />
               </Button>

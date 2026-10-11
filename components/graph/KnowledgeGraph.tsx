@@ -441,7 +441,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
         <form
           onSubmit={handleSearchSubmit}
-          className={`pointer-events-auto relative ${glass} !rounded-md`}
+          className={`pointer-events-auto relative ${glass} !rounded-full`}
         >
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-faint" />
           <input
@@ -453,7 +453,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
             }}
             placeholder="Find an idea or explanation"
             aria-label="Find an idea in the graph"
-            className="h-9 w-44 rounded-md bg-transparent pl-9 pr-4 text-[13px] text-ink placeholder:text-faint focus:outline-none lg:w-56"
+            className="h-9 w-44 rounded-full bg-transparent pl-9 pr-4 text-[13px] text-ink placeholder:text-faint focus:outline-none lg:w-56"
           />
         </form>
       </div>
@@ -511,7 +511,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
       {/* Bottom-right: zoom cluster */}
       <div
-        className={`absolute bottom-3 right-3 flex items-center gap-0.5 p-1 ${glass} !rounded-md`}
+        className={`absolute bottom-3 right-3 flex items-center gap-0.5 p-1 ${glass} !rounded-full`}
       >
         <ControlButton label="Zoom in" onClick={() => zoomBy(1.35)}>
           <Plus className="h-4 w-4" />
@@ -573,7 +573,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
                         key={item.id}
                         type="button"
                         onClick={() => focusById(item.id)}
-                        className="max-w-full truncate rounded-md border bg-surface px-2.5 py-1 text-[12px] text-ink transition-colors hover:border-accent-line hover:bg-accent-soft hover:text-accent"
+                        className="max-w-full truncate rounded-full border bg-surface px-2.5 py-1 text-[12px] text-ink transition-colors hover:border-accent-line hover:bg-accent-soft hover:text-accent"
                       >
                         {item.title}
                       </button>
@@ -586,7 +586,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
           <Link
             href={`/${selectedNode.nodeKind === 'concept' ? 'collections' : 'entries'}/${selectedNode.slug}`}
-            className="focus-ring mt-4 flex h-8 items-center justify-center gap-1.5 rounded-md border bg-surface text-[13px] font-medium text-ink transition-colors hover:bg-surface-soft"
+            className="focus-ring mt-4 flex h-8 items-center justify-center gap-1.5 rounded-full border bg-surface text-[13px] font-medium text-ink transition-colors hover:bg-surface-soft"
           >
             {selectedNode.nodeKind === 'concept'
               ? 'Open concept'
@@ -614,7 +614,7 @@ function ControlButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="rounded-md p-2 text-muted transition-colors hover:bg-surface-soft hover:text-ink"
+      className="rounded-full p-2 text-muted transition-colors hover:bg-surface-soft hover:text-ink"
     >
       {children}
     </button>
