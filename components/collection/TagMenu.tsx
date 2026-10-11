@@ -21,7 +21,7 @@ export interface TagMenuProps {
  */
 export function TagMenu({ conceptSlug, sort, tags, totalTags, activeTag }: TagMenuProps) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1">
       <Popover
         renderTrigger={({ onClick, open }) => (
           <button
@@ -29,7 +29,7 @@ export function TagMenu({ conceptSlug, sort, tags, totalTags, activeTag }: TagMe
             onClick={onClick}
             aria-expanded={open}
             aria-label="Filter by tag"
-            className="focus-ring flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12.5px] font-medium text-muted transition-colors duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink"
+            className="focus-ring flex h-7 items-center gap-1 rounded-full border px-2.5 text-[12.5px] font-medium text-ink transition-colors duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink"
           >
             <TagIcon className="h-3.5 w-3.5" aria-hidden="true" />
             Tags
@@ -60,7 +60,7 @@ export function TagMenu({ conceptSlug, sort, tags, totalTags, activeTag }: TagMe
       {activeTag && (
         <Link
           href={collectionFilterHref(conceptSlug, { sort })}
-          className="focus-ring flex h-8 items-center gap-1 rounded-full bg-accent-soft pl-2.5 pr-2 text-[12.5px] font-medium text-accent transition-colors duration-[var(--dur-fast)] hover:bg-accent-soft/70"
+          className="focus-ring flex h-7 items-center gap-1 rounded-full bg-accent-soft pl-2.5 pr-2 text-[12.5px] font-medium text-accent transition-colors duration-[var(--dur-fast)] hover:bg-accent-soft/70"
         >
           {activeTag}
           <X className="h-3 w-3" aria-hidden="true" />

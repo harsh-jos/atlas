@@ -1,31 +1,28 @@
 import type * as React from 'react';
-
 export interface PageHeaderProps {
   title: string;
   description?: string;
-  /** Buttons or controls, right-aligned on desktop. */
   actions?: React.ReactNode;
 }
-
-/**
- * Every page opens the same way: title, one line of intent.
- * A single header component is what makes the pages feel like one product.
- */
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{title}</h1>
+        <h1 className="text-[23px] font-semibold tracking-[-0.035em] text-ink sm:text-[26px]">
+          {title}
+        </h1>
         {description && (
-          <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">{description}</p>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-muted">
+            {description}
+          </p>
         )}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+      )}
     </header>
   );
 }
-
-/** The standard page gutter — one measure for every route. */
 export function PageContainer({
   children,
   className = '',
@@ -35,7 +32,7 @@ export function PageContainer({
 }) {
   return (
     <div
-      className={`animate-rise mx-auto w-full max-w-5xl px-6 py-8 sm:px-10 sm:py-10 ${className}`}
+      className={`animate-rise mx-auto w-full max-w-[1280px] px-4 py-5 sm:px-6 lg:px-7 lg:py-6 ${className}`}
     >
       {children}
     </div>

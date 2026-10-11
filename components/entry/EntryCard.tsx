@@ -24,20 +24,20 @@ export function EntryCard({
   return (
     <Link
       href={`/entries/${slug}`}
-      className="focus-ring group flex items-start gap-4 rounded-[10px] px-5 py-4 transition-colors hover:bg-surface-soft"
+      className="focus-ring group flex items-start gap-4 rounded-[10px] px-6 py-6 transition-colors hover:bg-surface-soft"
     >
       {/* Main content */}
       <div className="flex-1 min-w-0">
         {/* Title row */}
         <div className="flex items-center gap-2 mb-1">
-          <span className="truncate text-sm font-medium tracking-[-0.01em] text-ink">
+          <span className="break-words text-[15px] font-semibold tracking-[-0.01em] text-ink">
             {cleanTitle(title)}
           </span>
         </div>
 
         {/* Summary preview */}
         {summary && (
-          <p className="text-[13px] text-muted line-clamp-2 leading-relaxed mb-2 break-words">
+          <p className="text-sm text-muted line-clamp-2 leading-relaxed mb-2 break-words">
             {summary}
           </p>
         )}

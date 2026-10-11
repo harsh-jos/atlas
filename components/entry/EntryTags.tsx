@@ -8,10 +8,10 @@ export function EntryTags({ tags }: EntryTagsProps) {
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[13px] leading-6">
-      <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+      <span className="shrink-0 font-sans text-xs font-medium text-faint">
         Tagged
       </span>
-      <span className="font-mono text-[12px] text-muted">{tags.join(' · ')}</span>
+      <span className="text-xs text-muted">{tags.join(' · ')}</span>
     </div>
   );
 }

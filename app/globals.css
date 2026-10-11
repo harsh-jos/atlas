@@ -1,72 +1,84 @@
-@import "tailwindcss";
-@import "katex/dist/katex.min.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'katex/dist/katex.min.css';
 
 :root {
-  /* Atlas tokens — the single source of truth. Light mode only.
-     Gray-first: color is the exception, and every value here is a decision.
-     Neutrals carry the interface; one blue accent means "interactive or ours";
-     carbon fills primary actions; three semantic tints carry state. */
-
-  /* Surfaces */
-  --canvas: #fafafa;       /* app ground: sidebar, wells behind content */
-  --surface: #ffffff;      /* content, cards, inputs */
-  --surface-soft: #f4f4f4; /* inset tints: hover rows, code, empty wells */
-
-  /* Ink */
-  --ink: #171717;   /* headings + primary text */
-  --muted: #666666; /* secondary text */
-  --faint: #a3a3a3; /* placeholders, timestamps, disabled */
-
-  /* Lines */
-  --hairline: #e8e8e8;        /* borders, dividers */
-  --hairline-strong: #d9d9d9; /* input borders needing a firmer edge */
-
-  /* Accent — one blue family. --accent is the AA-safe shade used for text, links,
-     focus, active states (never a button fill). --sky/--deep are the brighter,
-     decorative ends of the same hue — gradients, marks, glows — used only where
-     large-surface contrast rules apply, never for text on their own. */
-  --accent: #0b6fae;
-  --accent-soft: #e9f5ff;
-  --accent-line: #bfe0f7;
-  --sky: #30afff;
-  --deep: #08213b;
-
-  /* Action — carbon. Primary buttons are black, not chromatic. */
-  --action: #171717;
-  --action-hover: #000000;
-
-  /* Semantic state — text / soft tint / tint border. Pills and notices only. */
+  color-scheme: light;
+  --canvas: #f5f8fb;
+  --surface: #ffffff;
+  --surface-soft: #f0f5f9;
+  --ink: #000000;
+  --muted: #595959;
+  --faint: #737373;
+  --hairline: #e2eaf1;
+  --hairline-strong: #cbd8e4;
+  --accent: #0878b0;
+  --accent-soft: #eaf6fd;
+  --accent-line: #bce3f8;
+  --sky: #75cffa;
+  --deep: #15648f;
+  --action: #b9e7fc;
+  --action-hover: #9bdcf9;
   --success: #157347;
   --success-soft: #ecf8f1;
   --success-line: #c2e5d2;
   --warning: #9a5b13;
   --warning-soft: #fdf5e5;
   --warning-line: #f0ddb4;
-  --danger: #d4302f;
+  --danger: #bd302f;
   --danger-soft: #fdf0ef;
   --danger-line: #f6cbc9;
-
-  /* Geometry */
-  --rail-width: 15rem;
-
-  /* Reading preferences — defaults here (Small/Tight/Wide, the user's chosen
-     combination); ReadingSettings.tsx overrides these on document.documentElement
-     from a localStorage'd choice, and must stay in sync with these values. Every
-     size in readingComponents.tsx is calc(basePx * --reading-scale), so nested
-     elements never compound (unlike cascading em). --reading-line-height applies
-     to prose only (p/li/blockquote) — headings keep their own fixed, tighter leading. */
+  --rail-width: 16.5rem;
+  --chat-measure: 56rem;
   --reading-scale: 0.9;
   --reading-line-height: 1.5;
   --reading-measure: 46rem;
   --reading-font: var(--font-sans);
-
-  /* Motion — quick fades, nothing bouncy. */
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur-fast: 120ms;
   --dur: 200ms;
+  /* shadcn semantic tokens share Atlas's light palette. */
+  --background: var(--surface);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--action);
+  --primary-foreground: #124763;
+  --secondary: var(--surface-soft);
+  --secondary-foreground: var(--ink);
+  --muted-foreground: var(--muted);
+  --accent-foreground: var(--accent);
+  --destructive: var(--danger);
+  --border: var(--hairline);
+  --input: var(--hairline-strong);
+  --ring: var(--sky);
+  --radius: 0.75rem;
 }
 
 @theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-surface-soft: var(--surface-soft);
@@ -92,13 +104,16 @@
   --color-danger-soft: var(--danger-soft);
   --color-danger-line: var(--danger-line);
 
-  /* Radius steps: cards 12, inputs 10, buttons are pills. */
+  /* Radius steps: cards 12, inputs 10, controls 6–8. */
   --radius-card: 12px;
   --radius-field: 10px;
 
   /* Two families total. Inter is the voice; mono is for code and micro-labels. */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
 @layer base {
@@ -237,15 +252,27 @@ b {
 .identity-mark {
   position: relative;
   overflow: hidden;
-  background: color-mix(in srgb, var(--mark-color, var(--accent)) 12%, var(--surface-soft));
+  background: color-mix(
+    in srgb,
+    var(--mark-color, var(--accent)) 12%,
+    var(--surface-soft)
+  );
 }
 .identity-mark::before {
   content: '';
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 28% 28%, color-mix(in srgb, var(--mark-color, var(--accent)) 55%, white) 0%, transparent 46%),
-    radial-gradient(circle at 72% 68%, var(--mark-color, var(--accent)) 0%, transparent 55%);
+    radial-gradient(
+      circle at 28% 28%,
+      color-mix(in srgb, var(--mark-color, var(--accent)) 55%, white) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      circle at 72% 68%,
+      var(--mark-color, var(--accent)) 0%,
+      transparent 55%
+    );
 }
 .identity-mark::after {
   content: '';
@@ -253,6 +280,36 @@ b {
   inset: 0;
   opacity: 0.5;
   mix-blend-mode: multiply;
-  background-image: radial-gradient(var(--mark-color, var(--accent)) 1px, transparent 1px);
+  background-image: radial-gradient(
+    var(--mark-color, var(--accent)) 1px,
+    transparent 1px
+  );
   background-size: 5px 5px;
+}
+
+/* Touch targets and focus remain visible across every workspace surface. */
+a,
+button,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+button:not(:disabled),
+[role='tab'],
+[role='combobox'] {
+  cursor: pointer;
+}
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

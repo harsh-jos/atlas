@@ -9,7 +9,10 @@ import { EntryCard } from '@/components/entry/EntryCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PageContainer } from '@/components/layout/PageHeader';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { ConceptConnections, type ConceptNeighbourhood } from '@/components/collection/ConceptConnections';
+import {
+  ConceptConnections,
+  type ConceptNeighbourhood,
+} from '@/components/collection/ConceptConnections';
 import { apiGetOrNull } from '@/lib/api';
 import { collectionFilterHref, parseSort } from '@/lib/collectionFilters';
 import type { ConceptPage } from '@/lib/api-types';
@@ -33,7 +36,10 @@ function parsePage(value?: string): number {
   return Number.isFinite(parsed) && parsed > 1 ? parsed : 1;
 }
 
-export default async function CollectionPage({ params, searchParams }: CollectionPageProps) {
+export default async function CollectionPage({
+  params,
+  searchParams,
+}: CollectionPageProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const sort = parseSort(query.sort);
   const page = parsePage(query.page);
@@ -44,14 +50,16 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       sort,
       page: String(page),
       ...(tag ? { tag } : {}),
-    })}`
+    })}`,
   );
 
   if (!data) {
     notFound();
   }
 
-  const graph = await apiGetOrNull<ConceptNeighbourhood>(`/concepts/${encodeURIComponent(slug)}/neighbourhood`);
+  const graph = await apiGetOrNull<ConceptNeighbourhood>(
+    `/concepts/${encodeURIComponent(slug)}/neighbourhood`,
+  );
 
   const { concept, artifacts, tags, totalTags, matched, pageSize } = data;
   const totalPages = Math.max(1, Math.ceil(matched / pageSize));
@@ -62,10 +70,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
     <PageContainer>
       <Breadcrumb
         className="mb-6"
-        items={[
-          { label: 'Library', href: '/' },
-          { label: concept.name },
-        ]}
+        items={[{ label: 'Library', href: '/' }, { label: concept.name }]}
       />
 
       <CollectionDetailHeader
@@ -117,14 +122,22 @@ export default async function CollectionPage({ params, searchParams }: Collectio
               </span>
               <div className="flex items-center gap-2">
                 <PageLink
-                  href={collectionFilterHref(concept.slug, { sort, tag, page: page - 1 })}
+                  href={collectionFilterHref(concept.slug, {
+                    sort,
+                    tag,
+                    page: page - 1,
+                  })}
                   disabled={page <= 1}
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   Previous
                 </PageLink>
                 <PageLink
-                  href={collectionFilterHref(concept.slug, { sort, tag, page: page + 1 })}
+                  href={collectionFilterHref(concept.slug, {
+                    sort,
+                    tag,
+                    page: page + 1,
+                  })}
                   disabled={page >= totalPages}
                 >
                   Next
@@ -139,20 +152,26 @@ export default async function CollectionPage({ params, searchParams }: Collectio
           icon={<FileText className="h-4 w-4" />}
           title="Nothing on this page"
           description="This page is past the end of the list."
-          action={{ label: 'Back to the first page', href: `/collections/${concept.slug}` }}
+          action={{
+            label: 'Back to the first page',
+            href: `/collections/${concept.slug}`,
+          }}
         />
       ) : concept.artifactCount > 0 ? (
         <EmptyState
           icon={<FileText className="h-4 w-4" />}
-          title="No entries match this tag"
+          title="No explanations match this tag"
           description="Nothing here for the current tag selection."
-          action={{ label: 'View all entries', href: `/collections/${concept.slug}` }}
+          action={{
+            label: 'View all entries',
+            href: `/collections/${concept.slug}`,
+          }}
         />
       ) : (
         <EmptyState
           icon={<FileText className="h-4 w-4" />}
-          title="No entries in this collection yet"
-          description="Nothing has been added here so far."
+          title="A space for your next explanation"
+          description="Explore this concept with Atlas, then ask to save an explanation here."
         />
       )}
     </PageContainer>
@@ -169,18 +188,30 @@ function PageLink({
   children: React.ReactNode;
 }) {
   const className =
-    'focus-ring inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]';
+    'focus-ring inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[13px] font-medium transition-colors duration-[var(--dur-fast)]';
 
   if (disabled) {
     return (
-      <span className={cn(className, 'cursor-not-allowed select-none text-faint opacity-50')} aria-disabled="true">
+      <span
+        className={cn(
+          className,
+          'cursor-not-allowed select-none text-faint opacity-50',
+        )}
+        aria-disabled="true"
+      >
         {children}
       </span>
     );
   }
 
   return (
-    <Link href={href} className={cn(className, 'text-muted hover:bg-surface-soft hover:text-ink')}>
+    <Link
+      href={href}
+      className={cn(
+        className,
+        'text-muted hover:bg-surface-soft hover:text-ink',
+      )}
+    >
       {children}
     </Link>
   );

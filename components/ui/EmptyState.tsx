@@ -1,42 +1,34 @@
 import type * as React from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
-
+import { Button } from '@/components/shadcn/button';
 export interface EmptyStateProps {
   icon: React.ReactNode;
   title: string;
   description?: string;
-  /** Optional call to action — rendered as a link-styled button. */
   action?: { label: string; href: string };
 }
-
-/**
- * Refined empty state — a dotted well, one sentence, one action.
- * No large illustrations, per the design language.
- */
-export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: EmptyStateProps) {
   return (
-    <div className="relative overflow-hidden rounded-card border bg-canvas px-6 py-16 text-center">
-      <div
-        className="dot-grid pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(240px_140px_at_50%_38%,black,transparent)]"
-        aria-hidden="true"
-      />
-      <div className="relative flex flex-col items-center">
-        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-[10px] border bg-surface text-faint shadow-card">
-          {icon}
-        </div>
-        <p className="text-[15px] font-semibold tracking-[-0.01em] text-ink">{title}</p>
-        {description && (
-          <p className="mt-1.5 max-w-sm text-[13px] leading-6 text-muted">{description}</p>
-        )}
-        {action && (
-          <Link href={action.href} className="mt-5">
-            <Button variant="secondary" size="sm">
-              {action.label}
-            </Button>
-          </Link>
-        )}
+    <div className="flex flex-col items-center rounded-xl border border-dashed bg-canvas/50 px-5 py-10 text-center">
+      <div className="mb-3 flex size-10 items-center justify-center rounded-xl border border-accent-line/70 bg-accent-soft text-accent">
+        {icon}
       </div>
+      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+      {description && (
+        <p className="mt-2 max-w-sm text-sm leading-6 text-muted">
+          {description}
+        </p>
+      )}
+      {action && (
+        <Button asChild className="mt-4">
+          <Link href={action.href}>{action.label}</Link>
+        </Button>
+      )}
     </div>
   );
 }

@@ -21,7 +21,7 @@ export function EntrySources({ sources }: EntrySourcesProps) {
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-[13px] leading-6">
-      <span className="shrink-0 font-mono text-[10.5px] uppercase tracking-[0.06em] text-faint">
+      <span className="shrink-0 font-sans text-xs font-medium text-faint">
         Sources
       </span>
       {sources.map((source, index) => {

@@ -28,7 +28,7 @@ function CodeBlock({ className, children }: { className?: string; children: Reac
   return (
     <div className="my-3 overflow-hidden rounded-card border bg-surface-soft first:mt-0 last:mb-0">
       <div className="flex items-center justify-between border-b bg-surface px-3 py-1.5">
-        <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-faint">
+        <span className="font-sans text-xs font-medium text-faint">
           {language ?? 'text'}
         </span>
         <button
