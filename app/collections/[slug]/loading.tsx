@@ -14,8 +14,8 @@ export default function Loading() {
             <Skeleton className="h-4 w-1/2" />
             <Skeleton className="mt-2.5 h-3.5 w-3/4" />
             <div className="mt-3 flex gap-2">
-              <Skeleton className="h-4 w-14 rounded-md" />
-              <Skeleton className="h-4 w-14 rounded-md" />
+              <Skeleton className="h-4 w-14 rounded-full" />
+              <Skeleton className="h-4 w-14 rounded-full" />
             </div>
           </div>
         ))}

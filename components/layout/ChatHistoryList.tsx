@@ -41,7 +41,7 @@ export function ChatHistoryList({
   return (
     <div className="mt-7 flex min-h-0 flex-1 flex-col px-3 pb-3">
       <p className="px-3 pb-2 text-xs font-medium text-faint">Chats</p>
-      <div className="scroll-region min-h-0 flex-1 space-y-0.5">
+      <div className="scroll-region min-h-0 flex-1 space-y-0">
         {visible.map((session) => {
           const href = `/chat/${session.sessionId}`;
           const active = pathname === href;
@@ -52,7 +52,7 @@ export function ChatHistoryList({
               title={`${session.firstMessage ?? 'New chat'} · ${timeAgo(session.updatedAt)}`}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'focus-ring flex h-9 items-center rounded-lg px-3 text-[13px] transition-colors duration-[var(--dur-fast)]',
+                'focus-ring flex h-8 items-center rounded-lg px-3 text-[13px] transition-colors duration-[var(--dur-fast)]',
                 active
                   ? 'bg-black/[0.055] font-medium text-ink'
                   : 'text-ink hover:bg-black/[0.035] hover:text-ink',

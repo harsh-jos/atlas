@@ -96,7 +96,7 @@ export function Sidebar({
           asChild
           variant="ghost"
           className={cn(
-            'h-9 rounded-lg font-medium text-ink hover:bg-black/5',
+            'h-8 rounded-lg font-medium text-ink hover:bg-black/5',
             compact ? 'w-full px-0' : 'w-full justify-start gap-2.5 px-3',
           )}
         >
@@ -113,7 +113,7 @@ export function Sidebar({
       </div>
       <nav
         className={cn(
-          'mt-3 flex shrink-0 flex-col gap-0.5',
+          'mt-3 flex shrink-0 flex-col gap-0',
           compact ? 'px-2' : 'px-3',
         )}
         aria-label="Workspace"
@@ -130,7 +130,7 @@ export function Sidebar({
               aria-label={label}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex h-9 items-center rounded-lg text-[13px] transition-colors',
+                'flex h-8 items-center rounded-lg text-[13px] transition-colors',
                 compact ? 'justify-center' : 'gap-2.5 px-3',
                 active
                   ? 'bg-black/[0.055] font-medium text-ink'
@@ -174,7 +174,7 @@ export function Sidebar({
           aria-label="Sign out"
           title={compact ? 'Sign out' : undefined}
           className={cn(
-            'h-9 w-full text-[13px] text-ink hover:bg-black/5 hover:text-ink',
+            'h-8 w-full text-[13px] text-ink hover:bg-black/5 hover:text-ink',
             compact ? 'px-0' : 'justify-start gap-2.5 px-3',
           )}
         >
