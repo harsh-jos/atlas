@@ -41,14 +41,22 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
   // PREREQUISITE is the one relation type that's genuinely sequential, so it's
   // pulled out into the lineage strip up top; everything else — USES, PART_OF,
   // CONTRASTS, SEE_ALSO — stays associative and lives in the Related footer.
-  const prerequisites = artifact.relationsFrom.filter(isPrerequisite).map((r) => r.artifact);
-  const enables = artifact.relationsTo.filter(isPrerequisite).map((r) => r.artifact);
-  const relationsFrom = artifact.relationsFrom.filter((r) => !isPrerequisite(r));
+  const prerequisites = artifact.relationsFrom
+    .filter(isPrerequisite)
+    .map((r) => r.artifact);
+  const enables = artifact.relationsTo
+    .filter(isPrerequisite)
+    .map((r) => r.artifact);
+  const relationsFrom = artifact.relationsFrom.filter(
+    (r) => !isPrerequisite(r),
+  );
   const relationsTo = artifact.relationsTo.filter((r) => !isPrerequisite(r));
 
   // Match what the Related block shows: all outgoing + incoming except
   // SEE_ALSO (which is always stored in both directions).
-  const incomingShown = relationsTo.filter((r) => r.relationType !== 'SEE_ALSO');
+  const incomingShown = relationsTo.filter(
+    (r) => r.relationType !== 'SEE_ALSO',
+  );
   const relationCount = relationsFrom.length + incomingShown.length;
 
   const hasFooterMatter =
@@ -70,7 +78,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
       <EntryCoverBand color={artifact.concept.color} />
       <ReadingSettings />
 
-      <div className="mx-auto max-w-[calc(var(--reading-measure)+24rem)] px-5 pb-12 pt-8 sm:px-8">
+      <div className="mx-auto max-w-[calc(var(--reading-measure)+24rem)] px-5 pb-16 pt-8 sm:px-10 lg:px-14">
         <article>
           <div className="max-w-[var(--reading-measure)]">
             <header className="mb-8">
@@ -86,13 +94,15 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
                   <span
                     aria-hidden="true"
                     className="h-[7px] w-[7px] shrink-0 rounded-full"
-                    style={{ backgroundColor: artifact.concept.color || 'var(--faint)' }}
+                    style={{
+                      backgroundColor: artifact.concept.color || 'var(--faint)',
+                    }}
                   />
                   <span className="truncate">{artifact.concept.name}</span>
                 </Link>
                 <Link
                   href={`/entries/${artifact.slug}?edit=true`}
-                  className="focus-ring shrink-0 rounded-md text-[13px] text-faint transition-colors hover:text-ink"
+                  className="focus-ring shrink-0 rounded-lg border bg-surface px-3 py-2 text-xs text-muted transition-colors hover:bg-accent-soft hover:text-accent"
                 >
                   Edit
                 </Link>
@@ -108,7 +118,10 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
                   {readingTime}
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="h-3 w-3 text-accent" aria-hidden="true" />
+                  <Calendar
+                    className="h-3 w-3 text-accent"
+                    aria-hidden="true"
+                  />
                   {formatDate(artifact.createdAt)}
                 </span>
                 {artifact.sources.length > 0 && (
@@ -131,10 +144,13 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
           <div
             className={cn(
               'mt-9 grid gap-x-12 gap-y-10',
-              hasToc && 'xl:grid-cols-[minmax(0,var(--reading-measure))_1fr]'
+              hasToc && 'xl:grid-cols-[minmax(0,var(--reading-measure))_1fr]',
             )}
           >
-            <div id={BODY_ID} className="entry-body min-w-0 max-w-[var(--reading-measure)]">
+            <div
+              id={BODY_ID}
+              className="entry-body min-w-0 max-w-[var(--reading-measure)]"
+            >
               {artifact.bodyHtml?.trim() ? (
                 <HtmlBody html={artifact.bodyHtml} />
               ) : (

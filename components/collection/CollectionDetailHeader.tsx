@@ -4,7 +4,11 @@ import * as React from 'react';
 import { AlertCircle, Pencil, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConceptForm } from '@/components/collection/ConceptForm';
-import { deleteConcept, updateConcept, type ConceptDraft } from '@/app/collections/actions';
+import {
+  deleteConcept,
+  updateConcept,
+  type ConceptDraft,
+} from '@/app/collections/actions';
 
 export interface CollectionDetailHeaderProps {
   slug: string;
@@ -27,7 +31,10 @@ export function CollectionDetailHeader({
 
   async function remove() {
     if (isDeleting) return;
-    if (!window.confirm(`Delete the “${name}” collection? This cannot be undone.`)) return;
+    if (
+      !window.confirm(`Delete the “${name}” collection? This cannot be undone.`)
+    )
+      return;
 
     setIsDeleting(true);
     setError(null);
@@ -69,7 +76,9 @@ export function CollectionDetailHeader({
   return (
     <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">{name}</h1>
+        <h1 className="text-[32px] font-semibold tracking-[-0.035em] text-ink">
+          {name}
+        </h1>
         <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-faint">
           <span
             aria-hidden="true"
@@ -77,11 +86,14 @@ export function CollectionDetailHeader({
             style={{ backgroundColor: color || 'var(--faint)' }}
           />
           <span>
-            {entryCount} {entryCount === 1 ? 'entry' : 'entries'}
+            {entryCount}{' '}
+            {entryCount === 1 ? 'saved explanation' : 'saved explanations'}
           </span>
         </div>
         {description && (
-          <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">{description}</p>
+          <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted">
+            {description}
+          </p>
         )}
         {error && (
           <p className="mt-2.5 flex items-center gap-1.5 text-[13px] text-danger">
@@ -107,7 +119,11 @@ export function CollectionDetailHeader({
           className="gap-1.5 text-danger hover:bg-danger-soft hover:text-danger disabled:opacity-40"
           onClick={remove}
           disabled={isDeleting || entryCount > 0}
-          title={entryCount > 0 ? 'Move or delete its entries first' : 'Delete collection'}
+          title={
+            entryCount > 0
+              ? 'Move or delete its entries first'
+              : 'Delete collection'
+          }
         >
           <Trash2 className="h-3.5 w-3.5" />
           {isDeleting ? 'Deleting' : 'Delete'}

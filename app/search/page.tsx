@@ -19,11 +19,16 @@ interface SearchPageProps {
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q } = await searchParams;
   const query = q?.trim() || '';
-  const results = query ? await apiGet<SearchHit[]>(`/search?q=${encodeURIComponent(query)}`) : [];
+  const results = query
+    ? await apiGet<SearchHit[]>(`/search?q=${encodeURIComponent(query)}`)
+    : [];
 
   return (
     <PageContainer>
-      <PageHeader title="Search your atlas" />
+      <PageHeader
+        title="Find that idea again"
+        description="Search the explanations you’ve kept, from a title to a passing thought."
+      />
 
       <SearchField defaultValue={query} />
 
@@ -39,7 +44,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <EmptyState
             icon={<Search className="h-4 w-4" />}
             title="Start typing to search"
-            description="Search across entry titles, summaries, and body content."
+            description="Try a concept, a phrase, or a question from one of your saved explanations."
           />
         ) : results.length > 0 ? (
           <ul className="overflow-hidden rounded-card border bg-surface shadow-card divide-y">
@@ -53,7 +58,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     <span
                       aria-hidden="true"
                       className="h-1.5 w-1.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: result.conceptColor ?? 'var(--faint)' }}
+                      style={{
+                        backgroundColor: result.conceptColor ?? 'var(--faint)',
+                      }}
                     />
                     {result.concept}
                   </span>
@@ -62,18 +69,25 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                   </h2>
                   {(result.excerpt || result.summary) && (
                     <p className="mt-1 max-w-3xl break-words text-[13px] leading-6 text-muted">
-                      {highlightMatch(result.excerpt ?? result.summary ?? '', query)}
+                      {highlightMatch(
+                        result.excerpt ?? result.summary ?? '',
+                        query,
+                      )}
                     </p>
                   )}
                   <span className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-faint">
                     {result.tags.slice(0, 4).map((tag) => (
-                      <span key={tag} className="rounded-full bg-surface-soft px-2 py-0.5">
+                      <span
+                        key={tag}
+                        className="rounded-full bg-surface-soft px-2 py-0.5"
+                      >
                         {tag}
                       </span>
                     ))}
                     {result.sourceCount > 0 && (
                       <span>
-                        {result.sourceCount} {result.sourceCount === 1 ? 'source' : 'sources'}
+                        {result.sourceCount}{' '}
+                        {result.sourceCount === 1 ? 'source' : 'sources'}
                       </span>
                     )}
                     <span>{formatDate(result.updatedAt)}</span>
@@ -107,6 +121,6 @@ function highlightMatch(text: string, query: string): ReactNode {
       </mark>
     ) : (
       part
-    )
+    ),
   );
 }

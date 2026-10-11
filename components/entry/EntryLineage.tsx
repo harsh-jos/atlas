@@ -32,7 +32,7 @@ export function EntryLineage({ prerequisites, enables }: EntryLineageProps) {
         </>
       )}
 
-      <span className="shrink-0 rounded-lg bg-action px-3 py-1.5 text-[12.5px] font-medium text-white">
+      <span className="shrink-0 rounded-lg bg-action px-3 py-1.5 text-[12.5px] font-medium text-primary-foreground">
         This artifact
       </span>
 

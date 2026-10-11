@@ -81,7 +81,7 @@ export function ReadingSettings() {
   // that's visible before the popover is opened, so there's nothing for a
   // server/client mismatch to disagree about.
   const [prefs, setPrefs] = React.useState<ReadingPrefs>(() =>
-    typeof window === 'undefined' ? DEFAULT_PREFS : loadPrefs()
+    typeof window === 'undefined' ? DEFAULT_PREFS : loadPrefs(),
   );
 
   // The one legitimate effect: push React state out to the DOM custom
@@ -99,7 +99,7 @@ export function ReadingSettings() {
   };
 
   return (
-    <div className="fixed right-6 top-4 z-40">
+    <div className="fixed right-6 top-[5.25rem] z-40 md:right-9 md:top-[5.75rem]">
       <Popover
         align="end"
         closeOnSelect={false}
@@ -166,7 +166,13 @@ export function ReadingSettings() {
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="px-1.5 py-2">
       <p className="mb-1.5 text-[11.5px] text-muted">{label}</p>
@@ -192,7 +198,9 @@ function StepButton({
       onClick={onClick}
       className={cn(
         'focus-ring flex-1 rounded-full px-2 py-1 text-[11.5px] font-medium transition-colors duration-[var(--dur-fast)]',
-        active ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink'
+        active
+          ? 'bg-surface text-ink shadow-card'
+          : 'text-muted hover:text-ink',
       )}
     >
       {children}
