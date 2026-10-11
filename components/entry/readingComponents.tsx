@@ -103,7 +103,7 @@ export const readingComponents: Components = {
     return (
       <div className="my-6 overflow-hidden rounded-card border">
         {language && (
-          <div className="border-b bg-surface-soft px-4 py-2 font-mono text-[11px] uppercase tracking-[0.06em] text-faint">
+          <div className="border-b bg-surface-soft px-4 py-2 font-sans text-xs font-medium text-faint">
             {language}
           </div>
         )}
