@@ -11,6 +11,10 @@ import {
   Lightbulb,
   Network,
   BookOpen,
+  ArrowDown,
+  SquarePen,
+  Square,
+  LoaderCircle,
 } from 'lucide-react';
 import { Textarea } from '@/components/shadcn/textarea';
 import { ScrollArea } from '@/components/shadcn/scroll-area';
@@ -94,6 +98,10 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   );
   const scrollRef = useRef<HTMLDivElement>(null);
   const didMountRef = useRef(false);
+  const followBottomRef = useRef(true);
+  const prependAnchorRef = useRef<{ height: number; top: number } | null>(null);
+  const [showJump, setShowJump] = useState(false);
+  const [conversationCopied, setConversationCopied] = useState(false);
   const submissionRef = useRef<{ id: string; message: string } | null>(null);
   const storageKey = `atlas-submission:${sessionId}`;
   const pending = submitting || isActive(turn);
@@ -157,6 +165,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       if (pending) return;
       setError(null);
       setDraft(message);
+      followBottomRef.current = true;
       setSubmitting(true);
       const submission =
         submissionRef.current?.message === message
@@ -256,14 +265,39 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     };
   }, [refresh]);
 
-  // Scrolls only this container — never the app-wide scroll region above it.
+  const scrollToLatest = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    followBottomRef.current = true;
+    setShowJump(false);
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
+    });
+  }, []);
+
+  // New replies follow the bottom only while the reader is already there.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || (entries.length === 0 && !pending)) return;
-    el.scrollTo({
-      top: el.scrollHeight,
-      behavior: didMountRef.current ? 'smooth' : 'auto',
-    });
+    const anchor = prependAnchorRef.current;
+    if (anchor) {
+      el.scrollTop = anchor.top + el.scrollHeight - anchor.height;
+      prependAnchorRef.current = null;
+      return;
+    }
+    if (!didMountRef.current || followBottomRef.current) {
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior:
+          !didMountRef.current ||
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'auto'
+            : 'smooth',
+      });
+    }
     didMountRef.current = true;
   }, [entries, turn?.toolName, pending]);
 
@@ -302,6 +336,12 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       const older = await readSnapshot<ChatHistory>(
         `/api/chat/${encodeURIComponent(sessionId)}?${query}`,
       );
+      const viewport = scrollRef.current;
+      if (viewport)
+        prependAnchorRef.current = {
+          height: viewport.scrollHeight,
+          top: viewport.scrollTop,
+        };
       setEntries((current) => [...older.messages, ...current]);
       setHistoryPage(older);
     } catch {
@@ -314,17 +354,76 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const isEmpty = entries.length === 0 && !pending;
 
   return (
-    <div className="flex h-full w-full min-w-0 flex-col">
+    <div className="relative flex h-full w-full min-w-0 flex-col bg-[#fdfdfd]">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 px-4 sm:px-8">
+        <h1 className="min-w-0 truncate text-[13px] font-medium text-muted">
+          {entries[0]?.text || 'New conversation'}
+        </h1>
+        <div className="flex shrink-0 items-center gap-1">
+          {entries.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={
+                conversationCopied ? 'Conversation copied' : 'Copy conversation'
+              }
+              title="Copy conversation"
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(
+                    entries
+                      .map(
+                        (entry) =>
+                          `${entry.role === 'you' ? 'You' : 'Atlas'}: ${entry.text}`,
+                      )
+                      .join('\n\n'),
+                  )
+                  .then(() => {
+                    setConversationCopied(true);
+                    setTimeout(
+                      () => setConversationCopied(false),
+                      COPY_RESET_MS,
+                    );
+                  })
+                  .catch(() =>
+                    setError('Could not copy the conversation. Try again.'),
+                  );
+              }}
+            >
+              {conversationCopied ? (
+                <Check className="size-4" />
+              ) : (
+                <Copy className="size-4" />
+              )}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="New conversation"
+            title="New conversation"
+            onClick={() => router.push('/chat')}
+          >
+            <SquarePen className="size-4" />
+          </Button>
+        </div>
+      </header>
       <ScrollArea
         viewportRef={scrollRef}
         type="auto"
         className="min-h-0 flex-1"
-        viewportClassName="px-4 sm:px-6"
+        viewportClassName="px-4 sm:px-8 lg:px-10"
+        onViewportScroll={(event) => {
+          const el = event.currentTarget;
+          const away = el.scrollHeight - el.scrollTop - el.clientHeight > 180;
+          followBottomRef.current = !away;
+          setShowJump(away);
+        }}
       >
         {isEmpty ? (
           <EmptyState onPick={setDraft} />
         ) : (
-          <div className="space-y-4 pb-3 pt-5">
+          <div className="space-y-6 pb-6 pt-5">
             {historyPage.hasMore && (
               <Button
                 type="button"
@@ -360,6 +459,19 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         )}
       </ScrollArea>
 
+      {showJump && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-36 flex justify-center">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={scrollToLatest}
+            className="pointer-events-auto gap-1.5 rounded-full bg-white shadow-sm"
+          >
+            <ArrowDown className="size-3.5" />
+            Back to latest
+          </Button>
+        </div>
+      )}
       <Composer
         draft={draft}
         pending={pending}
@@ -376,7 +488,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   if (role === 'you') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-xl rounded-br-sm border border-accent-line/50 bg-accent-soft px-3.5 py-2 text-sm leading-relaxed text-ink">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eff0f2] px-4 py-2.5 text-sm leading-relaxed text-ink">
           {text}
         </div>
       </div>
@@ -384,12 +496,9 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   }
 
   return (
-    <div className="group flex items-start gap-3">
-      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
-        <Sparkles className="size-4" aria-hidden="true" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <ChatMarkdown text={text} />
+    <div className="group min-w-0">
+      <ChatMarkdown text={text} />
+      <div className="mt-2">
         <CopyButton text={text} />
       </div>
     </div>
@@ -410,7 +519,7 @@ function CopyButton({ text }: { text: string }) {
           })
           .catch(() => setCopied(false));
       }}
-      className="focus-ring -ml-1.5 flex items-center gap-1 rounded-[6px] px-1.5 py-1 text-[11.5px] text-faint opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink group-hover:opacity-100"
+      className="focus-ring -ml-1.5 flex items-center gap-1 rounded-[6px] px-1.5 py-1 text-[11.5px] text-faint opacity-100 transition-opacity duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink group-hover:opacity-100"
     >
       {copied ? (
         <Check className="h-3 w-3" aria-hidden="true" />
@@ -425,12 +534,10 @@ function CopyButton({ text }: { text: string }) {
 function ThinkingIndicator({ activity }: { activity: string[] }) {
   return (
     <div className="flex items-start gap-3" aria-live="polite">
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-gradient-to-br from-sky to-deep">
-        <span
-          className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/80"
-          style={{ animationDuration: '1.4s' }}
-        />
-      </span>
+      <LoaderCircle
+        className="mt-0.5 size-4 animate-spin text-muted"
+        aria-hidden="true"
+      />
       <div className="min-w-0 flex-1 space-y-1.5">
         {activity.map((label, index) => (
           <p
@@ -449,12 +556,9 @@ function ThinkingIndicator({ activity }: { activity: string[] }) {
 function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
   return (
     <div className="flex min-h-full flex-col items-center justify-center py-6 text-center">
-      <div className="mb-4 flex size-10 items-center justify-center rounded-xl border border-accent-line bg-accent-soft text-accent">
+      <div className="mb-4 flex size-10 items-center justify-center text-ink">
         <Sparkles className="size-5" aria-hidden="true" />
       </div>
-      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
-        Room for a new idea
-      </p>
       <h1 className="max-w-lg text-[26px] font-medium leading-tight tracking-[-0.04em] sm:text-[30px]">
         What would you like
         <br />
@@ -470,11 +574,11 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
             key={label}
             type="button"
             onClick={() => onPick(prompt)}
-            className="group rounded-lg border bg-surface p-3 text-left transition-colors hover:border-accent-line hover:bg-accent-soft/40"
+            className="group rounded-xl border border-black/5 bg-white p-3 text-left transition-colors hover:border-black/10 hover:bg-black/[0.025]"
           >
             <span className="mb-2 flex items-center justify-between">
-              <Icon className="size-4 text-accent" aria-hidden="true" />
-              <ArrowUpRight className="size-3.5 text-faint group-hover:text-accent" />
+              <Icon className="size-4 text-muted" aria-hidden="true" />
+              <ArrowUpRight className="size-3.5 text-faint group-hover:text-ink" />
             </span>
             <span className="block text-xs font-semibold text-ink">
               {label}
@@ -517,13 +621,13 @@ function Composer({
 
   return (
     <form
-      className="relative shrink-0 px-4 pb-2 pt-2 sm:px-6"
+      className="relative shrink-0 px-4 pb-2 pt-2 sm:px-8 lg:px-10"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
       }}
     >
-      <div className="relative flex items-end gap-2 rounded-xl border border-hairline-strong bg-white p-2 pl-3 shadow-[0_4px_20px_#1b2b3e06] transition-shadow focus-within:border-accent-line focus-within:ring-4 focus-within:ring-accent-soft">
+      <div className="rounded-[22px] border border-black/10 bg-white px-4 pb-2.5 pt-2.5 shadow-[0_2px_8px_#00000003] transition-shadow focus-within:border-hairline-strong focus-within:shadow-[0_0_0_3px_#eaf6fd]">
         <Textarea
           ref={textareaRef}
           value={draft}
@@ -540,31 +644,38 @@ function Composer({
           }}
           rows={1}
           aria-label="Message Atlas"
-          placeholder="What do you want to understand?"
-          className="min-h-8 max-h-40 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-2 text-base text-ink shadow-none sm:text-sm placeholder:text-faint focus-visible:ring-0"
+          placeholder="Ask Atlas…"
+          className="min-h-10 max-h-40 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-2 text-base text-ink shadow-none placeholder:text-faint focus-visible:ring-0"
         />
-        <div className="flex shrink-0 items-center gap-2.5 pb-1">
-          <span className="hidden items-center gap-1 font-mono text-[11px] text-faint sm:flex">
-            <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">
-              ⏎
-            </kbd>
-            to send
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <span className="flex items-center gap-1.5 text-xs text-muted">
+            <Sparkles className="size-3.5" />
+            Atlas
           </span>
-          {onStop ? (
-            <Button type="button" onClick={onStop} disabled={stopping}>
-              {stopping ? 'Stopping…' : 'Stop'}
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              size="icon"
-              disabled={pending || !draft.trim()}
-              aria-label="Send message"
-              className="shrink-0"
-            >
-              <SendIcon />
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            <span className="hidden items-center gap-1 font-mono text-[11px] text-faint sm:flex">
+              <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">
+                ⏎
+              </kbd>
+              send · Shift + Enter for a new line
+            </span>
+            {onStop ? (
+              <Button type="button" onClick={onStop} disabled={stopping}>
+                <Square className="size-3" />
+                {stopping ? 'Stopping…' : 'Stop'}
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                size="icon"
+                disabled={pending || !draft.trim()}
+                aria-label="Send message"
+                className="shrink-0 rounded-full"
+              >
+                <SendIcon />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       <p className="mt-1.5 text-center text-[10px] leading-5 text-faint">
