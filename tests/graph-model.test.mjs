@@ -14,7 +14,7 @@ const { outputText } = ts.transpileModule(source, {
     target: ts.ScriptTarget.ES2022,
   },
 });
-const { initialFocus, visibleNodeIds } = await import(
+const { initialFocus, visibleNodeIds, fitCamera, placeLabels } = await import(
   `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`
 );
 
@@ -65,4 +65,49 @@ test('relationship filters constrain traversal; hidden concepts still connect ex
 test('all-nodes view includes isolated nodes; a missing root never invents a visible node', () => {
   assert.deepEqual(visible(null, 1), ['a', 'b', 'c', 'd', 'island']);
   assert.deepEqual(visible('missing', 1), []);
+});
+
+test('fit camera centres finite visible nodes and fits them inside the available canvas', () => {
+  const points = [
+    { x: -500, y: -250 },
+    { x: 500, y: 250 },
+    { x: NaN, y: 0 },
+  ];
+  const camera = fitCamera(points, 800, 600);
+  assert.equal(camera.x, 0);
+  assert.equal(camera.y, 0);
+  for (const point of points.slice(0, 2)) {
+    const x = (point.x - camera.x) * camera.zoom + 400;
+    const y = (point.y - camera.y) * camera.zoom + 300;
+    assert.ok(x >= 48 && x <= 752);
+    assert.ok(y >= 48 && y <= 552);
+  }
+  assert.equal(fitCamera([], 800, 600), null);
+  assert.equal(fitCamera([{ x: 120, y: 90 }], 320, 260).zoom, 4);
+});
+
+test('dense label placement respects the budget, viewport, and label collisions', () => {
+  const candidates = Array.from({ length: 127 }, (_, index) => ({
+    id: String(index),
+    x: 100 + (index % 14) * 40,
+    y: 70 + Math.floor(index / 14) * 40,
+    radius: 4,
+    width: 150,
+    priority: index,
+  }));
+  const labels = placeLabels(candidates, candidates, 800, 600, 8);
+  assert.ok(labels.length > 0 && labels.length <= 8);
+  assert.equal(labels[0].id, '0');
+  labels.forEach((label, index) => {
+    assert.ok(label.x >= 6 && label.x + label.width <= 794);
+    assert.ok(label.y >= 6 && label.y + label.height <= 566);
+    for (const other of labels.slice(index + 1)) {
+      assert.ok(
+        label.x + label.width + 4 <= other.x ||
+          other.x + other.width + 4 <= label.x ||
+          label.y + label.height + 4 <= other.y ||
+          other.y + other.height + 4 <= label.y,
+      );
+    }
+  });
 });

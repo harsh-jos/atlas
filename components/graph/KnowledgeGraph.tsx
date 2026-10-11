@@ -7,7 +7,7 @@ import ForceGraph2D, {
   type LinkObject,
   type NodeObject,
 } from 'react-force-graph-2d';
-import { forceCollide } from 'd3-force-3d';
+import { arrangeGraph } from './graph-layout';
 import {
   ArrowUpRight,
   Maximize2,
@@ -35,6 +35,8 @@ import {
 } from '@/components/shadcn/tooltip';
 import {
   initialFocus,
+  fitCamera,
+  placeLabels,
   visibleNodeIds,
   RELATION_LABELS,
   UNDIRECTED,
@@ -76,30 +78,22 @@ export interface KnowledgeGraphProps {
 const BACKGROUND = '#f5f8fb'; // --canvas
 const GRID_DOT = 'rgba(0, 0, 0, 0.05)';
 const NODE_HALO = '#f5f8fb'; // gap that lifts a node off crossing links — matches BACKGROUND
-const LABEL_INK = '#000000'; // --muted
-const LABEL_INK_FOCUS = '#000000'; // --ink
+const LABEL_INK = '#000000'; // --ink
 const LABEL_HALO = 'rgba(245, 248, 251, 0.92)'; // keeps text crisp over edges
 const LINK_BASE = 'rgba(0, 0, 0, 0.3)';
+const LINK_DENSE = 'rgba(0, 0, 0, 0.14)';
 const LINK_ACTIVE = 'rgba(8, 120, 176, 0.7)'; // --accent
 const LINK_DIM = 'rgba(115, 115, 115, 0.06)';
 const RING = 'rgba(8, 120, 176, 0.95)'; // --accent
 const GLOW = 'rgba(8, 120, 176, 0.3)'; // soft halo under the focused node
 const DIM_ALPHA = 0.12; // out-of-focus nodes on hover — faint, never gone
 
-const HUB_LABELS = 8; // the N most-connected nodes keep their labels at any zoom
-const LABEL_FADE_START = 1.05; // zoom where every label starts fading in…
-const LABEL_FADE_END = 1.6; // …and where it reaches full strength
+const HUB_LABELS = 8; // concept hubs receive priority in the label budget
 const LABEL_FONT = 12; // px on screen, constant across zoom
 const LABEL_MAX_CHARS = 36;
 
 const GRID_SPACING = 36; // graph units between ground dots
 const GRID_MIN_PX = 18; // spacing doubles until dots sit at least this far apart on screen
-
-function motionDuration() {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ? 0
-    : 250;
-}
 
 function resolveId(end: GraphLink['source']): string {
   return typeof end === 'object' && end !== null
@@ -121,10 +115,12 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
   const graphRef = React.useRef<GraphMethods | undefined>(undefined);
 
   const [dimensions, setDimensions] = React.useState({
-    width: 800,
-    height: 600,
+    width: 0,
+    height: 0,
   });
   const [hoverId, setHoverId] = React.useState<string | null>(null);
+  const [layoutAspect, setLayoutAspect] = React.useState<number | null>(null);
+  const [hoverLinkId, setHoverLinkId] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState('');
   const [selectedId, setSelectedId] = React.useState<string | null>(() =>
     initialFocus(data),
@@ -196,7 +192,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       .sort()
       .join('|'))
       hash = (hash * 31 + char.charCodeAt(0)) | 0;
-    return `atlas-graph-layout-v1:${hash}`;
+    return `atlas-graph-layout-v2:${hash}`;
   }, [data.nodes]);
   const [searchNotice, setSearchNotice] = React.useState('');
 
@@ -209,8 +205,10 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     } catch {
       /* Optional persistence. */
     }
+    const arranged =
+      layoutAspect == null ? [] : arrangeGraph(data, layoutAspect);
     return {
-      nodes: data.nodes.map((n) => {
+      nodes: arranged.map((n) => {
         const position = positions[n.id];
         return position &&
           Number.isFinite(position.x) &&
@@ -222,11 +220,11 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
               fx: position.x,
               fy: position.y,
             }
-          : { ...n };
+          : n;
       }),
       links: data.links.map((link) => ({ ...link })),
     };
-  }, [data.nodes, data.links, layoutKey]);
+  }, [data, layoutKey, layoutAspect]);
 
   const nodeById = React.useMemo(() => {
     const map = new Map<string, ApiGraphNode>();
@@ -269,6 +267,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     const observer = new ResizeObserver(([entry]) => {
       const width = Math.max(1, Math.floor(entry.contentRect.width));
       const height = Math.max(1, Math.floor(entry.contentRect.height));
+      setLayoutAspect((previous) => previous ?? width / height);
       setDimensions((prev) =>
         prev.width === width && prev.height === height
           ? prev
@@ -278,19 +277,6 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-
-  // A calm, roomy layout: nodes repel, links pull short and even, and a collision
-  // radius keeps circles (and their labels) from piling onto each other.
-  React.useEffect(() => {
-    const graph = graphRef.current;
-    if (!graph) return;
-    graph.d3Force('charge')?.strength(-230);
-    graph.d3Force('link')?.distance(90);
-    graph.d3Force(
-      'collide',
-      forceCollide((node) => radiusFor(String(node.id)) + 18),
-    );
-  }, [graphData, radiusFor]);
 
   const hasFramed = React.useRef(false);
   const saveLayout = React.useCallback(() => {
@@ -306,10 +292,17 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     }
   }, [graphData, layoutKey]);
   const fitVisible = React.useCallback(() => {
-    graphRef.current?.zoomToFit(motionDuration(), 65, (node) =>
-      visibleIds.has(String(node.id)),
+    const graph = graphRef.current;
+    const camera = fitCamera(
+      graphData.nodes.filter((node) => visibleIds.has(node.id)),
+      dimensions.width,
+      dimensions.height,
     );
-  }, [visibleIds]);
+    if (!graph || !camera) return;
+    // Apply zoom first, then centre: no stale bounding-box cache or pending camera tween.
+    graph.zoom(camera.zoom, 0);
+    graph.centerAt(camera.x, camera.y, 0);
+  }, [visibleIds, graphData, dimensions]);
   const handleEngineStop = React.useCallback(() => {
     saveLayout();
     setGraphReady(true);
@@ -396,7 +389,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         ctx.lineWidth = 1.3 / scale;
         ctx.strokeStyle = focused ? RING : '#595959';
         ctx.stroke();
-        for (let line = -1; line <= 1; line++) {
+        for (let line = -1; r * scale > 5 && line <= 1; line++) {
           ctx.beginPath();
           ctx.moveTo(node.x - r * 0.5, node.y + line * r * 0.5);
           ctx.lineTo(node.x + r * 0.5, node.y + line * r * 0.5);
@@ -412,36 +405,83 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         ctx.stroke();
       }
 
-      // Labels come to you: hubs always, neighbours on hover, everything as you zoom in.
-      let alpha = Math.min(
-        1,
-        Math.max(
-          0,
-          (scale - LABEL_FADE_START) / (LABEL_FADE_END - LABEL_FADE_START),
-        ),
-      );
-      if (focused || (activeId != null && inHoverFocus) || visibleIds.size < 25)
-        alpha = 1;
-      else if (hubIds.has(id)) alpha = Math.max(alpha, 0.9);
-
-      if (alpha > 0.02 && !dimmed) {
-        const fontSize = LABEL_FONT / scale;
-        ctx.font = `500 ${fontSize}px ${fontRef.current}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.globalAlpha = alpha;
-        const label = truncate(node.title, LABEL_MAX_CHARS);
-        const y = node.y + r + 3 / scale;
-        ctx.lineWidth = 3 / scale;
-        ctx.strokeStyle = LABEL_HALO;
-        ctx.strokeText(label, node.x, y);
-        ctx.fillStyle = focused ? LABEL_INK_FOCUS : LABEL_INK;
-        ctx.fillText(label, node.x, y);
-      }
-
       ctx.globalAlpha = 1;
     },
-    [radiusFor, hoverId, selectedId, activeId, neighbors, hubIds, visibleIds],
+    [radiusFor, hoverId, selectedId, neighbors],
+  );
+
+  // Labels are a separate pass, ordered by importance and tested for collisions
+  // in screen pixels. Selecting a hub never labels all of its neighbours.
+  const paintLabels = React.useCallback(
+    (ctx: CanvasRenderingContext2D, scale: number) => {
+      const graph = graphRef.current;
+      if (!graph) return;
+      ctx.font = `500 ${LABEL_FONT}px ${fontRef.current}`;
+      const nodes = graphData.nodes
+        .filter((node) => visibleIds.has(node.id))
+        .map((node) => ({
+          ...node,
+          ...graph.graph2ScreenCoords(node.x, node.y),
+          radius: radiusFor(node.id) * Math.sqrt(scale),
+        }));
+      const labels = new Map<string, string>();
+      const candidates = nodes
+        .filter(
+          (node) =>
+            node.id === selectedId ||
+            node.id === hoverId ||
+            node.nodeKind === 'concept' ||
+            (scale >= 1.8 && visibleIds.size <= 40),
+        )
+        .map((node) => {
+          const label = truncate(
+            node.title,
+            dimensions.width < 500 ? 26 : LABEL_MAX_CHARS,
+          );
+          labels.set(node.id, label);
+          return {
+            ...node,
+            width: ctx.measureText(label).width,
+            priority:
+              node.id === hoverId
+                ? 0
+                : node.id === selectedId
+                  ? 1
+                  : hubIds.has(node.id)
+                    ? 2
+                    : node.nodeKind === 'concept'
+                      ? 3
+                      : 4,
+          };
+        });
+      const budget = Math.max(
+        3,
+        Math.min(
+          scale >= 1.8 ? 24 : 12,
+          Math.floor((dimensions.width * dimensions.height) / 28000),
+        ),
+      );
+      const placed = placeLabels(
+        candidates,
+        nodes,
+        dimensions.width,
+        dimensions.height,
+        budget,
+      );
+      ctx.font = `500 ${LABEL_FONT / scale}px ${fontRef.current}`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.globalAlpha = 1;
+      for (const label of placed) {
+        const point = graph.screen2GraphCoords(label.x, label.y);
+        ctx.lineWidth = 3 / scale;
+        ctx.strokeStyle = LABEL_HALO;
+        ctx.strokeText(labels.get(label.id)!, point.x, point.y);
+        ctx.fillStyle = LABEL_INK;
+        ctx.fillText(labels.get(label.id)!, point.x, point.y);
+      }
+    },
+    [graphData, visibleIds, radiusFor, selectedId, hoverId, dimensions, hubIds],
   );
 
   // The clickable/hoverable area matches the drawn circle (plus a small forgiving margin).
@@ -465,15 +505,24 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
   const linkActive = React.useCallback(
     (link: GraphLink) =>
-      activeId != null &&
-      (resolveId(link.source) === activeId ||
-        resolveId(link.target) === activeId),
-    [activeId],
+      hoverLinkId ===
+        `${resolveId(link.source)}:${link.relationType}:${resolveId(link.target)}` ||
+      ((hoverId != null || visibleEdges.length < 35) &&
+        activeId != null &&
+        (resolveId(link.source) === activeId ||
+          resolveId(link.target) === activeId)),
+    [activeId, hoverId, hoverLinkId, visibleEdges.length],
   );
   const linkColor = React.useCallback(
     (link: GraphLink) =>
-      linkActive(link) ? LINK_ACTIVE : hoverId == null ? LINK_BASE : LINK_DIM,
-    [hoverId, linkActive],
+      linkActive(link)
+        ? LINK_ACTIVE
+        : hoverId != null || hoverLinkId != null
+          ? LINK_DIM
+          : visibleEdges.length > 80
+            ? LINK_DENSE
+            : LINK_BASE,
+    [hoverId, hoverLinkId, visibleEdges.length, linkActive],
   );
   const linkWidth = React.useCallback(
     (link: GraphLink) => (linkActive(link) ? 1.5 : 1),
@@ -482,8 +531,8 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
   const paintLinkLabel = React.useCallback(
     (link: GraphLink, ctx: CanvasRenderingContext2D, scale: number) => {
       if (
-        !selectedId ||
-        ![resolveId(link.source), resolveId(link.target)].includes(selectedId)
+        hoverLinkId !==
+        `${resolveId(link.source)}:${link.relationType}:${resolveId(link.target)}`
       )
         return;
       const source = link.source as GraphNode,
@@ -495,7 +544,8 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         target.y == null
       )
         return;
-      const dx = target.x - source.x, dy = target.y - source.y;
+      const dx = target.x - source.x,
+        dy = target.y - source.y;
       const length = Math.hypot(dx, dy) || 1;
       const side = dx < 0 ? 1 : -1;
       const offset = 20 / scale;
@@ -516,7 +566,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       ctx.fillStyle = LABEL_INK;
       ctx.fillText(label, x, y);
     },
-    [selectedId],
+    [hoverLinkId],
   );
 
   const selectNode = React.useCallback((node: GraphNode) => {
@@ -554,7 +604,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
   const zoomBy = (factor: number) => {
     const graph = graphRef.current;
     if (!graph) return;
-    graph.zoom(graph.zoom() * factor, motionDuration());
+    graph.zoom(graph.zoom() * factor, 0);
   };
 
   const handleSearchSubmit = (event: React.FormEvent) => {
@@ -901,49 +951,63 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
           className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-canvas"
           style={{ cursor: hoverId ? 'pointer' : 'default' }}
         >
-          <ForceGraph2D<ApiGraphNode, ApiGraphLink>
-            ref={graphRef}
-            graphData={graphData}
-            width={dimensions.width}
-            height={dimensions.height}
-            backgroundColor={BACKGROUND}
-            onRenderFramePre={paintGrid}
-            minZoom={0.2}
-            maxZoom={4}
-            nodeRelSize={4}
-            nodeCanvasObjectMode={() => 'replace'}
-            nodeCanvasObject={paintNode}
-            nodePointerAreaPaint={paintPointerArea}
-            nodeLabel={() => ''}
-            nodeVisibility={(node) => visibleIds.has(String(node.id))}
-            linkVisibility={(link) =>
-              relations.has(link.relationType) &&
-              visibleIds.has(resolveId(link.source)) &&
-              visibleIds.has(resolveId(link.target))
-            }
-            linkColor={linkColor}
-            linkWidth={linkWidth}
-            linkLineDash={(link) =>
-              link.relationType === 'explains' ? [3, 3] : null
-            }
-            linkDirectionalArrowLength={(link) =>
-              UNDIRECTED.has(link.relationType) ? 0 : 4
-            }
-            linkDirectionalArrowRelPos={0.76}
-            linkCanvasObjectMode={() => 'after'}
-            linkCanvasObject={paintLinkLabel}
-            cooldownTicks={50}
-            warmupTicks={100}
-            onEngineStop={handleEngineStop}
-            onNodeHover={(node) => setHoverId(node ? String(node.id) : null)}
-            onNodeClick={(node) => selectNode(node as GraphNode)}
-            onNodeDragEnd={(node) => {
-              node.fx = node.x;
-              node.fy = node.y;
-              saveLayout();
-            }}
-            onZoom={({ k }) => setZoom(k)}
-          />
+          {graphData.nodes.length > 0 && (
+            <ForceGraph2D<ApiGraphNode, ApiGraphLink>
+              ref={graphRef}
+              graphData={graphData}
+              width={dimensions.width}
+              height={dimensions.height}
+              backgroundColor={BACKGROUND}
+              onRenderFramePre={paintGrid}
+              onRenderFramePost={paintLabels}
+              minZoom={0.02}
+              maxZoom={4}
+              nodeRelSize={4}
+              nodeCanvasObjectMode={() => 'replace'}
+              nodeCanvasObject={paintNode}
+              nodePointerAreaPaint={paintPointerArea}
+              nodeLabel={() => ''}
+              nodeVisibility={(node) => visibleIds.has(String(node.id))}
+              linkVisibility={(link) =>
+                relations.has(link.relationType) &&
+                visibleIds.has(resolveId(link.source)) &&
+                visibleIds.has(resolveId(link.target))
+              }
+              linkColor={linkColor}
+              linkWidth={linkWidth}
+              linkLineDash={(link) =>
+                link.relationType === 'explains' ? [3, 3] : null
+              }
+              linkDirectionalArrowLength={(link) =>
+                UNDIRECTED.has(link.relationType) ||
+                (visibleEdges.length > 80 && !linkActive(link))
+                  ? 0
+                  : 4
+              }
+              linkDirectionalArrowRelPos={0.76}
+              linkCanvasObjectMode={() => 'after'}
+              linkCanvasObject={paintLinkLabel}
+              cooldownTicks={0}
+              warmupTicks={0}
+              onEngineStop={handleEngineStop}
+              linkLabel={() => ''}
+              onLinkHover={(link) =>
+                setHoverLinkId(
+                  link
+                    ? `${resolveId(link.source)}:${link.relationType}:${resolveId(link.target)}`
+                    : null,
+                )
+              }
+              onNodeHover={(node) => setHoverId(node ? String(node.id) : null)}
+              onNodeClick={(node) => selectNode(node as GraphNode)}
+              onNodeDragEnd={(node) => {
+                node.fx = node.x;
+                node.fy = node.y;
+                saveLayout();
+              }}
+              onZoom={({ k }) => setZoom(k)}
+            />
+          )}
           {!graphReady && (
             <div
               role="status"
@@ -970,7 +1034,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
               <FileText className="size-2.5" /> Explanation
             </span>
             <span className="hidden sm:inline">
-              Drag to move · Scroll to zoom
+              Drag to move · Scroll to zoom · Hover for labels
             </span>
           </div>
         </div>
@@ -978,7 +1042,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
           aria-label="Node details"
           className={cn(
             'shrink-0 overflow-y-auto border-t bg-white lg:w-72 lg:border-l lg:border-t-0',
-            selectedNode ? 'max-h-[40%] lg:max-h-none' : 'hidden lg:block',
+            selectedNode ? 'max-h-[40%] lg:max-h-none' : 'hidden',
           )}
         >
           {selectedNode ? (
