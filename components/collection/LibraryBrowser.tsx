@@ -37,7 +37,7 @@ export function LibraryBrowser({
   }, [concepts, query, sort]);
   return (
     <section aria-label="Saved concepts">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Your concepts</h2>
           <span className="rounded-md bg-surface-soft px-2 py-0.5 text-[11px] text-muted">
@@ -53,7 +53,7 @@ export function LibraryBrowser({
           <ArrowUpRight className="size-3.5" />
         </Link>
       </div>
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-40 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-faint" />
           <Input
@@ -117,7 +117,7 @@ export function LibraryBrowser({
           description="Try another name or clear the filter."
         />
       ) : view === 'grid' ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visible.map((c) => (
             <CollectionShelf
               key={c.id}
@@ -136,9 +136,9 @@ export function LibraryBrowser({
             <Link
               key={c.id}
               href={`/collections/${c.slug}`}
-              className="flex items-center gap-4 p-4 hover:bg-canvas"
+              className="flex items-center gap-3 p-3 hover:bg-canvas"
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
                 <Layers className="size-4" />
               </span>
               <div className="min-w-0 flex-1">

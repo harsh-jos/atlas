@@ -21,29 +21,29 @@ export function CollectionShelf({
   return (
     <Link
       href={`/collections/${slug}`}
-      className="group block h-full rounded-2xl"
+      className="group block h-full rounded-xl"
     >
-      <Card className="h-full gap-0 overflow-hidden rounded-2xl py-0 shadow-none transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-accent-line group-hover:shadow-[0_8px_24px_#1b2b3e08]">
-        <CardContent className="flex h-full flex-col p-5">
-          <div className="mb-5 flex items-center justify-between">
-            <span className="flex size-11 items-center justify-center rounded-xl border border-accent-line/60 bg-accent-soft text-accent">
+      <Card className="h-full gap-0 overflow-hidden rounded-xl py-0 shadow-none transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-accent-line group-hover:shadow-[0_8px_24px_#1b2b3e08]">
+        <CardContent className="flex h-full flex-col p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="flex size-8 items-center justify-center rounded-xl border border-accent-line/60 bg-accent-soft text-accent">
               <Layers
-                className="size-5"
+                className="size-4"
                 style={{ color: color || undefined }}
                 aria-hidden="true"
               />
             </span>
             <ArrowUpRight className="size-4 text-faint transition-colors group-hover:text-accent" />
           </div>
-          <h3 className="break-words text-[16px] font-semibold tracking-tight text-ink">
+          <h3 className="break-words text-sm font-semibold tracking-tight text-ink">
             {name}
           </h3>
-          <p className="mt-2 line-clamp-2 min-h-10 text-[12px] leading-5 text-muted">
+          <p className="mt-1.5 line-clamp-2 text-[12px] leading-5 text-muted">
             {description ||
               'A place for the ideas and explanations you choose to keep.'}
           </p>
-          <div className="mt-5 border-t pt-3.5">
-            <p className="mb-2 flex items-center gap-1.5 text-[11px] text-muted">
+          <div className="mt-3 border-t pt-2.5">
+            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] text-muted">
               <BookOpen className="size-3" />
               {entryCount} {entryCount === 1 ? 'explanation' : 'explanations'}
             </p>

@@ -78,7 +78,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
       <EntryCoverBand color={artifact.concept.color} />
       <ReadingSettings />
 
-      <div className="mx-auto max-w-[calc(var(--reading-measure)+24rem)] px-5 pb-16 pt-8 sm:px-10 lg:px-14">
+      <div className="mx-auto max-w-[calc(var(--reading-measure)+24rem)] px-5 pb-16 pt-6 sm:px-8 lg:px-10">
         <article>
           <div className="max-w-[var(--reading-measure)]">
             <header className="mb-8">
@@ -108,7 +108,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
                 </Link>
               </div>
 
-              <h1 className="text-[34px] font-semibold leading-[1.15] tracking-[-0.02em] text-ink sm:text-[38px]">
+              <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.02em] text-ink sm:text-[32px]">
                 {cleanTitle(artifact.title)}
               </h1>
 

@@ -28,7 +28,7 @@
   --danger: #bd302f;
   --danger-soft: #fdf0ef;
   --danger-line: #f6cbc9;
-  --rail-width: 15.5rem;
+  --rail-width: 14.5rem;
   --reading-scale: 0.9;
   --reading-line-height: 1.5;
   --reading-measure: 46rem;
@@ -104,7 +104,7 @@
   --color-danger-line: var(--danger-line);
 
   /* Radius steps: cards 12, inputs 10, buttons are pills. */
-  --radius-card: 16px;
+  --radius-card: 12px;
   --radius-field: 10px;
 
   /* Two families total. Inter is the voice; mono is for code and micro-labels. */

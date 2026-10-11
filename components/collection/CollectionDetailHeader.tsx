@@ -74,9 +74,9 @@ export function CollectionDetailHeader({
   }
 
   return (
-    <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <header className="mb-5 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-[32px] font-semibold tracking-[-0.035em] text-ink">
+        <h1 className="text-[26px] font-semibold tracking-[-0.035em] text-ink">
           {name}
         </h1>
         <div className="mt-1.5 flex items-center gap-1.5 text-[13px] text-faint">

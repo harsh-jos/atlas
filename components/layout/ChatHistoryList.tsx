@@ -41,8 +41,8 @@ export function ChatHistoryList({
   if (sessions.length === 0) return null;
 
   return (
-    <div className="mt-7 flex min-h-0 flex-1 flex-col px-4">
-      <p className="px-3 pb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
+    <div className="mt-5 flex min-h-0 flex-1 flex-col px-4">
+      <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">
         Recent conversations
       </p>
       <div className="scroll-region min-h-0 flex-1 space-y-0.5">
@@ -55,7 +55,7 @@ export function ChatHistoryList({
               href={href}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'focus-ring flex min-h-10 items-center justify-between gap-2 rounded-[8px] px-2.5 text-xs transition-colors duration-[var(--dur-fast)]',
+                'focus-ring flex min-h-9 items-center justify-between gap-2 rounded-[8px] px-2.5 text-xs transition-colors duration-[var(--dur-fast)]',
                 active
                   ? 'bg-accent-soft font-medium text-accent'
                   : 'text-muted hover:bg-surface-soft hover:text-ink',
