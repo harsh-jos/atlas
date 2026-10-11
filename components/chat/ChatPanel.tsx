@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Copy } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  Sparkles,
+  ArrowUpRight,
+  Code2,
+  Lightbulb,
+  Network,
+  BookOpen,
+} from 'lucide-react';
+import { Textarea } from '@/components/shadcn/textarea';
 import { cancelTurn, sendTurn } from '@/app/chat/actions';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { Button } from '@/components/ui/Button';
@@ -26,10 +36,28 @@ const TOOL_LABELS: Record<string, string> = {
 
 /** The first-run moment — three or four honest ways to start a research thread. */
 const STARTER_PROMPTS = [
-  'Explain how transformer attention actually works',
-  "What's the real difference between LoRA and full fine-tuning?",
-  'Break down how vector databases do similarity search',
-  'Teach me the CAP theorem with concrete examples',
+  {
+    icon: Code2,
+    label: 'Make sense of code',
+    prompt:
+      'Help me understand how PyTorch autograd works with a small example',
+  },
+  {
+    icon: Lightbulb,
+    label: 'Untangle an idea',
+    prompt:
+      'Explain how transformer attention works, starting with the intuition',
+  },
+  {
+    icon: Network,
+    label: 'Connect the dots',
+    prompt: 'How are gradient descent and backpropagation connected?',
+  },
+  {
+    icon: BookOpen,
+    label: 'Follow your curiosity',
+    prompt: 'Teach me the CAP theorem with a concrete example',
+  },
 ];
 
 type Entry = ChatMessage;
@@ -60,34 +88,54 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [stopping, setStopping] = useState(false);
-  const [error, setError] = useState<string | null>(initialSnapshot.latestTurn?.error ?? null);
+  const [error, setError] = useState<string | null>(
+    initialSnapshot.latestTurn?.error ?? null,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const didMountRef = useRef(false);
   const submissionRef = useRef<{ id: string; message: string } | null>(null);
   const storageKey = `atlas-submission:${sessionId}`;
   const pending = submitting || isActive(turn);
   const activeTurnId = isActive(turn) ? turn?.id : null;
-  const activity = turn?.toolName ? [TOOL_LABELS[turn.toolName] ?? turn.toolName] : [];
+  const activity = turn?.toolName
+    ? [TOOL_LABELS[turn.toolName] ?? turn.toolName]
+    : [];
 
-  const refresh = useCallback(async (signal?: AbortSignal) => {
-    const snapshot = await readSnapshot<ChatHistory>(`/api/chat/${encodeURIComponent(sessionId)}`, signal);
-    setEntries(snapshot.messages);
-    setHistoryPage(snapshot);
-    setTurn(snapshot.latestTurn);
-    setError(snapshot.latestTurn?.error ?? null);
-    if (submissionRef.current && snapshot.latestTurn?.requestId === submissionRef.current.id) {
-      submissionRef.current = null;
-      try { sessionStorage.removeItem(storageKey); } catch { /* Optional. */ }
-      setDraft('');
-    }
-  }, [sessionId, storageKey]);
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      const snapshot = await readSnapshot<ChatHistory>(
+        `/api/chat/${encodeURIComponent(sessionId)}`,
+        signal,
+      );
+      setEntries(snapshot.messages);
+      setHistoryPage(snapshot);
+      setTurn(snapshot.latestTurn);
+      setError(snapshot.latestTurn?.error ?? null);
+      if (
+        submissionRef.current &&
+        snapshot.latestTurn?.requestId === submissionRef.current.id
+      ) {
+        submissionRef.current = null;
+        try {
+          sessionStorage.removeItem(storageKey);
+        } catch {
+          /* Optional. */
+        }
+        setDraft('');
+      }
+    },
+    [sessionId, storageKey],
+  );
 
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem(storageKey);
       if (saved) {
         const submission = JSON.parse(saved) as { id: string; message: string };
-        if (typeof submission.id === 'string' && typeof submission.message === 'string') {
+        if (
+          typeof submission.id === 'string' &&
+          typeof submission.message === 'string'
+        ) {
           if (initialSnapshot.latestTurn?.requestId === submission.id) {
             sessionStorage.removeItem(storageKey);
             return;
@@ -98,35 +146,56 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           setDraft(submission.message);
         }
       }
-    } catch { /* Storage may be unavailable; the server still enforces request IDs. */ }
+    } catch {
+      /* Storage may be unavailable; the server still enforces request IDs. */
+    }
   }, [storageKey, initialSnapshot.latestTurn?.requestId]);
 
-  const say = useCallback(async (message: string) => {
-    if (pending) return;
-    setError(null);
-    setDraft(message);
-    setSubmitting(true);
-    const submission = submissionRef.current?.message === message
-      ? submissionRef.current : { id: crypto.randomUUID(), message };
-    submissionRef.current = submission;
-    try { sessionStorage.setItem(storageKey, JSON.stringify(submission)); } catch { /* Optional. */ }
-    try {
-      const result = await sendTurn(sessionId, message, submission.id);
-      if (result.error !== undefined) {
-        setError(result.error);
-        return;
+  const say = useCallback(
+    async (message: string) => {
+      if (pending) return;
+      setError(null);
+      setDraft(message);
+      setSubmitting(true);
+      const submission =
+        submissionRef.current?.message === message
+          ? submissionRef.current
+          : { id: crypto.randomUUID(), message };
+      submissionRef.current = submission;
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify(submission));
+      } catch {
+        /* Optional. */
       }
-      submissionRef.current = null;
-      try { sessionStorage.removeItem(storageKey); } catch { /* Optional. */ }
-      setDraft('');
-      setTurn(result.value);
-      try { await refresh(); } catch { setError('Your message was accepted. Reconnecting…'); }
-    } catch {
-      setError('Could not confirm your submission. Send the same message again to check it safely.');
-    } finally {
-      setSubmitting(false);
-    }
-  }, [sessionId, storageKey, pending, refresh]);
+      try {
+        const result = await sendTurn(sessionId, message, submission.id);
+        if (result.error !== undefined) {
+          setError(result.error);
+          return;
+        }
+        submissionRef.current = null;
+        try {
+          sessionStorage.removeItem(storageKey);
+        } catch {
+          /* Optional. */
+        }
+        setDraft('');
+        setTurn(result.value);
+        try {
+          await refresh();
+        } catch {
+          setError('Your message was accepted. Reconnecting…');
+        }
+      } catch {
+        setError(
+          'Could not confirm your submission. Send the same message again to check it safely.',
+        );
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [sessionId, storageKey, pending, refresh],
+  );
 
   // Poll only an active turn. Reads never resubmit a message or restart generation.
   useEffect(() => {
@@ -139,7 +208,10 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         return;
       }
       try {
-        const latest = await readSnapshot<ChatTurn>(`/api/turns/${activeTurnId}`, controller.signal);
+        const latest = await readSnapshot<ChatTurn>(
+          `/api/turns/${activeTurnId}`,
+          controller.signal,
+        );
         if (controller.signal.aborted) return;
         if (!isActive(latest)) {
           await refresh(controller.signal);
@@ -167,7 +239,10 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     const recover = () => {
       if (document.visibilityState === 'visible') {
         void refresh(controller.signal).catch(() => {
-          if (!controller.signal.aborted) setError('Could not refresh the conversation. Check your connection.');
+          if (!controller.signal.aborted)
+            setError(
+              'Could not refresh the conversation. Check your connection.',
+            );
         });
       }
     };
@@ -183,10 +258,13 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   // Scrolls only this container — never the app-wide scroll region above it.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: didMountRef.current ? 'smooth' : 'auto' });
+    if (!el || (entries.length === 0 && !pending)) return;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: didMountRef.current ? 'smooth' : 'auto',
+    });
     didMountRef.current = true;
-  }, [entries, turn?.toolName]);
+  }, [entries, turn?.toolName, pending]);
 
   const submit = useCallback(() => {
     const message = draft.trim();
@@ -216,9 +294,13 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     if (loadingEarlier) return;
     setLoadingEarlier(true);
     try {
-      const query = new URLSearchParams({ legacy_offset: String(historyPage.nextLegacyOffset ?? 0) });
+      const query = new URLSearchParams({
+        legacy_offset: String(historyPage.nextLegacyOffset ?? 0),
+      });
       if (historyPage.nextBefore) query.set('before', historyPage.nextBefore);
-      const older = await readSnapshot<ChatHistory>(`/api/chat/${encodeURIComponent(sessionId)}?${query}`);
+      const older = await readSnapshot<ChatHistory>(
+        `/api/chat/${encodeURIComponent(sessionId)}?${query}`,
+      );
       setEntries((current) => [...older.messages, ...current]);
       setHistoryPage(older);
     } catch {
@@ -231,14 +313,18 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const isEmpty = entries.length === 0 && !pending;
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4 sm:px-6">
-      <div ref={scrollRef} className="scroll-region min-h-0 flex-1">
+    <div className="mx-auto flex h-full w-full max-w-[850px] flex-col px-5 sm:px-8">
+      <div ref={scrollRef} className="scroll-region min-h-0 flex-1 pr-1">
         {isEmpty ? (
-          <EmptyState onPick={(prompt) => void say(prompt)} />
+          <EmptyState onPick={setDraft} />
         ) : (
           <div className="space-y-6 pb-4 pt-6">
             {historyPage.hasMore && (
-              <Button type="button" disabled={loadingEarlier} onClick={() => void loadEarlier()}>
+              <Button
+                type="button"
+                disabled={loadingEarlier}
+                onClick={() => void loadEarlier()}
+              >
                 {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
               </Button>
             )}
@@ -247,23 +333,35 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
             ))}
 
             {pending && <ThinkingIndicator activity={activity} />}
-
           </div>
         )}
-        {error && <p role="alert" className="pb-4 text-[13px] text-danger">{error}</p>}
-        {!!turn?.toolErrors.length && <p role="status" className="pb-4 text-[13px] text-danger">
-          Some saved-knowledge operations reported errors: {turn.toolErrors.map((issue) => issue.message).join(' ')}
-          {' '}Reference: {turn.id}
-        </p>}
-        {turn && (turn.error || turn.status === 'incomplete') && <p className="pb-4 font-mono text-[11px] text-faint">
-          {turn.errorCode ?? turn.status} · Reference: {turn.id}
-        </p>}
+        {error && (
+          <p role="alert" className="pb-4 text-[13px] text-danger">
+            {error}
+          </p>
+        )}
+        {!!turn?.toolErrors.length && (
+          <p role="status" className="pb-4 text-[13px] text-danger">
+            Some saved-knowledge operations reported errors:{' '}
+            {turn.toolErrors.map((issue) => issue.message).join(' ')} Reference:{' '}
+            {turn.id}
+          </p>
+        )}
+        {turn && (turn.error || turn.status === 'incomplete') && (
+          <p className="pb-4 font-mono text-[11px] text-faint">
+            {turn.errorCode ?? turn.status} · Reference: {turn.id}
+          </p>
+        )}
       </div>
 
-      <Composer draft={draft} pending={pending} onDraftChange={setDraft} onSubmit={submit}
+      <Composer
+        draft={draft}
+        pending={pending}
+        onDraftChange={setDraft}
+        onSubmit={submit}
         onStop={activeTurnId ? () => void stop() : undefined}
-        stopping={stopping || !!turn?.cancelRequested && isActive(turn)} />
-
+        stopping={stopping || (!!turn?.cancelRequested && isActive(turn))}
+      />
     </div>
   );
 }
@@ -272,7 +370,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   if (role === 'you') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[75%] whitespace-pre-wrap rounded-card bg-surface-soft px-4 py-2.5 text-[15px] leading-relaxed text-ink">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md border border-accent-line/50 bg-accent-soft px-5 py-3 text-[15px] leading-relaxed text-ink">
           {text}
         </div>
       </div>
@@ -281,8 +379,8 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
 
   return (
     <div className="group flex items-start gap-3">
-      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-gradient-to-br from-sky to-deep font-mono text-[9.5px] font-semibold text-white">
-        A
+      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+        <Sparkles className="size-4" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">
         <ChatMarkdown text={text} />
@@ -298,13 +396,21 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={() => {
-        void navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), COPY_RESET_MS);
+        void navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), COPY_RESET_MS);
+          })
+          .catch(() => setCopied(false));
       }}
-      className="focus-ring -ml-1.5 flex items-center gap-1 rounded-[6px] px-1.5 py-1 text-[11.5px] text-faint opacity-0 transition-opacity duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink group-hover:opacity-100"
+      className="focus-ring -ml-1.5 flex items-center gap-1 rounded-[6px] px-1.5 py-1 text-[11.5px] text-faint opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink group-hover:opacity-100"
     >
-      {copied ? <Check className="h-3 w-3" aria-hidden="true" /> : <Copy className="h-3 w-3" aria-hidden="true" />}
+      {copied ? (
+        <Check className="h-3 w-3" aria-hidden="true" />
+      ) : (
+        <Copy className="h-3 w-3" aria-hidden="true" />
+      )}
       {copied ? 'Copied' : 'Copy'}
     </button>
   );
@@ -321,7 +427,10 @@ function ThinkingIndicator({ activity }: { activity: string[] }) {
       </span>
       <div className="min-w-0 flex-1 space-y-1.5">
         {activity.map((label, index) => (
-          <p key={index} className="animate-rise font-mono text-[11.5px] text-faint">
+          <p
+            key={index}
+            className="animate-rise font-mono text-[11.5px] text-faint"
+          >
             {label}…
           </p>
         ))}
@@ -333,41 +442,42 @@ function ThinkingIndicator({ activity }: { activity: string[] }) {
 
 function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
   return (
-    <div className="relative flex h-full flex-col items-center justify-center px-4 text-center">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-40 blur-3xl"
-        style={{ background: 'radial-gradient(closest-side, var(--sky), transparent 72%)' }}
-      />
-      <div
-        aria-hidden="true"
-        className="dot-grid pointer-events-none absolute inset-0"
-        style={{
-          maskImage: 'radial-gradient(60% 55% at 50% 42%, black, transparent)',
-          WebkitMaskImage: 'radial-gradient(60% 55% at 50% 42%, black, transparent)',
-        }}
-      />
-      <div className="animate-rise relative max-w-lg">
-        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.02em] text-ink sm:text-[30px]">
-          What are you curious about?
-        </h1>
-        <p className="mx-auto mt-3 max-w-sm text-[14.5px] leading-relaxed text-muted">
-          Ask a question. Atlas checks what you already know, researches the open web, and shows
-          you exactly what it would keep — before anything is saved.
-        </p>
-
-        <div className="mt-8 grid w-full gap-2.5 sm:grid-cols-2">
-          {STARTER_PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => onPick(prompt)}
-              className="focus-ring rounded-card border bg-surface px-4 py-3.5 text-left shadow-card transition-colors duration-[var(--dur-fast)] hover:border-accent-line hover:bg-accent-soft"
-            >
-              <span className="text-[13.5px] leading-snug text-ink">{prompt}</span>
-            </button>
-          ))}
-        </div>
+    <div className="flex min-h-full flex-col items-center justify-center py-10 text-center">
+      <div className="mb-6 flex size-14 items-center justify-center rounded-2xl border border-accent-line bg-accent-soft text-accent">
+        <Sparkles className="size-6" aria-hidden="true" />
+      </div>
+      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
+        Room for a new idea
+      </p>
+      <h1 className="max-w-lg text-[30px] font-medium leading-tight tracking-[-0.04em] sm:text-[38px]">
+        What would you like
+        <br />
+        to understand?
+      </h1>
+      <p className="mx-auto mt-4 max-w-sm text-[13px] leading-6 text-muted">
+        Start with a question, a half-formed thought, or something that doesn’t
+        quite click. We’ll take it from there.
+      </p>
+      <div className="mt-9 grid w-full max-w-xl gap-3 sm:grid-cols-2">
+        {STARTER_PROMPTS.map(({ icon: Icon, label, prompt }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => onPick(prompt)}
+            className="group rounded-xl border bg-surface p-4 text-left transition-colors hover:border-accent-line hover:bg-accent-soft/40"
+          >
+            <span className="mb-3 flex items-center justify-between">
+              <Icon className="size-4 text-accent" aria-hidden="true" />
+              <ArrowUpRight className="size-3.5 text-faint group-hover:text-accent" />
+            </span>
+            <span className="block text-xs font-semibold text-ink">
+              {label}
+            </span>
+            <span className="mt-1.5 block text-[11px] leading-5 text-muted">
+              {prompt}
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -382,7 +492,14 @@ interface ComposerProps {
   stopping: boolean;
 }
 
-function Composer({ draft, pending, onDraftChange, onSubmit, onStop, stopping }: ComposerProps) {
+function Composer({
+  draft,
+  pending,
+  onDraftChange,
+  onSubmit,
+  onStop,
+  stopping,
+}: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -394,50 +511,59 @@ function Composer({ draft, pending, onDraftChange, onSubmit, onStop, stopping }:
 
   return (
     <form
-      className="relative shrink-0 pb-6 pt-4"
+      className="relative shrink-0 pb-4 pt-3"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
       }}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-2 mx-auto h-24 max-w-sm rounded-full opacity-25 blur-2xl"
-        style={{ background: 'radial-gradient(closest-side, var(--sky), transparent 72%)' }}
-      />
-      <div className="relative flex items-end gap-2 rounded-card border bg-surface p-2 pl-4 shadow-card transition-shadow duration-[var(--dur-fast)] focus-within:border-accent/40 focus-within:shadow-card">
-        <textarea
+      <div className="relative flex items-end gap-2 rounded-2xl border border-hairline-strong bg-white p-3 pl-4 shadow-[0_4px_20px_#1b2b3e06] transition-shadow focus-within:border-accent-line focus-within:ring-4 focus-within:ring-accent-soft">
+        <Textarea
           ref={textareaRef}
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
+            if (
+              event.key === 'Enter' &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
               event.preventDefault();
               onSubmit();
             }
           }}
           rows={1}
+          aria-label="Message Atlas"
           placeholder="What do you want to understand?"
-          className="max-h-40 flex-1 resize-none overflow-y-auto bg-transparent py-2 text-[15px] text-ink placeholder:text-faint focus:outline-none"
+          className="min-h-10 max-h-40 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-2 text-base text-ink shadow-none sm:text-sm placeholder:text-faint focus-visible:ring-0"
         />
         <div className="flex shrink-0 items-center gap-2.5 pb-1">
           <span className="hidden items-center gap-1 font-mono text-[11px] text-faint sm:flex">
-            <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">⏎</kbd>
+            <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">
+              ⏎
+            </kbd>
             to send
           </span>
-          {onStop ? <Button type="button" onClick={onStop} disabled={stopping}>
-            {stopping ? 'Stopping…' : 'Stop'}
-          </Button> : <Button
-            type="submit"
-            size="icon"
-            disabled={pending || !draft.trim()}
-            aria-label="Send message"
-            className="shrink-0"
-          >
-            <SendIcon />
-          </Button>}
+          {onStop ? (
+            <Button type="button" onClick={onStop} disabled={stopping}>
+              {stopping ? 'Stopping…' : 'Stop'}
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              size="icon"
+              disabled={pending || !draft.trim()}
+              aria-label="Send message"
+              className="shrink-0"
+            >
+              <SendIcon />
+            </Button>
+          )}
         </div>
       </div>
+      <p className="mt-2.5 text-center text-[10px] leading-5 text-faint">
+        Atlas can make mistakes. Check sources for important details.
+      </p>
     </form>
   );
 }

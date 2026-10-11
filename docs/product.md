@@ -59,7 +59,7 @@ Keep the UI simple and readable. Define and enforce budgets in code, not only in
 Choose budget amounts and hosting after the first learning loop works.
 
 Exclude bulk imports, whole-book generation, PDF processing, advanced automatic linking,
-scheduled study, gamification, collaboration, and a UI redesign from v0.1.
+scheduled study, gamification, and collaboration from v0.1.
 Portability and continuity are required; permanent operation of a hosted service is not promised.
 
 ## Current state
@@ -99,3 +99,10 @@ Archived experiments are reference code only and are excluded from the active ap
 The model and web research choice is Google ADK with Gemini 3.8 Flash on Vertex AI.
 No application output-token ceiling is set. Concision comes from teaching scope and language.
 Provider truncation is still reported; usage accounting still records output tokens.
+
+## Status review and current UI work — 11 October 2026
+
+The user requested a light-only UI rebuild with a sky-blue accent on a new branch.
+This explicitly expands the earlier UI scope. See [the commit-backed status review](status-2026-10-11.md)
+for yesterday's implementation evidence, verification limits, remaining release work,
+and the UI changes and checks from this session. Feature boxes remain conservative.

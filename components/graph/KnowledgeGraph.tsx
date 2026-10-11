@@ -10,11 +10,28 @@ import ForceGraph2D, {
 import { forceCollide } from 'd3-force-3d';
 import { ArrowUpRight, Maximize2, Minus, Plus, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Graph, GraphLink as ApiGraphLink, GraphNode as ApiGraphNode } from '@/lib/api-types';
-import { RELATION_INCOMING_LABELS, RELATION_OUTGOING_LABELS } from '@/lib/relations';
+import type {
+  Graph,
+  GraphLink as ApiGraphLink,
+  GraphNode as ApiGraphNode,
+} from '@/lib/api-types';
+import {
+  RELATION_INCOMING_LABELS,
+  RELATION_OUTGOING_LABELS,
+} from '@/lib/relations';
 
-const outgoingLabels = { ...RELATION_OUTGOING_LABELS, requires: 'Builds on', related_to: 'Related to', explains: 'Explains' };
-const incomingLabels = { ...RELATION_INCOMING_LABELS, requires: 'Used by', related_to: 'Related to', explains: 'Explained by' };
+const outgoingLabels = {
+  ...RELATION_OUTGOING_LABELS,
+  requires: 'Builds on',
+  related_to: 'Related to',
+  explains: 'Explains',
+};
+const incomingLabels = {
+  ...RELATION_INCOMING_LABELS,
+  requires: 'Used by',
+  related_to: 'Related to',
+  explains: 'Explained by',
+};
 
 type GraphNode = NodeObject<ApiGraphNode>;
 type GraphLink = LinkObject<ApiGraphNode, ApiGraphLink>;
@@ -25,17 +42,17 @@ export interface KnowledgeGraphProps {
 }
 
 // Canvas can't read CSS variables, so this palette mirrors the tokens in globals.css.
-const BACKGROUND = '#fafafa'; // --canvas
+const BACKGROUND = '#f5f8fb'; // --canvas
 const GRID_DOT = 'rgba(0, 0, 0, 0.05)';
-const NODE_HALO = '#fafafa'; // gap that lifts a node off crossing links — matches BACKGROUND
-const LABEL_INK = '#666666'; // --muted
-const LABEL_INK_FOCUS = '#171717'; // --ink
-const LABEL_HALO = 'rgba(250, 250, 250, 0.92)'; // keeps text crisp over edges
+const NODE_HALO = '#f5f8fb'; // gap that lifts a node off crossing links — matches BACKGROUND
+const LABEL_INK = '#5d7083'; // --muted
+const LABEL_INK_FOCUS = '#1b2b3e'; // --ink
+const LABEL_HALO = 'rgba(245, 248, 251, 0.92)'; // keeps text crisp over edges
 const LINK_BASE = 'rgba(115, 115, 115, 0.25)';
-const LINK_ACTIVE = 'rgba(46, 74, 133, 0.7)'; // --accent
+const LINK_ACTIVE = 'rgba(8, 120, 176, 0.7)'; // --accent
 const LINK_DIM = 'rgba(115, 115, 115, 0.06)';
-const RING = 'rgba(46, 74, 133, 0.95)'; // --accent
-const GLOW = 'rgba(46, 74, 133, 0.3)'; // soft halo under the focused node
+const RING = 'rgba(8, 120, 176, 0.95)'; // --accent
+const GLOW = 'rgba(8, 120, 176, 0.3)'; // soft halo under the focused node
 const DIM_ALPHA = 0.12; // out-of-focus nodes on hover or collection focus — faint, never gone
 
 const HUB_LABELS = 8; // the N most-connected nodes keep their labels at any zoom
@@ -48,7 +65,9 @@ const GRID_SPACING = 36; // graph units between ground dots
 const GRID_MIN_PX = 18; // spacing doubles until dots sit at least this far apart on screen
 
 function resolveId(end: GraphLink['source']): string {
-  return typeof end === 'object' && end !== null ? String((end as GraphNode).id) : String(end);
+  return typeof end === 'object' && end !== null
+    ? String((end as GraphNode).id)
+    : String(end);
 }
 
 function truncate(text: string, max: number): string {
@@ -64,17 +83,26 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const graphRef = React.useRef<GraphMethods | undefined>(undefined);
 
-  const [dimensions, setDimensions] = React.useState({ width: 800, height: 600 });
+  const [dimensions, setDimensions] = React.useState({
+    width: 800,
+    height: 600,
+  });
   const [hoverId, setHoverId] = React.useState<string | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [focusedConcept, setFocusedConcept] = React.useState<string | null>(null);
+  const [focusedConcept, setFocusedConcept] = React.useState<string | null>(
+    null,
+  );
   const [query, setQuery] = React.useState('');
+  const [searchNotice, setSearchNotice] = React.useState('');
 
   // The engine mutates x/y onto these node objects in place, so they must be copies the parent
   // never re-creates — otherwise every render would restart the layout.
   const graphData = React.useMemo(
-    () => ({ nodes: data.nodes.map((n) => ({ ...n })), links: data.links.map((l) => ({ ...l })) }),
-    [data.nodes, data.links]
+    () => ({
+      nodes: data.nodes.map((n) => ({ ...n })),
+      links: data.links.map((l) => ({ ...l })),
+    }),
+    [data.nodes, data.links],
   );
 
   const nodeById = React.useMemo(() => {
@@ -113,12 +141,16 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       if (entry) entry.count += 1;
       else counts.set(node.conceptName, { color: node.conceptColor, count: 1 });
     }
-    return [...counts.entries()].map(([name, { color, count }]) => ({ name, color, count }));
+    return [...counts.entries()].map(([name, { color, count }]) => ({
+      name,
+      color,
+      count,
+    }));
   }, [data.nodes]);
 
   const radiusFor = React.useCallback(
     (id: string) => Math.min(11, 3.5 + Math.sqrt(degree.get(id) ?? 0) * 1.5),
-    [degree]
+    [degree],
   );
 
   // Fill the container and track resizes. Guarded so an unchanged size never re-renders.
@@ -129,7 +161,9 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       const width = Math.max(320, Math.floor(entry.contentRect.width));
       const height = Math.max(320, Math.floor(entry.contentRect.height));
       setDimensions((prev) =>
-        prev.width === width && prev.height === height ? prev : { width, height }
+        prev.width === width && prev.height === height
+          ? prev
+          : { width, height },
       );
     });
     observer.observe(element);
@@ -145,7 +179,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     graph.d3Force('link')?.distance(50);
     graph.d3Force(
       'collide',
-      forceCollide((node) => radiusFor(String(node.id)) + 4)
+      forceCollide((node) => radiusFor(String(node.id)) + 4),
     );
   }, [graphData, radiusFor]);
 
@@ -160,8 +194,9 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
   const neighbors = hoverId ? adjacency.get(hoverId) : undefined;
 
   const isConceptDimmed = React.useCallback(
-    (conceptName: string) => focusedConcept != null && conceptName !== focusedConcept,
-    [focusedConcept]
+    (conceptName: string) =>
+      focusedConcept != null && conceptName !== focusedConcept,
+    [focusedConcept],
   );
 
   // The ground: a dot field fixed in graph space, so it pans and zooms with the
@@ -174,7 +209,10 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       let spacing = GRID_SPACING;
       while (spacing * scale < GRID_MIN_PX) spacing *= 2;
       const topLeft = graph.screen2GraphCoords(0, 0);
-      const bottomRight = graph.screen2GraphCoords(dimensions.width, dimensions.height);
+      const bottomRight = graph.screen2GraphCoords(
+        dimensions.width,
+        dimensions.height,
+      );
       const r = 0.9 / scale; // ~1px on screen at any zoom
       const x0 = Math.floor(topLeft.x / spacing) * spacing;
       const y0 = Math.floor(topLeft.y / spacing) * spacing;
@@ -185,7 +223,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
         }
       }
     },
-    [dimensions]
+    [dimensions],
   );
 
   // Canvas accessors are rendering-only in 2D (no persistent scene objects, no engine
@@ -196,7 +234,8 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       const id = String(node.id);
       const r = radiusFor(id);
       const focused = id === hoverId || id === selectedId;
-      const inHoverFocus = hoverId == null || focused || (neighbors?.has(id) ?? false);
+      const inHoverFocus =
+        hoverId == null || focused || (neighbors?.has(id) ?? false);
       const dimmed = !inHoverFocus || isConceptDimmed(node.conceptName);
 
       ctx.globalAlpha = dimmed ? DIM_ALPHA : 1;
@@ -227,7 +266,10 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       // Labels come to you: hubs always, neighbours on hover, everything as you zoom in.
       let alpha = Math.min(
         1,
-        Math.max(0, (scale - LABEL_FADE_START) / (LABEL_FADE_END - LABEL_FADE_START))
+        Math.max(
+          0,
+          (scale - LABEL_FADE_START) / (LABEL_FADE_END - LABEL_FADE_START),
+        ),
       );
       if (focused || (hoverId != null && inHoverFocus)) alpha = 1;
       else if (hubIds.has(id)) alpha = Math.max(alpha, 0.9);
@@ -249,7 +291,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
 
       ctx.globalAlpha = 1;
     },
-    [radiusFor, hoverId, selectedId, neighbors, hubIds, isConceptDimmed]
+    [radiusFor, hoverId, selectedId, neighbors, hubIds, isConceptDimmed],
   );
 
   // The clickable/hoverable area matches the drawn circle (plus a small forgiving margin).
@@ -261,13 +303,15 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       ctx.arc(node.x, node.y, radiusFor(String(node.id)) + 2, 0, 2 * Math.PI);
       ctx.fill();
     },
-    [radiusFor]
+    [radiusFor],
   );
 
   const linkActive = React.useCallback(
     (link: GraphLink) =>
-      hoverId != null && (resolveId(link.source) === hoverId || resolveId(link.target) === hoverId),
-    [hoverId]
+      hoverId != null &&
+      (resolveId(link.source) === hoverId ||
+        resolveId(link.target) === hoverId),
+    [hoverId],
   );
 
   const linkColor = React.useCallback(
@@ -275,33 +319,39 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       if (focusedConcept != null) {
         const s = nodeById.get(resolveId(link.source));
         const t = nodeById.get(resolveId(link.target));
-        if (s?.conceptName !== focusedConcept && t?.conceptName !== focusedConcept)
+        if (
+          s?.conceptName !== focusedConcept &&
+          t?.conceptName !== focusedConcept
+        )
           return LINK_DIM;
       }
       if (hoverId == null) return LINK_BASE;
       return linkActive(link) ? LINK_ACTIVE : LINK_DIM;
     },
-    [hoverId, linkActive, focusedConcept, nodeById]
+    [hoverId, linkActive, focusedConcept, nodeById],
   );
 
   const linkWidth = React.useCallback(
     (link: GraphLink) => (hoverId != null && linkActive(link) ? 1.8 : 1),
-    [hoverId, linkActive]
+    [hoverId, linkActive],
   );
 
   // Only ever recenters — zoom stays entirely the reader's, changed nowhere but the controls.
   const selectNode = React.useCallback((node: GraphNode) => {
     setSelectedId(String(node.id));
     const graph = graphRef.current;
-    if (graph && node.x != null && node.y != null) graph.centerAt(node.x, node.y, 600);
+    if (graph && node.x != null && node.y != null)
+      graph.centerAt(node.x, node.y, 600);
   }, []);
 
   const focusById = React.useCallback(
     (id: string) => {
-      const node = graphData.nodes.find((n) => String(n.id) === id) as GraphNode | undefined;
+      const node = graphData.nodes.find((n) => String(n.id) === id) as
+        | GraphNode
+        | undefined;
       if (node) selectNode(node);
     },
-    [graphData, selectNode]
+    [graphData, selectNode],
   );
 
   const zoomBy = (factor: number) => {
@@ -315,13 +365,19 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     const q = query.trim().toLowerCase();
     if (!q) return;
     const hit = data.nodes.find((node) => node.title.toLowerCase().includes(q));
-    if (hit) focusById(hit.id);
+    if (hit) {
+      focusById(hit.id);
+      setSearchNotice('');
+    } else {
+      setSearchNotice('No matching idea on this graph page. Try another name.');
+    }
   };
 
   const selectedNode = selectedId ? (nodeById.get(selectedId) ?? null) : null;
 
   const selectedRelations = React.useMemo(() => {
-    if (!selectedId) return [] as Array<{ label: string; items: ApiGraphNode[] }>;
+    if (!selectedId)
+      return [] as Array<{ label: string; items: ApiGraphNode[] }>;
     const groups = new Map<string, ApiGraphNode[]>();
     const push = (label: string, id: string) => {
       const node = nodeById.get(id);
@@ -341,7 +397,8 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
     return [...groups.entries()].map(([label, items]) => ({ label, items }));
   }, [selectedId, data.links, nodeById]);
 
-  const glass = 'rounded-card border bg-surface/90 shadow-card backdrop-blur-md';
+  const glass =
+    'rounded-card border bg-surface/90 shadow-card backdrop-blur-md';
 
   return (
     <div
@@ -373,9 +430,12 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       {/* Top-left: title + search */}
       <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap items-center gap-2">
         <div className={`pointer-events-auto px-3.5 py-2 ${glass}`}>
-          <h1 className="text-sm font-semibold leading-none tracking-[-0.01em] text-ink">Graph</h1>
+          <h1 className="text-sm font-semibold leading-none tracking-[-0.01em] text-ink">
+            Knowledge graph
+          </h1>
           <p className="mt-1 text-[12px] leading-none text-faint">
-            {data.nodes.length} ideas and explanations · {data.links.length} connections
+            {data.nodes.length} ideas and explanations · {data.links.length}{' '}
+            connections
           </p>
         </div>
 
@@ -387,18 +447,33 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
           <input
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSearchNotice('');
+            }}
             placeholder="Find an idea or explanation"
+            aria-label="Find an idea in the graph"
             className="h-9 w-44 rounded-full bg-transparent pl-9 pr-4 text-[13px] text-ink placeholder:text-faint focus:outline-none lg:w-56"
           />
         </form>
       </div>
 
+      {searchNotice && (
+        <p
+          role="status"
+          className="absolute left-3 top-28 max-w-[calc(100%-1.5rem)] rounded-lg border bg-surface p-3 text-xs text-muted sm:top-16"
+        >
+          {searchNotice}
+        </p>
+      )}
+
       {/* Bottom-left: the legend, and a quiet filter — click a collection to spotlight it. */}
       {legend.length > 0 && (
-        <div className={`absolute bottom-3 left-3 px-2 py-2 ${glass}`}>
+        <div
+          className={`absolute bottom-16 left-3 max-h-[30%] overflow-y-auto px-2 py-2 sm:bottom-3 ${glass}`}
+        >
           <p className="mb-1 px-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-faint">
-            Collections
+            Concepts
           </p>
           <ul className="flex flex-col">
             {legend.map((item) => {
@@ -411,8 +486,10 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
                     onClick={() => setFocusedConcept(active ? null : item.name)}
                     className={cn(
                       'flex w-full items-center gap-2 rounded-[7px] px-1.5 py-1 text-left text-[12px] transition-colors duration-[var(--dur-fast)]',
-                      active ? 'bg-surface-soft text-ink' : 'text-muted hover:text-ink',
-                      focusedConcept != null && !active && 'opacity-50'
+                      active
+                        ? 'bg-surface-soft text-ink'
+                        : 'text-muted hover:text-ink',
+                      focusedConcept != null && !active && 'opacity-50',
                     )}
                   >
                     <span
@@ -433,14 +510,19 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
       )}
 
       {/* Bottom-right: zoom cluster */}
-      <div className={`absolute bottom-3 right-3 flex items-center gap-0.5 p-1 ${glass} !rounded-full`}>
+      <div
+        className={`absolute bottom-3 right-3 flex items-center gap-0.5 p-1 ${glass} !rounded-full`}
+      >
         <ControlButton label="Zoom in" onClick={() => zoomBy(1.35)}>
           <Plus className="h-4 w-4" />
         </ControlButton>
         <ControlButton label="Zoom out" onClick={() => zoomBy(0.74)}>
           <Minus className="h-4 w-4" />
         </ControlButton>
-        <ControlButton label="Fit to view" onClick={() => graphRef.current?.zoomToFit(500, 70)}>
+        <ControlButton
+          label="Fit to view"
+          onClick={() => graphRef.current?.zoomToFit(500, 70)}
+        >
           <Maximize2 className="h-4 w-4" />
         </ControlButton>
       </div>
@@ -465,7 +547,9 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ backgroundColor: selectedNode.conceptColor }}
             />
-            <span className="truncate text-[13px] text-faint">{selectedNode.conceptName}</span>
+            <span className="truncate text-[13px] text-faint">
+              {selectedNode.conceptName}
+            </span>
           </div>
 
           <h2 className="text-[16px] font-semibold leading-snug tracking-[-0.01em] text-ink">
@@ -504,7 +588,9 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
             href={`/${selectedNode.nodeKind === 'concept' ? 'collections' : 'entries'}/${selectedNode.slug}`}
             className="focus-ring mt-4 flex h-8 items-center justify-center gap-1.5 rounded-full border bg-surface text-[13px] font-medium text-ink transition-colors hover:bg-surface-soft"
           >
-            {selectedNode.nodeKind === 'concept' ? 'Open concept' : 'Read explanation'}
+            {selectedNode.nodeKind === 'concept'
+              ? 'Open concept'
+              : 'Read explanation'}
             <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
         </aside>

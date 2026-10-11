@@ -1,54 +1,60 @@
-import type * as React from 'react';
 import Link from 'next/link';
+import { ArrowUpRight, BookOpen, Layers } from 'lucide-react';
+import { Card, CardContent } from '@/components/shadcn/card';
 import { cleanTitle } from '@/lib/utils';
-
 export interface CollectionShelfProps {
   name: string;
   slug: string;
   description: string | null;
   color: string | null;
-  /** Title of the most recently touched entry — the quiet "alive" signal. */
   recentEntryTitle: string | null;
+  entryCount?: number;
 }
-
-/**
- * A single collection card on the Library home. No counts, no dashboard stats:
- * a color dot, the name, a calm description, and a faint trace of the last
- * thing touched here. Browsing-first by design.
- */
 export function CollectionShelf({
   name,
   slug,
   description,
   color,
   recentEntryTitle,
+  entryCount = 0,
 }: CollectionShelfProps) {
-  const accent = color || 'var(--faint)';
-
   return (
-    <Link href={`/collections/${slug}`} className="focus-ring group block rounded-card">
-      <div className="flex h-full min-h-[8.5rem] flex-col rounded-card border bg-surface p-5 shadow-card transition-shadow duration-[var(--dur-fast)] group-hover:shadow-card-hover">
-        <div
-          aria-hidden="true"
-          className="identity-mark h-9 w-9 shrink-0 rounded-[10px]"
-          style={{ '--mark-color': accent } as React.CSSProperties}
-        />
-        <h3
-          title={name}
-          className="mt-3 truncate text-[15px] font-semibold tracking-[-0.01em] text-ink"
-        >
-          {name}
-        </h3>
-        {description && (
-          <p className="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-muted">
-            {description}
+    <Link
+      href={`/collections/${slug}`}
+      className="group block h-full rounded-2xl"
+    >
+      <Card className="h-full gap-0 overflow-hidden rounded-2xl py-0 shadow-none transition-all duration-200 group-hover:-translate-y-0.5 group-hover:border-accent-line group-hover:shadow-[0_8px_24px_#1b2b3e08]">
+        <CardContent className="flex h-full flex-col p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <span className="flex size-11 items-center justify-center rounded-xl border border-accent-line/60 bg-accent-soft text-accent">
+              <Layers
+                className="size-5"
+                style={{ color: color || undefined }}
+                aria-hidden="true"
+              />
+            </span>
+            <ArrowUpRight className="size-4 text-faint transition-colors group-hover:text-accent" />
+          </div>
+          <h3 className="break-words text-[16px] font-semibold tracking-tight text-ink">
+            {name}
+          </h3>
+          <p className="mt-2 line-clamp-2 min-h-10 text-[12px] leading-5 text-muted">
+            {description ||
+              'A place for the ideas and explanations you choose to keep.'}
           </p>
-        )}
-
-        <p className="mt-auto truncate pt-5 text-xs text-faint">
-          {recentEntryTitle ? cleanTitle(recentEntryTitle) : 'No entries yet'}
-        </p>
-      </div>
+          <div className="mt-5 border-t pt-3.5">
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] text-muted">
+              <BookOpen className="size-3" />
+              {entryCount} {entryCount === 1 ? 'explanation' : 'explanations'}
+            </p>
+            <p className="truncate text-[11px] text-faint">
+              {recentEntryTitle
+                ? cleanTitle(recentEntryTitle)
+                : 'Ready for your first question'}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </Link>
   );
 }
