@@ -48,10 +48,10 @@ export function AppShell({ children, chatHistory }: AppShellProps) {
           Skip to content
         </a>
         <Sidebar chatHistory={chatHistory} />
-        <div className="flex min-w-0 flex-1 flex-col md:py-3 md:pr-3">
+        <div className="flex min-w-0 flex-1 flex-col md:py-2 md:pr-2">
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface md:rounded-2xl md:border md:shadow-[0_2px_12px_#1b2b3e03]">
             <MobileBar chatHistory={chatHistory} />
-            <header className="hidden h-16 shrink-0 items-center justify-between border-b px-8 md:flex">
+            <header className="hidden h-12 shrink-0 items-center justify-between border-b px-6 md:flex">
               <div className="flex items-center gap-2.5 text-xs">
                 <Link href="/" className="text-faint hover:text-accent">
                   Workspace
@@ -77,7 +77,7 @@ export function AppShell({ children, chatHistory }: AppShellProps) {
             <main
               id="workspace-content"
               tabIndex={-1}
-              className="scroll-region min-h-0 flex-1 outline-none"
+              className={`${pathname.startsWith('/chat') ? 'overflow-hidden' : 'scroll-region'} min-h-0 flex-1 outline-none`}
             >
               {children}
             </main>

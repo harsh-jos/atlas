@@ -6,13 +6,13 @@ export interface PageHeaderProps {
 }
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h1 className="text-[28px] font-semibold tracking-[-0.035em] text-ink sm:text-[32px]">
+        <h1 className="text-[23px] font-semibold tracking-[-0.035em] text-ink sm:text-[26px]">
           {title}
         </h1>
         {description && (
-          <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
+          <p className="mt-1 max-w-xl text-sm leading-6 text-muted">
             {description}
           </p>
         )}
@@ -32,7 +32,7 @@ export function PageContainer({
 }) {
   return (
     <div
-      className={`animate-rise mx-auto w-full max-w-[1180px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10 ${className}`}
+      className={`animate-rise mx-auto w-full max-w-[1280px] px-4 py-5 sm:px-6 lg:px-7 lg:py-6 ${className}`}
     >
       {children}
     </div>

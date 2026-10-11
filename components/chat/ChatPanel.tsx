@@ -13,6 +13,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { Textarea } from '@/components/shadcn/textarea';
+import { ScrollArea } from '@/components/shadcn/scroll-area';
 import { cancelTurn, sendTurn } from '@/app/chat/actions';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { Button } from '@/components/ui/Button';
@@ -313,12 +314,17 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const isEmpty = entries.length === 0 && !pending;
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[850px] flex-col px-5 sm:px-8">
-      <div ref={scrollRef} className="scroll-region min-h-0 flex-1 pr-1">
+    <div className="flex h-full w-full min-w-0 flex-col">
+      <ScrollArea
+        viewportRef={scrollRef}
+        type="auto"
+        className="min-h-0 flex-1"
+        viewportClassName="px-4 sm:px-6"
+      >
         {isEmpty ? (
           <EmptyState onPick={setDraft} />
         ) : (
-          <div className="space-y-6 pb-4 pt-6">
+          <div className="space-y-4 pb-3 pt-5">
             {historyPage.hasMore && (
               <Button
                 type="button"
@@ -336,12 +342,12 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           </div>
         )}
         {error && (
-          <p role="alert" className="pb-4 text-[13px] text-danger">
+          <p role="alert" className="px-1 pb-3 text-[13px] text-danger">
             {error}
           </p>
         )}
         {!!turn?.toolErrors.length && (
-          <p role="status" className="pb-4 text-[13px] text-danger">
+          <p role="status" className="px-1 pb-3 text-[13px] text-danger">
             Some saved-knowledge operations reported errors:{' '}
             {turn.toolErrors.map((issue) => issue.message).join(' ')} Reference:{' '}
             {turn.id}
@@ -352,7 +358,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
             {turn.errorCode ?? turn.status} · Reference: {turn.id}
           </p>
         )}
-      </div>
+      </ScrollArea>
 
       <Composer
         draft={draft}
@@ -370,7 +376,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   if (role === 'you') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md border border-accent-line/50 bg-accent-soft px-5 py-3 text-[15px] leading-relaxed text-ink">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-xl rounded-br-sm border border-accent-line/50 bg-accent-soft px-3.5 py-2 text-sm leading-relaxed text-ink">
           {text}
         </div>
       </div>
@@ -379,7 +385,7 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
 
   return (
     <div className="group flex items-start gap-3">
-      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
         <Sparkles className="size-4" aria-hidden="true" />
       </span>
       <div className="min-w-0 flex-1">
@@ -442,38 +448,38 @@ function ThinkingIndicator({ activity }: { activity: string[] }) {
 
 function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center py-10 text-center">
-      <div className="mb-6 flex size-14 items-center justify-center rounded-2xl border border-accent-line bg-accent-soft text-accent">
-        <Sparkles className="size-6" aria-hidden="true" />
+    <div className="flex min-h-full flex-col items-center justify-center py-6 text-center">
+      <div className="mb-4 flex size-10 items-center justify-center rounded-xl border border-accent-line bg-accent-soft text-accent">
+        <Sparkles className="size-5" aria-hidden="true" />
       </div>
       <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">
         Room for a new idea
       </p>
-      <h1 className="max-w-lg text-[30px] font-medium leading-tight tracking-[-0.04em] sm:text-[38px]">
+      <h1 className="max-w-lg text-[26px] font-medium leading-tight tracking-[-0.04em] sm:text-[30px]">
         What would you like
         <br />
         to understand?
       </h1>
-      <p className="mx-auto mt-4 max-w-sm text-[13px] leading-6 text-muted">
+      <p className="mx-auto mt-3 max-w-md text-[13px] leading-6 text-muted">
         Start with a question, a half-formed thought, or something that doesn’t
         quite click. We’ll take it from there.
       </p>
-      <div className="mt-9 grid w-full max-w-xl gap-3 sm:grid-cols-2">
+      <div className="mt-6 grid w-full max-w-3xl gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {STARTER_PROMPTS.map(({ icon: Icon, label, prompt }) => (
           <button
             key={label}
             type="button"
             onClick={() => onPick(prompt)}
-            className="group rounded-xl border bg-surface p-4 text-left transition-colors hover:border-accent-line hover:bg-accent-soft/40"
+            className="group rounded-lg border bg-surface p-3 text-left transition-colors hover:border-accent-line hover:bg-accent-soft/40"
           >
-            <span className="mb-3 flex items-center justify-between">
+            <span className="mb-2 flex items-center justify-between">
               <Icon className="size-4 text-accent" aria-hidden="true" />
               <ArrowUpRight className="size-3.5 text-faint group-hover:text-accent" />
             </span>
             <span className="block text-xs font-semibold text-ink">
               {label}
             </span>
-            <span className="mt-1.5 block text-[11px] leading-5 text-muted">
+            <span className="mt-1 block text-[11px] leading-5 text-muted">
               {prompt}
             </span>
           </button>
@@ -511,13 +517,13 @@ function Composer({
 
   return (
     <form
-      className="relative shrink-0 pb-4 pt-3"
+      className="relative shrink-0 px-4 pb-2 pt-2 sm:px-6"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
       }}
     >
-      <div className="relative flex items-end gap-2 rounded-2xl border border-hairline-strong bg-white p-3 pl-4 shadow-[0_4px_20px_#1b2b3e06] transition-shadow focus-within:border-accent-line focus-within:ring-4 focus-within:ring-accent-soft">
+      <div className="relative flex items-end gap-2 rounded-xl border border-hairline-strong bg-white p-2 pl-3 shadow-[0_4px_20px_#1b2b3e06] transition-shadow focus-within:border-accent-line focus-within:ring-4 focus-within:ring-accent-soft">
         <Textarea
           ref={textareaRef}
           value={draft}
@@ -535,7 +541,7 @@ function Composer({
           rows={1}
           aria-label="Message Atlas"
           placeholder="What do you want to understand?"
-          className="min-h-10 max-h-40 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-2 text-base text-ink shadow-none sm:text-sm placeholder:text-faint focus-visible:ring-0"
+          className="min-h-8 max-h-40 flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-2 text-base text-ink shadow-none sm:text-sm placeholder:text-faint focus-visible:ring-0"
         />
         <div className="flex shrink-0 items-center gap-2.5 pb-1">
           <span className="hidden items-center gap-1 font-mono text-[11px] text-faint sm:flex">
@@ -561,7 +567,7 @@ function Composer({
           )}
         </div>
       </div>
-      <p className="mt-2.5 text-center text-[10px] leading-5 text-faint">
+      <p className="mt-1.5 text-center text-[10px] leading-5 text-faint">
         Atlas can make mistakes. Check sources for important details.
       </p>
     </form>

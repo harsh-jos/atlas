@@ -5,7 +5,7 @@ export function EntryCoverBand({ color }: EntryCoverBandProps) {
   return (
     <div
       aria-hidden="true"
-      className="relative h-20 overflow-hidden border-b bg-accent-soft/70 sm:h-24"
+      className="relative h-14 overflow-hidden border-b bg-accent-soft/70 sm:h-16"
     >
       <div className="absolute -right-10 -top-24 size-72 rounded-full border-[30px] border-sky/15" />
       <div

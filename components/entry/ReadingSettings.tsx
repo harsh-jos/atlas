@@ -99,7 +99,7 @@ export function ReadingSettings() {
   };
 
   return (
-    <div className="fixed right-6 top-[5.25rem] z-40 md:right-9 md:top-[5.75rem]">
+    <div className="fixed right-6 top-[5.25rem] z-40 md:right-9 md:top-[4.5rem]">
       <Popover
         align="end"
         closeOnSelect={false}
