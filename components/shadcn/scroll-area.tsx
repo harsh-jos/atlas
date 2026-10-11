@@ -9,10 +9,12 @@ function ScrollArea({
   children,
   viewportRef,
   viewportClassName,
+  onViewportScroll,
   ...props
 }: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
   viewportRef?: React.Ref<HTMLDivElement>;
   viewportClassName?: string;
+  onViewportScroll?: React.UIEventHandler<HTMLDivElement>;
 }) {
   return (
     <ScrollAreaPrimitive.Root
@@ -23,6 +25,7 @@ function ScrollArea({
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
         ref={viewportRef}
+        onScroll={onViewportScroll}
         tabIndex={0}
         role="region"
         aria-label="Conversation messages"
@@ -60,7 +63,7 @@ function ScrollBar({
     >
       <ScrollAreaPrimitive.ScrollAreaThumb
         data-slot="scroll-area-thumb"
-        className="relative flex-1 rounded-full bg-[#b6cbdc] hover:bg-[#7fabc9]"
+        className="relative flex-1 rounded-full bg-[#c2c8d0] hover:bg-[#949da9]"
       />
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   );
