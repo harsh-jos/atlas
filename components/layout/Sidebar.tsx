@@ -63,7 +63,7 @@ export function Sidebar({
               asChild
               variant="ghost"
               size="icon-sm"
-              className="text-muted hover:bg-black/5 hover:text-ink"
+              className="text-ink hover:bg-black/5 hover:text-ink"
             >
               <Link
                 href="/search"
@@ -80,7 +80,7 @@ export function Sidebar({
               size="icon-sm"
               onClick={onToggle}
               aria-label={compact ? 'Expand sidebar' : 'Collapse sidebar'}
-              className="text-muted hover:bg-black/5 hover:text-ink"
+              className="text-ink hover:bg-black/5 hover:text-ink"
             >
               {compact ? (
                 <PanelLeftOpen className="size-4" />
@@ -134,7 +134,7 @@ export function Sidebar({
                 compact ? 'justify-center' : 'gap-2.5 px-3',
                 active
                   ? 'bg-black/[0.055] font-medium text-ink'
-                  : 'text-muted hover:bg-black/[0.035] hover:text-ink',
+                  : 'text-ink hover:bg-black/[0.035] hover:text-ink',
               )}
             >
               <Icon className="size-[17px]" aria-hidden="true" />
@@ -174,7 +174,7 @@ export function Sidebar({
           aria-label="Sign out"
           title={compact ? 'Sign out' : undefined}
           className={cn(
-            'h-9 w-full text-[13px] text-muted hover:bg-black/5 hover:text-ink',
+            'h-9 w-full text-[13px] text-ink hover:bg-black/5 hover:text-ink',
             compact ? 'px-0' : 'justify-start gap-2.5 px-3',
           )}
         >

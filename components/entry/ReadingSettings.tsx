@@ -109,7 +109,7 @@ export function ReadingSettings() {
             onClick={onClick}
             aria-expanded={open}
             aria-label="Reading settings"
-            className="focus-ring flex h-8 w-8 items-center justify-center rounded-full border bg-surface text-muted shadow-card transition-colors duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink"
+            className="focus-ring flex h-8 w-8 items-center justify-center rounded-md border bg-surface text-muted shadow-card transition-colors duration-[var(--dur-fast)] hover:bg-surface-soft hover:text-ink"
           >
             <Type className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -176,7 +176,7 @@ function Row({
   return (
     <div className="px-1.5 py-2">
       <p className="mb-1.5 text-[11.5px] text-muted">{label}</p>
-      <div className="flex items-center gap-0.5 rounded-full bg-surface-soft p-0.5">
+      <div className="flex items-center gap-0.5 rounded-md bg-surface-soft p-0.5">
         {children}
       </div>
     </div>
@@ -197,7 +197,7 @@ function StepButton({
       type="button"
       onClick={onClick}
       className={cn(
-        'focus-ring flex-1 rounded-full px-2 py-1 text-[11.5px] font-medium transition-colors duration-[var(--dur-fast)]',
+        'focus-ring flex-1 rounded-md px-2 py-1 text-[11.5px] font-medium transition-colors duration-[var(--dur-fast)]',
         active
           ? 'bg-surface text-ink shadow-card'
           : 'text-muted hover:text-ink',
