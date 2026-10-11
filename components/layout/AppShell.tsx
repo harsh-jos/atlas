@@ -15,6 +15,7 @@ export function AppShell({ children, chatHistory }: AppShellProps) {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isChat = pathname.startsWith('/chat');
+  const isGraph = pathname.startsWith('/graph');
   const router = useRouter();
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -61,7 +62,7 @@ export function AppShell({ children, chatHistory }: AppShellProps) {
             className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-surface ${isChat ? '' : 'md:rounded-2xl md:border md:shadow-[0_2px_12px_#1b2b3e03]'}`}
           >
             <MobileBar chatHistory={chatHistory} />
-            {!isChat && (
+            {!isChat && !isGraph && (
               <header className="hidden h-12 shrink-0 items-center justify-between border-b px-6 md:flex">
                 <div className="flex items-center gap-2.5 text-xs">
                   <Link href="/" className="text-faint hover:text-accent">
@@ -89,7 +90,7 @@ export function AppShell({ children, chatHistory }: AppShellProps) {
             <main
               id="workspace-content"
               tabIndex={-1}
-              className={`${pathname.startsWith('/chat') ? 'overflow-hidden' : 'scroll-region'} min-h-0 flex-1 outline-none`}
+              className={`${isChat || isGraph ? 'overflow-hidden' : 'scroll-region'} min-h-0 flex-1 outline-none`}
             >
               {children}
             </main>
