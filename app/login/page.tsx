@@ -1,8 +1,12 @@
+import { usesSupabase } from '@/lib/supabase/server';
+import { signInWithGoogle } from './actions';
+import { Button } from '@/components/ui/Button';
 import { SignInForm } from '@/components/auth/SignInForm';
 import { Logo } from '@/components/ui/Logo';
 import { ArrowUpRight, BookOpen, Network, Sparkles } from 'lucide-react';
 export const dynamic = 'force-dynamic';
-export default function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ authError?: string }> }) {
+  const { authError } = await searchParams;
   return (
     <div className="flex min-h-dvh overflow-y-auto bg-white">
       <div className="relative hidden w-[48%] shrink-0 flex-col justify-between overflow-hidden border-r bg-[#eff8fe] px-12 py-10 lg:flex xl:px-16">
@@ -73,6 +77,13 @@ export default function LoginPage() {
             Sign in to pick up a thread, or create an account to start
             exploring.
           </p>
+          {authError && <p role="alert" className="mb-4 text-sm text-danger">Sign-in could not be completed. Please try again.</p>}
+          {usesSupabase() && (
+            <form action={signInWithGoogle} className="mb-6">
+              <Button type="submit" variant="secondary" className="h-11 w-full">Continue with Google</Button>
+              <p className="mt-5 text-center text-xs text-muted">Or use your email</p>
+            </form>
+          )}
           <SignInForm />
           <p className="mt-8 border-t pt-5 text-xs leading-6 text-faint">
             Your conversations and saved explanations stay in your account.

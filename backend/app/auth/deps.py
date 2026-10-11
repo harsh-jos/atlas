@@ -7,10 +7,13 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.auth.repository import UserRepository
 from app.core.enums import Role
-from app.core.security import read_access_token
+from app.core.security import read_access_token, read_supabase_identity
+from app.core.config import get_settings
 from app.db.base import SessionScope, get_session, get_session_scope
 from app.db.models import User
 
@@ -35,12 +38,33 @@ def get_current_user(
     if credentials is None:
         raise _unauthorized()
     try:
-        user_id = read_access_token(credentials.credentials)
+        return user_for_token(session, credentials.credentials)
     except (jwt.PyJWTError, KeyError, ValueError):
         raise _unauthorized() from None
-    user = UserRepository(session).get(user_id)
+
+
+def user_for_token(session: Session, token: str) -> User:
+    if get_settings().auth_provider == "local":
+        user = UserRepository(session).get(read_access_token(token))
+    else:
+        identity = read_supabase_identity(token)
+        subject = UUID(identity["sub"])
+        statement = select(User).where(User.supabase_user_id == subject)
+        user = session.scalar(statement)
+        if user is None:
+            try:
+                with session.begin_nested():
+                    user = User(email=identity["email"], supabase_user_id=subject)
+                    session.add(user)
+                    session.flush()
+            except IntegrityError:
+                # Concurrent first requests can provision the same subject. Never link by
+                # email: an existing local account needs an explicit data migration.
+                user = session.scalar(statement)
+                if user is None:
+                    raise jwt.InvalidTokenError("Account migration required") from None
     if user is None:
-        raise _unauthorized()
+        raise jwt.InvalidTokenError("Unknown account")
     return user
 
 
@@ -52,11 +76,10 @@ def resolve_user_id(token: str | None, scope: SessionScope) -> UUID | None:
     if token is None:
         return None
     try:
-        user_id = read_access_token(token)
+        with scope() as session:
+            return user_for_token(session, token).id
     except (jwt.PyJWTError, KeyError, ValueError):
         return None
-    with scope() as session:
-        return user_id if UserRepository(session).get(user_id) is not None else None
 
 
 def get_current_user_id(

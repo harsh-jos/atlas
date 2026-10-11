@@ -74,7 +74,8 @@ class User(Record):
     __tablename__ = "users"
 
     email: Mapped[str] = mapped_column(String(320), unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    supabase_user_id: Mapped[UUID | None] = mapped_column(unique=True)
     role: Mapped[Role] = mapped_column(_enum(Role), default=Role.OWNER)
     storage_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     agent_memory_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))

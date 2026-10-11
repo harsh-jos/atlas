@@ -1,7 +1,5 @@
 import logging
-import asyncio
 from contextlib import asynccontextmanager
-from contextlib import suppress
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -11,7 +9,6 @@ from sqlalchemy import text
 from app.agent.session import get_session_service
 from app.db.bootstrap import prepare_database
 from app.agent.router import router as agent_router
-from app.agent.worker import WorkerHealth, run_worker
 from app.api.assets import router as assets_router
 from app.api.library import router as library_router
 from app.api.writes import router as writes_router
@@ -26,20 +23,12 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.schema_ready = False
-    worker = None
     try:
         await prepare_database()
         app.state.schema_ready = True
-        app.state.worker_health = WorkerHealth()
-        worker = asyncio.create_task(run_worker(app.state.worker_health))
-        app.state.worker = worker
         yield
     finally:
         app.state.schema_ready = False
-        if worker is not None:
-            worker.cancel()
-            with suppress(asyncio.CancelledError):
-                await worker
         try:
             if get_session_service.cache_info().currsize:
                 await get_session_service().close()
@@ -63,11 +52,7 @@ app.include_router(assets_router)
 
 @app.get("/healthz")
 def healthz() -> dict[str, bool]:
-    """Readiness: a reachable database and a worker recently able to access its queue."""
-    worker = getattr(app.state, "worker", None)
-    health = getattr(app.state, "worker_health", None)
-    if worker is None or worker.done() or health is None or not health.ready():
-        raise AppError("The chat worker is unavailable. Try again later.", "worker_unavailable", 503)
+    """Readiness: schema validation and a reachable database."""
     if not getattr(app.state, "schema_ready", False):
         raise AppError("Database setup is incomplete.", "schema_unavailable", 503)
     with get_engine().connect() as connection:

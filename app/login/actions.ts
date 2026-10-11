@@ -3,11 +3,13 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ApiError, TOKEN_COOKIE, apiPost } from '@/lib/api';
+import { appOrigin, supabaseServer, usesSupabase } from '@/lib/supabase/server';
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 24;
 
 export interface AuthState {
   error?: string;
+  message?: string;
 }
 
 async function authenticate(path: string, email: string, password: string): Promise<void> {
@@ -34,10 +36,23 @@ export async function signIn(_previous: AuthState, formData: FormData): Promise<
   }
 
   try {
-    if (isNew) {
-      await apiPost('/auth/register', { email, password });
+    if (usesSupabase()) {
+      const supabase = await supabaseServer();
+      if (isNew) {
+        const { data, error } = await supabase.auth.signUp({ email, password,
+          options: { emailRedirectTo: `${appOrigin()}/auth/callback` } });
+        if (error) return { error: 'Could not create the account. Check your details and try again.' };
+        if (!data.session) return { message: 'Check your email to confirm your account, then sign in.' };
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return { error: 'Could not sign in. Check your credentials and email confirmation.' };
+      }
+    } else {
+      if (isNew) {
+        await apiPost('/auth/register', { email, password });
+      }
+      await authenticate('/auth/login', email, password);
     }
-    await authenticate('/auth/login', email, password);
   } catch (error) {
     if (error instanceof ApiError) {
       return { error: message(error, isNew) };
@@ -56,6 +71,18 @@ function message(error: ApiError, isNew: boolean): string {
 }
 
 export async function signOut(): Promise<void> {
+  if (usesSupabase()) await (await supabaseServer()).auth.signOut();
   (await cookies()).delete(TOKEN_COOKIE);
   redirect('/login');
+}
+
+
+export async function signInWithGoogle(): Promise<void> {
+  if (!usesSupabase()) redirect('/login');
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google', options: { redirectTo: `${appOrigin()}/auth/callback` },
+  });
+  if (error || !data.url) redirect('/login?authError=1');
+  redirect(data.url);
 }

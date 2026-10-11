@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-from contextlib import asynccontextmanager
 from uuid import uuid4
 
 import pytest
@@ -75,35 +74,27 @@ def test_reconnect_replays_only_missing_frames_and_terminal_snapshot(owned):
     assert len(fresh[0]["tools"]) == 2
 
 
-def test_live_subscription_catches_setup_race_and_closes_without_stopping_worker(owned, monkeypatch):
+def test_stream_starts_only_its_owned_turn_and_streams_progress(owned, monkeypatch):
+    from app.agent import execution
     usage, store, row = owned
-    closed = []
+    other = store.submit(usage.user_id, "other", uuid4(), "Do not execute me.")
+    calls = []
 
-    @asynccontextmanager
-    async def notifications(turn_id):
-        # A worker commits during LISTEN setup, before the initial snapshot is read.
-        store.claim(300)
-        store.progress(turn_id, {"type": "agent.delta", "text": "First "})
+    async def respond(*args, on_event, turn_id, **kwargs):
+        calls.append(turn_id)
+        await on_event({"type": "agent.delta", "text": "Live reply."})
+        return "Live reply."
 
-        async def wait():
-            store.progress(turn_id, {"type": "agent.delta", "text": "second."})
-            store.finish(turn_id, "completed", reply="First second.")
-
-        try:
-            yield wait
-        finally:
-            closed.append(True)
-
-    monkeypatch.setattr(stream, "notifications", notifications)
+    monkeypatch.setattr(execution, "run_turn", respond)
 
     async def collect():
         return [item async for item in stream.events(store, usage.user_id, row["id"], None, snapshot)]
 
     delivered = decode(asyncio.run(collect()))
-    assert delivered[0]["turn"]["reply"] == "First "
-    assert delivered[1] == {"type": "agent.delta", "text": "second."}
-    assert delivered[-1]["turn"]["reply"] == "First second."
-    assert closed == [True]
+    assert calls == [str(row["id"])]
+    assert any(item["type"] == "agent.delta" for item in delivered)
+    assert delivered[-1]["turn"]["status"] == "completed"
+    assert store.get(usage.user_id, other["id"])["status"] == "queued"
 
 
 def test_stream_http_authentication_cursor_validation_and_completed_replay(owned, usage_factory):
@@ -182,31 +173,56 @@ def test_adk_streams_tool_start_and_result_without_exposing_researcher_reply(
     assert "Internal research report" not in json.dumps(captured)
 
 
-def test_disconnect_only_closes_subscription_and_work_can_complete(owned, monkeypatch):
+def test_disconnect_interrupts_owned_execution_and_reconnect_never_reruns(owned, monkeypatch):
+    from app.agent import execution
     usage, store, row = owned
-    closed = []
+    stopped = []
+    calls = []
 
-    @asynccontextmanager
-    async def notifications(turn_id):
+    async def respond(*args, on_event, **kwargs):
+        calls.append(True)
         try:
-            yield lambda: asyncio.sleep(10)
+            await on_event({"type": "agent.delta", "text": "Partial."})
+            await asyncio.Event().wait()
         finally:
-            closed.append(True)
+            stopped.append(True)
 
-    monkeypatch.setattr(stream, "notifications", notifications)
+    monkeypatch.setattr(execution, "run_turn", respond)
 
     async def observe():
         iterator = stream.events(store, usage.user_id, row["id"], None, snapshot)
-        first = await anext(iterator)
-        assert '"queued"' in first
+        async for item in iterator:
+            if '"type": "agent.delta"' in item:
+                break
+        await iterator.aclose()
+        return [item async for item in stream.events(store, usage.user_id, row["id"], 1, snapshot)]
+
+    replayed = decode(asyncio.run(observe()))
+    assert stopped == [True] and calls == [True]
+    assert replayed[-1]["turn"]["status"] == "interrupted"
+    assert replayed[-1]["turn"]["reply"] == "Partial."
+
+
+def test_disconnect_before_execution_releases_claim(owned):
+    usage, store, row = owned
+
+    async def observe():
+        iterator = stream.events(store, usage.user_id, row["id"], None, snapshot)
+        await anext(iterator)
         await iterator.aclose()
 
     asyncio.run(observe())
-    assert closed == [True]
-    assert store.get(usage.user_id, row["id"])["status"] == "queued"
-    store.claim(300)
-    store.finish(row["id"], "completed", reply="Finished after disconnect.")
-    assert store.get(usage.user_id, row["id"])["reply"] == "Finished after disconnect."
+    assert store.get(usage.user_id, row["id"])["status"] == "interrupted"
+
+
+def test_second_connection_cannot_execute_a_running_turn(owned):
+    usage, store, row = owned
+    store.claim(300, row["id"], usage.user_id)
+
+    async def collect():
+        return [item async for item in stream.events(store, usage.user_id, row["id"], None, snapshot)]
+
+    assert decode(asyncio.run(collect())) == [{"type": "stream.conflict"}]
 
 
 def test_partial_text_survives_timeout_without_aggregate(usage_factory, agent_settings, monkeypatch):
@@ -225,3 +241,39 @@ def test_partial_text_survives_timeout_without_aggregate(usage_factory, agent_se
     result = asyncio.run(sessions_module.ask(agent, "u1", "s1", "Explain."))
     assert result.startswith("Partial answer.\n\n")
     assert "incomplete" in result
+
+
+def test_asgi_disconnect_drains_execution_and_commits_interruption(owned, monkeypatch):
+    from starlette.responses import StreamingResponse
+    from app.agent import execution
+    usage, store, row = owned
+    stopped = []
+
+    async def respond(*args, on_event, **kwargs):
+        try:
+            await on_event({'type': 'agent.delta', 'text': 'Before disconnect.'})
+            await asyncio.Event().wait()
+        finally:
+            stopped.append(True)
+
+    monkeypatch.setattr(execution, 'run_turn', respond)
+
+    async def run():
+        disconnected = asyncio.Event()
+
+        async def send(message):
+            if b'"type": "agent.delta"' in message.get('body', b''):
+                disconnected.set()
+
+        async def receive():
+            await disconnected.wait()
+            return {'type': 'http.disconnect'}
+
+        response = StreamingResponse(stream.events(store, usage.user_id, row['id'], None, snapshot))
+        async with asyncio.timeout(3):
+            await response({'type': 'http', 'asgi': {'spec_version': '2.3'}}, receive, send)
+
+    asyncio.run(run())
+    assert stopped == [True]
+    state = store.get(usage.user_id, row['id'])
+    assert state['status'] == 'interrupted' and state['reply'] == 'Before disconnect.'

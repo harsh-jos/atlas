@@ -13,12 +13,11 @@ import {
   BookOpen,
   ArrowDown,
   SquarePen,
-  Square,
   LoaderCircle,
 } from 'lucide-react';
 import { Textarea } from '@/components/shadcn/textarea';
 import { ScrollArea } from '@/components/shadcn/scroll-area';
-import { cancelTurn, sendTurn } from '@/app/chat/actions';
+import { sendTurn } from '@/app/chat/actions';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { Button } from '@/components/ui/Button';
 import type { ChatHistory, ChatMessage, ChatTurn } from '@/lib/api-types';
@@ -106,7 +105,6 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     : entries, [entries, turn]);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(
     initialSnapshot.latestTurn?.error ?? null,
   );
@@ -222,7 +220,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     [sessionId, storageKey, pending, turn],
   );
 
-  // EventSource reconnects with Last-Event-ID. Observing never restarts generation.
+  // The first SSE request owns execution; reconnects replay saved events without rerunning it.
   useEffect(() => {
     if (!activeTurnId) return;
     const controller = new AbortController();
@@ -233,6 +231,11 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       const sequence = Number(message.lastEventId);
       if (event.type !== 'turn.snapshot' && sequence <= cursor) return;
       cursor = sequence;
+      if (event.type === 'stream.conflict') {
+        source.close();
+        setError('This reply is open in another connection. Reload after it finishes.');
+        return;
+      }
       if (event.type === 'turn.snapshot') {
         const latest = event.turn as ChatTurn;
         setTurn(latest);
@@ -345,24 +348,6 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     if (!message || pending) return;
     void say(message);
   }, [draft, pending, say]);
-
-  const stop = async () => {
-    if (!activeTurnId || stopping || turn?.cancelRequested) return;
-    setStopping(true);
-    try {
-      const result = await cancelTurn(activeTurnId);
-      if (result.error !== undefined) {
-        setError(result.error);
-        return;
-      }
-      setTurn(result.value);
-      if (!isActive(result.value)) await refresh();
-    } catch {
-      setError('Could not confirm Stop. You can try again safely.');
-    } finally {
-      setStopping(false);
-    }
-  };
 
   async function loadEarlier() {
     if (loadingEarlier) return;
@@ -532,8 +517,6 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         pending={pending}
         onDraftChange={setDraft}
         onSubmit={submit}
-        onStop={activeTurnId ? () => void stop() : undefined}
-        stopping={stopping || (!!turn?.cancelRequested && isActive(turn))}
       />
     </div>
   );
@@ -653,8 +636,6 @@ interface ComposerProps {
   pending: boolean;
   onDraftChange: (value: string) => void;
   onSubmit: () => void;
-  onStop?: () => void;
-  stopping: boolean;
 }
 
 function Composer({
@@ -662,8 +643,6 @@ function Composer({
   pending,
   onDraftChange,
   onSubmit,
-  onStop,
-  stopping,
 }: ComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -714,12 +693,6 @@ function Composer({
               </kbd>
               send · Shift + Enter for a new line
             </span>
-            {onStop ? (
-              <Button type="button" onClick={onStop} disabled={stopping}>
-                <Square className="size-3" />
-                {stopping ? 'Stopping…' : 'Stop'}
-              </Button>
-            ) : (
               <Button
                 type="submit"
                 size="icon"
@@ -729,7 +702,6 @@ function Composer({
               >
                 <SendIcon />
               </Button>
-            )}
           </div>
         </div>
       </div>

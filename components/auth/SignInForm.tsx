@@ -40,6 +40,7 @@ export function SignInForm() {
         </span>
       </label>
 
+      {state.message && <p role="status" className="text-sm text-accent">{state.message}</p>}
       {state.error && (
         <p
           role="alert"

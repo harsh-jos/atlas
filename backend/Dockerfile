@@ -22,7 +22,10 @@ COPY app ./app
 COPY alembic.ini ./
 COPY alembic ./alembic
 
+RUN useradd --create-home --uid 10001 atlas && mkdir -p /data/assets && chown -R atlas:atlas /app /data
+USER atlas
+ENV PORT=8000
 EXPOSE 8000
 
 # Run python -m app.db.bootstrap once before starting replicas.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

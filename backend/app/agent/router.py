@@ -131,15 +131,6 @@ async def turn_events(turn_id: UUID, user_id: CurrentUserId, scope: SessionScope
     )
 
 
-@router.post("/turns/{turn_id}/cancel", response_model=ChatTurn)
-async def cancel_turn(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatTurn:
-    """Idempotent stop: running work stays active until its worker acknowledges it."""
-    row = await asyncio.to_thread(TurnStore(scope).cancel, user_id, turn_id)
-    if row is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "turn not found")
-    return ChatTurn(**row)
-
-
 @router.get("/chat/{session_id}", response_model=ChatHistory)
 async def history(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep,
                   before: UUID | None = None,

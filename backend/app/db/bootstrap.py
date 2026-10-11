@@ -9,7 +9,8 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import inspect, text
 
 from app.agent.session import get_session_service
-from app.db.base import get_engine
+from app.db.base import get_engine, Base
+from app.core.config import get_settings
 
 _CONFIG = Path(__file__).resolve().parents[2] / 'alembic.ini'
 _ADK_TABLES = {'adk_internal_metadata', 'app_states', 'events', 'sessions', 'user_states'}
@@ -41,6 +42,18 @@ async def prepare_chat_schema() -> None:
         get_session_service.cache_clear()
 
 
+def protect_supabase_tables() -> None:
+    """Only FastAPI accesses app/ADK data; deny the project's public Data API roles."""
+    if get_settings().auth_provider != "supabase":
+        return
+    tables = set(Base.metadata.tables) | _ADK_TABLES | {"alembic_version"}
+    with get_engine().begin() as connection:
+        for name in sorted(tables):
+            quoted = connection.dialect.identifier_preparer.quote(name)
+            connection.execute(text(f"ALTER TABLE public.{quoted} ENABLE ROW LEVEL SECURITY"))
+            connection.execute(text(f"REVOKE ALL ON TABLE public.{quoted} FROM anon, authenticated"))
+
+
 def bootstrap() -> None:
     engine = get_engine()
     try:
@@ -55,6 +68,7 @@ def bootstrap() -> None:
                     command.upgrade(config, 'head')
                     command.check(config)
                 asyncio.run(prepare_chat_schema())
+                protect_supabase_tables()
                 validate_schema()
             finally:
                 lock.execute(text('SELECT pg_advisory_unlock(817234602)'))

@@ -4,7 +4,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.api.library import Payload
 from app.agent.knowledge import lock_owner
@@ -13,7 +13,7 @@ from app.core.config import ALLOWED_ASSET_TYPES, get_settings
 from app.db.models import Asset
 from app.db.repository import OwnedRepository
 from app.storage.quota import QuotaExceeded, QuotaService
-from app.storage.assets import delete_after_commit, write
+from app.storage.assets import delete_after_commit, write, read
 from app.core.errors import AppError
 
 router = APIRouter(tags=["assets"])
@@ -73,17 +73,20 @@ def upload_asset(
             size=len(data),
         )
     )
-    write(session, _asset_path(asset.id), data)
+    write(session, _asset_path(asset.id), data, mime_type)
     return AssetOut(
         id=asset.id, url=f"/assets/{asset.id}", mime_type=asset.mime_type, size=asset.size
     )
 
 
-@router.get("/assets/{asset_id}", response_class=FileResponse)
-def get_asset(asset_id: UUID, session: SessionDep, user: CurrentUser) -> FileResponse:
+@router.get("/assets/{asset_id}", response_model=None)
+def get_asset(asset_id: UUID, session: SessionDep, user: CurrentUser) -> Response:
     """Streamed off disk by FileResponse, so the bytes never sit in memory."""
     asset = _owned(AssetRepository(session, user.id), asset_id)
     path = _asset_path(asset.id)
+    if get_settings().storage_backend == "supabase":
+        return Response(read(path), media_type=asset.mime_type,
+                        headers={"Cache-Control": "private, no-store"})
     if not path.is_file():
         raise AppError("This saved image is missing. Restore it from a backup or upload it again.", "asset_missing", 404)
     return FileResponse(path, media_type=asset.mime_type)

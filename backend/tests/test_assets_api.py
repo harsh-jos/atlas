@@ -221,3 +221,84 @@ def test_commit_failure_returns_unavailable_and_removes_new_file(client, owner, 
     assert not list(assets_dir.iterdir())
     assert session.scalar(select(func.count()).select_from(Asset)) == 0
     assert owner[1].storage_bytes == 0
+
+
+@pytest.fixture
+def remote_storage(monkeypatch):
+    import httpx
+    from app.storage import assets
+    settings = get_settings()
+    monkeypatch.setattr(settings, 'storage_backend', 'supabase')
+    monkeypatch.setattr(settings, 'supabase_url', 'https://project.supabase.co')
+    monkeypatch.setattr(settings, 'supabase_service_key', 'sb_secret_test')
+    objects, calls = {}, []
+
+    def request(method, url, *, headers, timeout, **kwargs):
+        assert headers['apikey'] == 'sb_secret_test'
+        assert 'Authorization' not in headers
+        calls.append((method, url))
+        name = url.rsplit('/', 1)[-1]
+        if method == 'POST':
+            assert headers['Content-Type'] == 'image/png'
+            assert headers['x-upsert'] == 'false'
+            objects[name] = kwargs['content']
+            return httpx.Response(200)
+        if method == 'GET':
+            assert '/object/authenticated/atlas-assets/' in url
+            return httpx.Response(200, content=objects[name]) if name in objects else httpx.Response(404)
+        if method == 'DELETE':
+            for name in kwargs['json']['prefixes']:
+                objects.pop(name, None)
+            return httpx.Response(200)
+        raise AssertionError(method)
+
+    monkeypatch.setattr(assets.httpx, 'request', request)
+    return objects, calls
+
+
+def test_private_remote_upload_fetch_and_delete_enforce_ownership(client, owner, stranger, assets_dir, remote_storage):
+    objects, calls = remote_storage
+    url = _upload(client, owner[0]).json()['url']
+    assert len(objects) == 1 and not assets_dir.exists()
+    assert client.get(url, headers=owner[0]).content == PNG
+    count = len(calls)
+    assert client.get(url, headers=stranger[0]).status_code == 404
+    assert client.delete(url, headers=stranger[0]).status_code == 404
+    assert len(calls) == count  # Authorization happens before privileged storage access.
+    assert client.delete(url, headers=owner[0]).status_code == 204
+    assert objects == {} and owner[1].storage_bytes == 0
+
+
+def test_remote_upload_is_compensated_on_database_rollback(session, assets_dir, remote_storage):
+    from uuid import uuid4
+    from app.storage.assets import write
+    objects, _ = remote_storage
+    write(session, assets_dir / str(uuid4()), PNG, 'image/png')
+    assert len(objects) == 1
+    session.rollback()
+    assert objects == {}
+
+
+def test_remote_missing_image_returns_owned_404(client, owner, remote_storage):
+    objects, _ = remote_storage
+    url = _upload(client, owner[0]).json()['url']
+    objects.clear()
+    response = client.get(url, headers=owner[0])
+    assert response.status_code == 404 and response.json()['code'] == 'asset_missing'
+
+
+def test_remote_timeout_does_not_leave_database_metadata_or_quota(client, owner, monkeypatch, remote_storage):
+    import httpx
+    from app.storage import assets
+    original = assets.httpx.request
+
+    def timeout(method, *args, **kwargs):
+        if method == 'POST':
+            original(method, *args, **kwargs)  # The server accepted bytes, but its reply was lost.
+            raise httpx.ReadTimeout('private details')
+        return original(method, *args, **kwargs)
+
+    monkeypatch.setattr(assets.httpx, 'request', timeout)
+    result = _upload(client, owner[0])
+    assert result.status_code == 503 and result.json()['code'] == 'storage_unavailable'
+    assert remote_storage[0] == {} and owner[1].storage_bytes == 0

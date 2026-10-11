@@ -14,7 +14,7 @@ rules that every topic must carry. User-facing text follows ASD-STE100 principle
 formal dictionary/rule compliance is not automatically verified.
 
 The guide and its focused researcher use the configured Gemini models through Google ADK.
-The existing worker, persisted turns, Stop handling, ownership, quotas, revision checks,
+The request-owned SSE execution, persisted turns, ownership, quotas, revision checks,
 and request/spending guards remain in place. There is no additional planning model or
 code execution tool. No automatic model retry was added.
 

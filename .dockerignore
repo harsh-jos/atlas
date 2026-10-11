@@ -21,3 +21,6 @@ docs/design-taste
 
 # Runtime-uploaded assets (provided by the web_assets volume in compose).
 uploads
+
+# Local experiments are not application code.
+experiments
