@@ -10,8 +10,9 @@ import { TooltipProvider } from '@/components/shadcn/tooltip';
 export interface AppShellProps {
   children: React.ReactNode;
   chatHistory: React.ReactNode;
+  userName?: string;
 }
-export function AppShell({ children, chatHistory }: AppShellProps) {
+export function AppShell({ children, chatHistory, userName }: AppShellProps) {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isChat = pathname.startsWith('/chat');
@@ -53,6 +54,7 @@ export function AppShell({ children, chatHistory }: AppShellProps) {
           Skip to content
         </a>
         <Sidebar
+          userName={userName}
           chatHistory={chatHistory}
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed((value) => !value)}
@@ -63,7 +65,7 @@ export function AppShell({ children, chatHistory }: AppShellProps) {
           <div
             className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-surface ${isChat ? '' : 'md:rounded-2xl md:border md:shadow-[0_2px_12px_#1b2b3e03]'}`}
           >
-            <MobileBar chatHistory={chatHistory} />
+            <MobileBar chatHistory={chatHistory} userName={userName} />
             {!isChat && !isGraph && (
               <header className="hidden h-12 shrink-0 items-center justify-between border-b px-6 md:flex">
                 <div className="flex items-center gap-2.5 text-xs">

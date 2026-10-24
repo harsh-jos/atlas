@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/shadcn/button';
 import { Logo } from '@/components/ui/Logo';
 import { Sidebar } from './Sidebar';
-export function MobileBar({ chatHistory }: { chatHistory: React.ReactNode }) {
+export function MobileBar({ chatHistory, userName }: { chatHistory: React.ReactNode; userName?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b px-4 md:hidden">
@@ -29,6 +29,7 @@ export function MobileBar({ chatHistory }: { chatHistory: React.ReactNode }) {
           >
             <SheetTitle className="sr-only">Workspace navigation</SheetTitle>
             <Sidebar
+              userName={userName}
               mobile
               chatHistory={chatHistory}
               onNavigate={() => setOpen(false)}
