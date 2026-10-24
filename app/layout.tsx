@@ -16,7 +16,7 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Atlas — Explore and Learn',
+  title: 'Atlas',
   description: 'Explore a subject with expert guidance and connected explanations.',
 };
 
