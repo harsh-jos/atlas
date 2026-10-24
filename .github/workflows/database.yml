@@ -1,7 +1,11 @@
-name: Database schema and backend regressions
+name: CI and Cloud Run deployment
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   database:
@@ -37,5 +41,90 @@ jobs:
           uv run python -m app.db.bootstrap
           uv run python -m app.db.bootstrap
           uv run alembic check
+      - name: Backend and deployment lint
+        run: uv run ruff check app tests ../deploy
+      - name: Deployment configuration and failure handling
+        run: uv run python -m unittest discover -s ../deploy -p 'test_*.py'
       - name: Backend regressions (Postgres must be available)
         run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  deploy:
+    needs: [database, frontend]
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      vars.GCP_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    concurrency:
+      group: atlas-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+      RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
+      PUBLIC_APP_URL: ${{ vars.ATLAS_PUBLIC_APP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.13'
+          enable-cache: true
+      - run: uv sync --frozen --no-dev
+        working-directory: backend
+      - name: Prepare runtime configuration
+        env:
+          BACKEND_CONFIGURATION: ${{ secrets.ATLAS_BACKEND_ENV }}
+          WEB_CONFIGURATION: ${{ secrets.ATLAS_WEB_ENV }}
+        run: |
+          umask 077
+          export BACKEND_ENV_FILE="$RUNNER_TEMP/atlas-backend.yaml"
+          export WEB_ENV_FILE="$RUNNER_TEMP/atlas-web.yaml"
+          printf 'BACKEND_ENV_FILE=%s\nWEB_ENV_FILE=%s\n' "$BACKEND_ENV_FILE" "$WEB_ENV_FILE" >> "$GITHUB_ENV"
+          printf '%s' "$BACKEND_CONFIGURATION" > "$BACKEND_ENV_FILE"
+          printf '%s' "$WEB_CONFIGURATION" > "$WEB_ENV_FILE"
+          backend/.venv/bin/python deploy/runtime_config.py --validate
+      - name: Build containers before authentication and migrations
+        run: |
+          set -euo pipefail
+          : "${PROJECT_ID:?Set GCP_PROJECT_ID}"
+          : "${REGION:?Set GCP_REGION}"
+          API_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/api:${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}"
+          WEB_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/web:${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}"
+          docker build -t "$API_IMAGE" backend
+          docker build -t "$WEB_IMAGE" .
+          printf 'API_IMAGE=%s\nWEB_IMAGE=%s\n' "$API_IMAGE" "$WEB_IMAGE" >> "$GITHUB_ENV"
+      - name: Authenticate with short-lived Google credentials
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Publish containers
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          docker push "$API_IMAGE"
+          docker push "$WEB_IMAGE"
+      - name: Migrate and deploy
+        run: bash deploy/cloud-run.sh
+      - name: Remove runtime configuration
+        if: always()
+        run: rm -f "$RUNNER_TEMP/atlas-backend.yaml" "$RUNNER_TEMP/atlas-web.yaml"

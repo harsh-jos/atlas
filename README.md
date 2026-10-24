@@ -173,6 +173,8 @@ The Stop button and endpoint have been removed. No automatic model retry or cont
 The hosted setup uses Supabase Auth, Postgres, and private Storage with two Cloud Run services.
 Local auth and disk uploads remain available for development. See [deployment setup](docs/deployment.md)
 for configuration, migrations, provider setup, credentials, and the connection-lifetime trade-off.
+GitHub Actions checks PRs and can deploy `main` through keyless GCP authentication; deployment
+stays disabled until `GCP_DEPLOY_ENABLED=true` is configured.
 
 ## Backend failures and capacity
 
