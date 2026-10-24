@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { usesSupabase } from '@/lib/supabase/server';
 import { signInWithGoogle } from './actions';
 import { Button } from '@/components/ui/Button';
@@ -80,7 +81,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           {authError && <p role="alert" className="mb-4 text-sm text-danger">Sign-in could not be completed. Please try again.</p>}
           {usesSupabase() && (
             <form action={signInWithGoogle} className="mb-6">
-              <Button type="submit" variant="secondary" className="h-11 w-full">Continue with Google</Button>
+              <Button type="submit" variant="secondary" className="h-11 w-full gap-2.5">
+                <Image src="/google-g.png" alt="" aria-hidden="true" width={20} height={20} className="shrink-0 object-contain" />
+                Continue with Google
+              </Button>
               <p className="mt-5 text-center text-xs text-muted">Or use your email</p>
             </form>
           )}
