@@ -84,15 +84,22 @@ def test_research_can_be_disabled(usage_factory, agent_settings):
     assert usage_factory().totals().model_requests == 0
 
 
-def test_cost_includes_reasoning_and_each_search_query(usage_factory, agent_settings):
+@pytest.mark.parametrize(("model", "expected_cost"), [
+    ("gemini-3.8-flash", 1_682_000),
+    ("gemini-4-argon", 8_182_000),
+])
+def test_cost_includes_reasoning_and_each_search_query(
+    usage_factory, agent_settings, model, expected_cost
+):
+    agent_settings.agent_session_budget_microusd = 20_000_000
     store = usage_factory()
-    request = store.reserve("turn", "gemini-3.8-flash", True, agent_settings)
+    request = store.reserve("turn", model, True, agent_settings)
     store.record(
         request, agent_settings, reported=True, input_tokens=1_000_000,
         output_tokens=100_000, thought_tokens=100_000, total_tokens=1_200_000,
         search_queries=13,
     )
-    assert store.totals().estimated_cost_microusd == 1_682_000
+    assert store.totals().estimated_cost_microusd == expected_cost
     assert store.totals().unpriced_requests == 0
 
 
@@ -163,6 +170,19 @@ def test_price_rounding_region_and_scheduled_change():
     assert estimate_cost((750_000, 3_750_000), -1, 0, 0, 0, 0) is None
     assert token_rates("gemini-3.8-flash", "global", date(2027, 1, 1)) == (1_500_000, 7_500_000)
     assert token_rates("gemini-3.8-flash", "us-central1", date(2026, 10, 10)) == (825_000, 4_125_000)
+
+
+@pytest.mark.parametrize("day", ["2026-10-24", "2026-11-30", "2026-12-01"])
+def test_argon_uses_list_prices_without_promotional_credits(day):
+    from datetime import date
+    from app.agent.pricing import token_rates
+
+    assert token_rates("gemini-4-argon", "global", date.fromisoformat(day)) == (
+        4_000_000, 20_000_000
+    )
+    assert token_rates("gemini-4-argon", "us", date.fromisoformat(day)) == (
+        4_400_000, 22_000_000
+    )
 
 
 def test_rejection_is_owned_and_still_consumes_request_allowance(usage_factory, agent_settings):

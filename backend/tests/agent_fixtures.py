@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import pytest
 from google.adk.models import LlmResponse
 from google.adk.models.base_llm import BaseLlm
+from google.adk.sessions.schemas.v1 import StorageSession
 from google.genai import types
 from pydantic import Field
 from sqlalchemy import create_engine, event
@@ -42,6 +43,7 @@ def usage_factory(tmp_path):
         connection.execute("PRAGMA foreign_keys=ON")
 
     User.__table__.create(engine)
+    StorageSession.__table__.create(engine)
     AgentRequest.__table__.create(engine)
     AgentTurn.__table__.create(engine)
     AgentTurnEvent.__table__.create(engine)

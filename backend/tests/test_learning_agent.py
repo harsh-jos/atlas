@@ -30,6 +30,16 @@ def make_agent(store, settings, responses):
     return agent
 
 
+def test_default_guide_and_researcher_use_argon(usage_factory, agent_settings):
+    agent = build_agent([], RequestLimits(usage_factory(), agent_settings))
+    assert agent.model == agent.tools[0].agent.model == "gemini-4-argon"
+    for model_agent in (agent, agent.tools[0].agent):
+        config = model_agent.generate_content_config
+        assert config.thinking_config.thinking_level == types.ThinkingLevel.HIGH
+        assert config.automatic_continuation is False
+        assert config.http_options.retry_options.attempts == 1
+
+
 def test_reopened_session_retains_history(local_sessions, usage_factory, agent_settings):
     store = usage_factory()
 
@@ -161,11 +171,14 @@ def test_research_uses_shared_budget_and_keeps_sources(
     assert totals.unreported_requests == 1  # Scripted tool-call response omitted usage.
 
 
-def test_output_limit_is_reported(local_sessions, usage_factory, agent_settings):
+@pytest.mark.parametrize("finish_reason", [
+    types.FinishReason.MAX_TOKENS, types.FinishReason.CONTINUATION,
+])
+def test_output_limit_is_reported(local_sessions, usage_factory, agent_settings, finish_reason):
     agent = make_agent(
         usage_factory(),
         agent_settings,
-        [answer("A tensor", finish_reason=types.FinishReason.MAX_TOKENS)],
+        [answer("A tensor", finish_reason=finish_reason)],
     )
     reply = asyncio.run(sessions_module.ask(agent, "u1", "s1", "PyTorch"))
     assert INCOMPLETE_NOTICE in reply
@@ -465,7 +478,7 @@ def test_provider_cache_usage_is_recorded_without_double_counting(
     assert totals.input_tokens == 100
     assert totals.total_tokens == 130
     # Conservative pricing intentionally does not discount cached input yet.
-    assert totals.estimated_cost_microusd == 188
+    assert totals.estimated_cost_microusd == 1_000
     assert usage_factory(owner=1).totals().cached_input_tokens == 0
 
 

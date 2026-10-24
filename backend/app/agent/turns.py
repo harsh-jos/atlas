@@ -3,14 +3,17 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+from google.adk.sessions.schemas.v1 import StorageSession
 from sqlalchemy import func, select, tuple_
 
 from app.db.base import SessionScope
 from app.db.models import AgentTurn, AgentTurnEvent, User
 from app.core.config import get_settings
+from app.core.enums import Role
 from app.core.errors import AppError
 
 ACTIVE = ("queued", "running")
+NORMAL_CONVERSATION_LIMIT = 3
 STOPPED = "Stopped. Already saved work remains."
 INTERRUPTED = (
     "This reply was interrupted. It was not automatically retried; already saved work remains."
@@ -47,6 +50,42 @@ class TurnStore:
         self.scope = scope
 
     @staticmethod
+    def _conversation_ids(user_id: UUID):
+        # Accepted turns count immediately. UNION also counts legacy ADK chats,
+        # without counting the same conversation twice after execution starts.
+        return select(AgentTurn.session_id.label("session_id")).where(
+            AgentTurn.user_id == user_id
+        ).union(select(StorageSession.id.label("session_id")).where(
+            StorageSession.user_id == str(user_id),
+            StorageSession.app_name == get_settings().agent_app_name,
+        )).subquery()
+
+    def conversation_allowance(self, user_id: UUID) -> dict:
+        with self.scope() as session:
+            role = session.execute(select(User.role).where(User.id == user_id)).scalar_one()
+            used = session.scalar(select(func.count()).select_from(self._conversation_ids(user_id)))
+            limit = None if role == Role.SUPERUSER else NORMAL_CONVERSATION_LIMIT
+            return {"used": used, "limit": limit, "can_start": limit is None or used < limit}
+
+    def _check_conversation_limit(self, session, user: User, session_id: str) -> None:
+        if user.role == Role.SUPERUSER:
+            return
+        conversations = self._conversation_ids(user.id)
+        if session.scalar(select(conversations.c.session_id).where(
+            conversations.c.session_id == session_id
+        )) is not None:
+            return
+        # Only three distinct IDs are needed to establish that the limit is full.
+        used = session.scalars(
+            select(conversations.c.session_id).limit(NORMAL_CONVERSATION_LIMIT)
+        ).all()
+        if len(used) >= NORMAL_CONVERSATION_LIMIT:
+            raise AppError(
+                "Your account has reached its limit of 3 conversations. Continue an existing conversation.",
+                "conversation_limit", 403,
+            )
+
+    @staticmethod
     def _event(session, row: AgentTurn, data: dict) -> None:
         # Callers hold the turn lock. The log, snapshot and notification commit together.
         row.event_sequence += 1
@@ -81,7 +120,7 @@ class TurnStore:
             if session.get_bind().dialect.name == "sqlite":
                 session.connection().exec_driver_sql("BEGIN IMMEDIATE")
             # Serialize submissions, not execution. The partial unique index is a second guard.
-            session.execute(select(User.id).where(User.id == user_id).with_for_update()).one()
+            user = session.execute(select(User).where(User.id == user_id).with_for_update()).scalar_one()
             self._expire(session)
             owned = select(AgentTurn).where(
                 AgentTurn.user_id == user_id, AgentTurn.session_id == session_id
@@ -91,6 +130,7 @@ class TurnStore:
                 if existing.message != message:
                     raise TurnConflict("This request ID was already used for a different message.")
                 return turn_data(existing)
+            self._check_conversation_limit(session, user, session_id)
             if session.scalar(owned.where(AgentTurn.status.in_(ACTIVE))):
                 raise TurnConflict("A reply is already queued or running in this conversation.")
             # Serialize global admission only; execution and reads never hold this lock.

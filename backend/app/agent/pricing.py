@@ -1,8 +1,9 @@
-"""Conservative list-price estimates for the locked, standard Vertex model.
+"""Conservative list-price estimates for supported standard Vertex models.
 
-Source checked 2026-10-10:
+Source checked 2026-10-24:
 https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing
 Ignore free search allowances, cached-input discounts, credits, and taxes.
+Argon's introductory discount is delivered as credits; use its $4/$20 list rates.
 """
 
 from datetime import date
@@ -10,11 +11,14 @@ from datetime import date
 
 def token_rates(model: str, location: str, day: date) -> tuple[int, int] | None:
     """Micro-USD per million tokens. Unknown models must never be priced as Flash."""
-    if model != "gemini-3.8-flash":
+    if model == "gemini-4-argon":
+        input_rate, output_rate = (4_000_000, 20_000_000)
+    elif model == "gemini-3.8-flash":
+        input_rate, output_rate = (750_000, 3_750_000)
+        if day >= date(2027, 1, 1):
+            input_rate, output_rate = (1_500_000, 7_500_000)
+    else:
         return None
-    input_rate, output_rate = (750_000, 3_750_000)
-    if day >= date(2027, 1, 1):
-        input_rate, output_rate = (1_500_000, 7_500_000)
     if location != "global":
         input_rate, output_rate = input_rate * 11 // 10, output_rate * 11 // 10
     return input_rate, output_rate

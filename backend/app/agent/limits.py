@@ -91,13 +91,16 @@ class RequestLimits:
             total_tokens=usage.total_token_count or 0 if usage else 0,
             search_queries=len(grounding.web_search_queries or []) if grounding else 0,
         )
-        if llm_response.finish_reason == types.FinishReason.MAX_TOKENS:
+        output_incomplete = llm_response.finish_reason in (
+            types.FinishReason.MAX_TOKENS, types.FinishReason.CONTINUATION,
+        )
+        if output_incomplete:
             self.truncated = True
         if (
             self.truncated
             and llm_response.content
             and (
-                llm_response.finish_reason == types.FinishReason.MAX_TOKENS
+                output_incomplete
                 or callback_context.agent_name == "atlas"
             )
         ):
