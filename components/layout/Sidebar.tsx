@@ -23,6 +23,7 @@ import {
 const ICONS = { Library, Sparkles, Network, Search } as const;
 export interface SidebarProps {
   chatHistory: React.ReactNode;
+  userName?: string;
   mobile?: boolean;
   onNavigate?: () => void;
   collapsed?: boolean;
@@ -30,6 +31,7 @@ export interface SidebarProps {
 }
 export function Sidebar({
   chatHistory,
+  userName,
   mobile,
   onNavigate,
   collapsed = false,
@@ -174,9 +176,9 @@ export function Sidebar({
             compact ? 'px-0' : 'justify-start gap-2.5 px-3',
           )}
         >
-          <Link href="/profile" onClick={onNavigate} aria-label="Profile" aria-current={pathname === '/profile' ? 'page' : undefined} title={compact ? 'Profile' : undefined}>
-            <CircleUserRound className="size-4" />
-            {!compact && 'Profile'}
+          <Link href="/profile" onClick={onNavigate} aria-label={userName ? `${userName} — Profile` : 'Profile'} aria-current={pathname === '/profile' ? 'page' : undefined} title={userName ?? 'Profile'}>
+            <CircleUserRound className="size-4 shrink-0" />
+            {!compact && <span className="truncate">{userName ?? 'Profile'}</span>}
           </Link>
         </Button>
       </div>

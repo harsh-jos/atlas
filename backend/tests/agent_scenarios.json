@@ -131,5 +131,52 @@
       "Answers the follow-up without repeating the first explanation.",
       "Provides one prediction with a check and no mastery claim."
     ]
+  },
+  {
+    "id": "structured-first-explanation",
+    "turns": [
+      "I want to understand why database indexes speed up reads but can slow down writes. I know Python dictionaries, but little about databases."
+    ],
+    "review": [
+      "Gives a substantial self-contained explanation with a direct opening and descriptive sections, rather than a short overview or syllabus.",
+      "Walks through a concrete query and the work an index changes, then the maintenance required by a write.",
+      "Explains relevant terms and a boundary such as low selectivity or a query that cannot use the index; avoids claiming all reads become faster.",
+      "Uses trustworthy source links beside important claims. Detail is useful rather than padded to reach a word count."
+    ]
+  },
+  {
+    "id": "structured-answer-narrow-followup",
+    "turns": [
+      "Explain why reverse-mode automatic differentiation is useful for training a neural network. I know Python and basic algebra.",
+      "What exactly do you mean by an intermediate value? Answer in two sentences."
+    ],
+    "review": [
+      "First answer develops the mechanism with sections and a worked example without assuming calculus knowledge.",
+      "Follow-up honors the two-sentence request and explains the phrase using the prior example instead of restarting the lesson.",
+      "Does not infer that all tensors track computation history, fabricate code execution, or claim mastery."
+    ]
+  },
+  {
+    "id": "worked-procedure",
+    "turns": [
+      "Teach me how to use SQL GROUP BY to find total spending per customer. I know SELECT and WHERE. Give me a small worked example, then one optional variation to try."
+    ],
+    "review": [
+      "Shows a small input table, query, and expected result, and explains how rows are grouped and totals computed.",
+      "Explains the purpose of each important clause and a relevant mistake without replacing the task with a database essay.",
+      "Offers one optional variation and a way to check it; does not claim the SQL was executed."
+    ]
+  },
+  {
+    "id": "research-comparison-depth",
+    "turns": [
+      "Does retrieval practice always beat studying worked examples? Explain what the evidence says and when the recommendation changes."
+    ],
+    "review": [
+      "Uses original research and distinguishes retention of facts from learning a new procedure and transfer.",
+      "Organizes a developed answer around findings, conditions, and practical implications; evidence supports the specific claims.",
+      "Considers results that qualify the claim and separates empirical findings from the guides recommendation.",
+      "Does not fabricate consensus or imply that this evidence proves Atlas improves learning."
+    ]
   }
 ]

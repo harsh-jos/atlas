@@ -1,10 +1,11 @@
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export interface LogoProps {
   className?: string;
 }
 
-/** The Atlas wordmark uses a sky-blue slash on every light surface. */
+/** The gradient slash is the mark; the wordmark contains only "atlas". */
 export function Logo({ className }: LogoProps) {
   return (
     <span
@@ -13,18 +14,15 @@ export function Logo({ className }: LogoProps) {
         className,
       )}
     >
-      <svg
-        viewBox="0 0 400 460"
-        width="0.87em"
-        height="1em"
+      <Image
+        src="/atlas-logo.svg"
+        width={400}
+        height={460}
+        alt=""
         aria-hidden="true"
-        className="shrink-0"
-      >
-        <path
-          fill="#38a9e2"
-          d="M225,30 L325.3,20 Q375,15 351.8,59.3 L170,405 L68.3,432.1 Q20,445 42.1,400.2 Z"
-        />
-      </svg>
+        className="h-[1em] w-[0.87em] shrink-0"
+        unoptimized
+      />
       atlas
     </span>
   );

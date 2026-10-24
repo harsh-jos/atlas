@@ -436,7 +436,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         viewportRef={scrollRef}
         type="auto"
         className="min-h-0 flex-1"
-        viewportClassName="px-4 sm:px-8 lg:px-10"
+        viewportClassName={`px-4 sm:px-8 lg:px-10 ${isEmpty ? '[&>div]:h-full' : ''}`}
         onViewportScroll={(event) => {
           const el = event.currentTarget;
           const away = el.scrollHeight - el.scrollTop - el.clientHeight > 180;
@@ -444,11 +444,11 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           setShowJump(away);
         }}
       >
-        <div className="mx-auto w-full max-w-[var(--chat-measure)]">
+        <div className={`mx-auto w-full max-w-[var(--chat-measure)] ${isEmpty ? 'flex min-h-full flex-col justify-center' : ''}`}>
           {isEmpty ? (
             <EmptyState onPick={setDraft} />
           ) : (
-            <div className="space-y-3 pb-4 pt-4">
+            <div className="flex flex-col gap-6 py-6 sm:gap-7">
               {historyPage.hasMore && (
                 <Button
                   type="button"
@@ -469,7 +469,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           )}
           {turn && !isActive(turn) && !turn.reply && <CreditUsage used={turn.creditsUsed} pending={turn.creditsPending} />}
           {error && (
-            <p role="alert" className="px-1 pb-3 text-[13px] text-danger">
+            <p role="alert" className="px-1 pb-4 text-[13px] text-danger">
               {error}
             </p>
           )}
@@ -501,7 +501,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           </Button>
         </div>
       )}
-      <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pt-2 text-[11px] text-muted" aria-live="polite">
+      <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-3 text-[11px] text-muted" aria-live="polite">
         <span>
           {formatCredits(historyPage.creditsUsed ?? 0)}{historyPage.creditsPending ? '+' : ''} credits this conversation · Estimated
         </span>
@@ -529,8 +529,8 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
 function MessageRow({ role, text, creditsUsed, creditsPending }: ChatMessage) {
   if (role === 'you') {
     return (
-      <div className="flex flex-col items-end gap-1">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eff0f2] px-3 py-1.5 text-sm leading-5 text-ink">
+      <div className="flex flex-col items-end gap-2">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eff0f2] px-4 py-2.5 text-sm leading-6 text-ink">
           {text}
         </div>
         {creditsUsed != null && <CreditUsage used={creditsUsed} pending={creditsPending} />}
@@ -541,7 +541,7 @@ function MessageRow({ role, text, creditsUsed, creditsPending }: ChatMessage) {
   return (
     <div className="group min-w-0">
       <ChatMarkdown text={text} />
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mt-3 flex items-center gap-3">
         <CreditUsage used={creditsUsed} pending={creditsPending} />
         <CopyButton text={text} />
       </div>
@@ -585,7 +585,7 @@ function CopyButton({ text }: { text: string }) {
 
 function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center py-6 text-center">
+    <div className="flex shrink-0 flex-col items-center justify-center py-8 text-center">
       <div className="mb-4 flex size-10 items-center justify-center text-ink">
         <Sparkles className="size-5" aria-hidden="true" />
       </div>
@@ -598,7 +598,7 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
         Start with a question, a half-formed thought, or something that doesn’t
         quite click. We’ll take it from there.
       </p>
-      <div className="mt-6 grid w-full max-w-3xl gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-7 grid w-full max-w-3xl gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {STARTER_PROMPTS.map(({ icon: Icon, label, prompt }) => (
           <button
             key={label}
@@ -653,13 +653,13 @@ function Composer({
 
   return (
     <form
-      className="relative shrink-0 px-4 pb-2 pt-2 sm:px-8 lg:px-10"
+      className="relative shrink-0 px-4 pb-3 pt-3 sm:px-8 lg:px-10"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
       }}
     >
-      <div className="mx-auto w-full max-w-[var(--chat-measure)] rounded-2xl border border-black/10 bg-white px-3 py-1.5 shadow-[0_2px_8px_#00000003] transition-shadow focus-within:border-hairline-strong focus-within:shadow-[0_0_0_3px_#eaf6fd]">
+      <div className="mx-auto w-full max-w-[var(--chat-measure)] rounded-2xl border border-black/10 bg-white px-4 py-2.5 shadow-[0_2px_8px_#00000003] transition-shadow focus-within:border-hairline-strong focus-within:shadow-[0_0_0_3px_#eaf6fd]">
         <Textarea
           ref={textareaRef}
           value={draft}
@@ -679,7 +679,7 @@ function Composer({
           placeholder="Ask Atlas…"
           className="min-h-8 max-h-40 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-1.5 text-base text-ink shadow-none placeholder:text-faint focus-visible:ring-0"
         />
-        <div className="mt-1 flex items-center justify-between gap-3">
+        <div className="mt-2 flex items-center justify-between gap-3">
           {showModelSelector ? (
             <Select value={selectedModel} onValueChange={(value) => onModelChange(value as ChatModel)}>
               <SelectTrigger size="sm" aria-label="Gemini model" className="border-0 px-1 text-xs shadow-none">
@@ -712,7 +712,7 @@ function Composer({
           </div>
         </div>
       </div>
-      <p className="mt-1.5 text-center text-[10px] leading-5 text-faint">
+      <p className="mt-2 text-center text-[10px] leading-5 text-faint">
         Atlas can make mistakes. Check sources for important details.
       </p>
     </form>
