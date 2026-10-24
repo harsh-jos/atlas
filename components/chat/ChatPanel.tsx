@@ -13,29 +13,18 @@ import {
   BookOpen,
   ArrowDown,
   SquarePen,
-  LoaderCircle,
 } from 'lucide-react';
 import { Textarea } from '@/components/shadcn/textarea';
 import { ScrollArea } from '@/components/shadcn/scroll-area';
 import { sendTurn } from '@/app/chat/actions';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
+import { ChatActivity } from '@/components/chat/ChatActivity';
+import type { ToolEvent } from '@/lib/chat-activity';
 import { Button } from '@/components/ui/Button';
 import type { ChatHistory, ChatMessage, ChatTurn } from '@/lib/api-types';
 
 const COPY_RESET_MS = 1500;
 const COMPOSER_MAX_HEIGHT = 160;
-
-/** What each tool call is called while the reader waits — the agent's work, made legible. */
-const TOOL_LABELS: Record<string, string> = {
-  search_knowledge_base: 'Finding saved explanations',
-  researcher: 'Checking sources',
-  inspect_concept_graph: 'Looking at connected ideas',
-  remember_concept: 'Keeping this idea',
-  connect_concepts: 'Connecting ideas',
-  read_saved_explanation: 'Reading a saved explanation',
-  save_explanation: 'Saving your explanation',
-  revise_saved_explanation: 'Updating your explanation',
-};
 
 /** The first-run moment — three or four honest ways to start a research thread. */
 const STARTER_PROMPTS = [
@@ -64,13 +53,6 @@ const STARTER_PROMPTS = [
 ];
 
 type Entry = ChatMessage;
-
-type ToolEvent = {
-  type: 'agent.tool' | 'agent.tool_result' | 'agent.tool_error';
-  name: string;
-  callId?: string;
-  message?: string;
-};
 
 function historyWithoutLatestReply(snapshot: ChatHistory): Entry[] {
   return snapshot.latestTurn?.reply ? snapshot.messages.slice(0, -1) : snapshot.messages;
@@ -118,9 +100,6 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const storageKey = `atlas-submission:${sessionId}`;
   const pending = submitting || isActive(turn);
   const activeTurnId = isActive(turn) ? turn?.id : null;
-  const activity = turn?.toolName
-    ? [TOOL_LABELS[turn.toolName] ?? turn.toolName]
-    : [];
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -341,7 +320,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       });
     }
     didMountRef.current = true;
-  }, [visibleEntries, turn?.toolName, pending]);
+  }, [visibleEntries, toolEvents, pending]);
 
   const submit = useCallback(() => {
     const message = draft.trim();
@@ -458,25 +437,13 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
                   {loadingEarlier ? 'Loading…' : 'Load earlier messages'}
                 </Button>
               )}
-              {visibleEntries.map((entry, index) => (
+              {entries.map((entry, index) => (
                 <MessageRow key={index} role={entry.role} text={entry.text} />
               ))}
-
-              {toolEvents.length > 0 && (
-                <details className="rounded-lg border border-black/5 px-3 py-2 text-xs text-muted" open={pending}>
-                  <summary className="cursor-pointer">Tool activity</summary>
-                  <ol className="mt-2 space-y-1.5" aria-live="polite">
-                    {toolEvents.map((event, index) => (
-                      <li key={index} className={event.type === 'agent.tool_error' ? 'text-danger' : ''}>
-                        {event.type === 'agent.tool' ? 'Started' : event.type === 'agent.tool_result' ? 'Finished' : 'Failed'}
-                        {': '}{TOOL_LABELS[event.name] ?? event.name}
-                        {event.message ? ` — ${event.message}` : ''}
-                      </li>
-                    ))}
-                  </ol>
-                </details>
+              <ChatActivity events={toolEvents} pending={isActive(turn) || (submitting && !turn)} />
+              {turn?.reply && (
+                <MessageRow role="atlas" text={turn.reply} />
               )}
-              {pending && <ThinkingIndicator activity={activity} />}
             </div>
           )}
           {error && (
@@ -566,28 +533,6 @@ function CopyButton({ text }: { text: string }) {
       )}
       {copied ? 'Copied' : 'Copy'}
     </button>
-  );
-}
-
-function ThinkingIndicator({ activity }: { activity: string[] }) {
-  return (
-    <div className="flex items-start gap-3" aria-live="polite">
-      <LoaderCircle
-        className="mt-0.5 size-4 animate-spin text-muted"
-        aria-hidden="true"
-      />
-      <div className="min-w-0 flex-1 space-y-1.5">
-        {activity.map((label, index) => (
-          <p
-            key={index}
-            className="animate-rise text-xs text-faint"
-          >
-            {label}…
-          </p>
-        ))}
-        <p className="text-xs text-faint">Thinking…</p>
-      </div>
-    </div>
   );
 }
 

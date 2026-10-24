@@ -222,7 +222,18 @@ b {
   animation: rise-in var(--dur) var(--ease-out) both;
 }
 
+@keyframes thinking-heartbeat {
+  0%, 40%, 100% { opacity: 0.6; }
+  15%, 28% { opacity: 1; }
+  22% { opacity: 0.75; }
+}
+
+.thinking-heartbeat {
+  animation: thinking-heartbeat 2.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .thinking-heartbeat,
   .animate-rise {
     animation: none;
   }
