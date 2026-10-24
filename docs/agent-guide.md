@@ -10,8 +10,17 @@ workflow is not part of the application agent.
 
 `backend/app/agent/prompts.py` separates teaching, platform, and research instructions.
 Domain-specific counterexamples belong in `backend/tests/agent_scenarios.json`, not in
-rules that every topic must carry. User-facing text follows ASD-STE100 principles;
-formal dictionary/rule compliance is not automatically verified.
+rules that every topic must carry. User-facing text uses clear technical English informed
+by ASD-STE100 principles, without claiming formal compliance or certification.
+
+The 24 October prompt rewrite makes substantial answers longer and more structured by
+default. A broad first explanation has a flexible guide of 600–1000 words and 4–6 meaningful
+sections; a focused mechanism or procedure often needs 300–600 words and 2–4 sections.
+These are editorial guides, not enforced minimums or output-token limits. Explicit user
+constraints take precedence, and narrow follow-ups and action acknowledgements stay brief.
+The guide develops mechanisms, worked examples, assumptions, and useful consequences.
+Investigation, comparison, and practical-skill requests have different structures.
+See [the rewrite notes](agent-prompt-rewrite-2026-10-24.md) for sources and verification limits.
 
 The guide and its focused researcher use the configured Gemini models through Google ADK.
 The request-owned SSE execution, persisted turns, ownership, quotas, revision checks,
