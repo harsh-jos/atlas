@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Check,
@@ -14,14 +15,23 @@ import {
   ArrowDown,
   SquarePen,
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/shadcn/select';
 import { Textarea } from '@/components/shadcn/textarea';
 import { ScrollArea } from '@/components/shadcn/scroll-area';
 import { sendTurn } from '@/app/chat/actions';
+import { formatCredits } from '@/lib/credits';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { ChatActivity } from '@/components/chat/ChatActivity';
 import type { ToolEvent } from '@/lib/chat-activity';
 import { Button } from '@/components/ui/Button';
-import type { ChatHistory, ChatMessage, ChatTurn } from '@/lib/api-types';
+import type { ChatHistory, ChatMessage, ChatTurn, ChatModel } from '@/lib/api-types';
+
+const MODELS: { id: ChatModel; label: string }[] = [
+  { id: 'gemini-4-argon', label: 'Gemini 4 Argon' },
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+];
 
 const COPY_RESET_MS = 1500;
 const COMPOSER_MAX_HEIGHT = 160;
@@ -55,7 +65,11 @@ const STARTER_PROMPTS = [
 type Entry = ChatMessage;
 
 function historyWithoutLatestReply(snapshot: ChatHistory): Entry[] {
-  return snapshot.latestTurn?.reply ? snapshot.messages.slice(0, -1) : snapshot.messages;
+  if (snapshot.latestTurn?.reply) return snapshot.messages.slice(0, -1);
+  // A latest turn without reply text shows usage beside its status below the messages.
+  return snapshot.latestTurn ? snapshot.messages.map((message, index) =>
+    index === snapshot.messages.length - 1 ? { ...message, creditsUsed: undefined } : message,
+  ) : snapshot.messages;
 }
 
 export interface ChatPanelProps {
@@ -77,13 +91,14 @@ async function readSnapshot<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const router = useRouter();
+  const [selectedModel, setSelectedModel] = useState<ChatModel>(initialSnapshot.latestTurn?.model ?? 'gemini-4-argon');
   const [historyPage, setHistoryPage] = useState(initialSnapshot);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [entries, setEntries] = useState<Entry[]>(() => historyWithoutLatestReply(initialSnapshot));
   const [turn, setTurn] = useState<ChatTurn | null>(initialSnapshot.latestTurn);
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const visibleEntries = useMemo(() => turn?.reply
-    ? [...entries, { role: 'atlas' as const, text: turn.reply }]
+    ? [...entries, { role: 'atlas' as const, text: turn.reply, creditsUsed: turn.creditsUsed, creditsPending: turn.creditsPending }]
     : entries, [entries, turn]);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -96,9 +111,10 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const prependAnchorRef = useRef<{ height: number; top: number } | null>(null);
   const [showJump, setShowJump] = useState(false);
   const [conversationCopied, setConversationCopied] = useState(false);
-  const submissionRef = useRef<{ id: string; message: string } | null>(null);
+  const submissionRef = useRef<{ id: string; message: string; model?: ChatModel } | null>(null);
   const storageKey = `atlas-submission:${sessionId}`;
   const pending = submitting || isActive(turn);
+  const creditBlocked = !historyPage.account.canChat;
   const activeTurnId = isActive(turn) ? turn?.id : null;
 
   const refresh = useCallback(
@@ -131,7 +147,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     try {
       const saved = sessionStorage.getItem(storageKey);
       if (saved) {
-        const submission = JSON.parse(saved) as { id: string; message: string };
+        const submission = JSON.parse(saved) as { id: string; message: string; model?: ChatModel };
         if (
           typeof submission.id === 'string' &&
           typeof submission.message === 'string'
@@ -144,6 +160,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           // Storage is browser-only; restore once after the server render has hydrated.
           // eslint-disable-next-line react-hooks/set-state-in-effect
           setDraft(submission.message);
+          if (submission.model) setSelectedModel(submission.model);
         }
       }
     } catch {
@@ -153,7 +170,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
 
   const say = useCallback(
     async (message: string) => {
-      if (pending) return;
+      if (pending || creditBlocked) return;
       setError(null);
       setDraft(message);
       followBottomRef.current = true;
@@ -161,7 +178,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       const submission =
         submissionRef.current?.message === message
           ? submissionRef.current
-          : { id: crypto.randomUUID(), message };
+          : { id: crypto.randomUUID(), message, model: turn?.model ?? selectedModel };
       submissionRef.current = submission;
       try {
         sessionStorage.setItem(storageKey, JSON.stringify(submission));
@@ -169,7 +186,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         /* Optional. */
       }
       try {
-        const result = await sendTurn(sessionId, message, submission.id);
+        const result = await sendTurn(sessionId, message, submission.id, submission.model);
         if (result.error !== undefined) {
           setError(result.error);
           return;
@@ -183,11 +200,14 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         setDraft('');
         setEntries((current) => [
           ...current,
-          ...(turn?.reply ? [{ role: 'atlas' as const, text: turn.reply }] : []),
+          ...(turn?.reply ? [{ role: 'atlas' as const, text: turn.reply, creditsUsed: turn.creditsUsed, creditsPending: turn.creditsPending }] : []),
           { role: 'you', text: message },
         ]);
         setToolEvents([]);
         setTurn(result.value);
+        if (!isActive(result.value)) {
+          void refresh().catch(() => setError('Could not refresh credit usage. Reload to check it.'));
+        }
       } catch {
         setError(
           'Could not confirm your submission. Send the same message again to check it safely.',
@@ -196,7 +216,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         setSubmitting(false);
       }
     },
-    [sessionId, storageKey, pending, turn],
+    [sessionId, storageKey, pending, creditBlocked, turn, selectedModel, refresh],
   );
 
   // The first SSE request owns execution; reconnects replay saved events without rerunning it.
@@ -222,6 +242,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         setError(latest.error);
         if (!isActive(latest)) {
           source.close();
+          void refresh().catch(() => setError('Could not refresh credit usage. Reload to check it.'));
           router.refresh();
         }
       } else if (event.type === 'agent.delta') {
@@ -262,7 +283,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       controller.abort();
       source.close();
     };
-  }, [activeTurnId, router]);
+  }, [activeTurnId, router, refresh]);
 
   // A foreground return also picks up work submitted in another tab.
   useEffect(() => {
@@ -438,14 +459,15 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
                 </Button>
               )}
               {entries.map((entry, index) => (
-                <MessageRow key={index} role={entry.role} text={entry.text} />
+                <MessageRow key={index} {...entry} />
               ))}
               <ChatActivity events={toolEvents} pending={isActive(turn) || (submitting && !turn)} />
               {turn?.reply && (
-                <MessageRow role="atlas" text={turn.reply} />
+                <MessageRow role="atlas" text={turn.reply} creditsUsed={isActive(turn) ? undefined : turn.creditsUsed} creditsPending={turn.creditsPending} />
               )}
             </div>
           )}
+          {turn && !isActive(turn) && !turn.reply && <CreditUsage used={turn.creditsUsed} pending={turn.creditsPending} />}
           {error && (
             <p role="alert" className="px-1 pb-3 text-[13px] text-danger">
               {error}
@@ -479,9 +501,24 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           </Button>
         </div>
       )}
+      <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pt-2 text-[11px] text-muted" aria-live="polite">
+        <span>
+          {formatCredits(historyPage.creditsUsed ?? 0)}{historyPage.creditsPending ? '+' : ''} credits this conversation · Estimated
+        </span>
+        <Link href="/profile" className="hover:text-ink">
+          {historyPage.account.creditLimit == null ? `${formatCredits(historyPage.account.creditsUsed)} credits used · Unlimited` : `${formatCredits(historyPage.account.creditsRemaining ?? 0)} credits remaining`}
+        </Link>
+      </div>
+      {creditBlocked && !pending && <p className="px-4 pt-2 text-center text-xs text-muted">
+        {historyPage.account.creditsPending ? 'Some credit usage is pending or unavailable.' : 'You’ve used your free credits.'}{' '}
+        <Link href="/profile" className="underline underline-offset-2">View account</Link>
+      </p>}
       <Composer
+        selectedModel={turn?.model ?? selectedModel}
+        onModelChange={setSelectedModel}
+        showModelSelector={!turn && entries.length === 0 && !pending}
         draft={draft}
-        pending={pending}
+        pending={pending || creditBlocked}
         onDraftChange={setDraft}
         onSubmit={submit}
       />
@@ -489,13 +526,14 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   );
 }
 
-function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
+function MessageRow({ role, text, creditsUsed, creditsPending }: ChatMessage) {
   if (role === 'you') {
     return (
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end gap-1">
         <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-[#eff0f2] px-3 py-1.5 text-sm leading-5 text-ink">
           {text}
         </div>
+        {creditsUsed != null && <CreditUsage used={creditsUsed} pending={creditsPending} />}
       </div>
     );
   }
@@ -503,11 +541,20 @@ function MessageRow({ role, text }: { role: 'you' | 'atlas'; text: string }) {
   return (
     <div className="group min-w-0">
       <ChatMarkdown text={text} />
-      <div className="mt-2">
+      <div className="mt-2 flex items-center gap-3">
+        <CreditUsage used={creditsUsed} pending={creditsPending} />
         <CopyButton text={text} />
       </div>
     </div>
   );
+}
+
+function CreditUsage({ used, pending }: { used?: number | null; pending?: boolean }) {
+  if (used === undefined) return null;
+  return <span className="text-[11px] text-faint">
+    {used == null ? 'Credit usage unavailable' : `${formatCredits(used)}${pending ? '+' : ''} credits · Estimated`}
+    {pending && ' · Some usage is unknown'}
+  </span>;
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -577,6 +624,9 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
 }
 
 interface ComposerProps {
+  selectedModel: ChatModel;
+  onModelChange: (model: ChatModel) => void;
+  showModelSelector: boolean;
   draft: string;
   pending: boolean;
   onDraftChange: (value: string) => void;
@@ -584,6 +634,9 @@ interface ComposerProps {
 }
 
 function Composer({
+  selectedModel,
+  onModelChange,
+  showModelSelector,
   draft,
   pending,
   onDraftChange,
@@ -627,10 +680,19 @@ function Composer({
           className="min-h-8 max-h-40 w-full resize-none overflow-y-auto rounded-none border-0 bg-transparent p-0 py-1.5 text-base text-ink shadow-none placeholder:text-faint focus-visible:ring-0"
         />
         <div className="mt-1 flex items-center justify-between gap-3">
-          <span className="flex items-center gap-1.5 text-xs text-ink">
-            <Sparkles className="size-3.5" />
-            Atlas
-          </span>
+          {showModelSelector ? (
+            <Select value={selectedModel} onValueChange={(value) => onModelChange(value as ChatModel)}>
+              <SelectTrigger size="sm" aria-label="Gemini model" className="border-0 px-1 text-xs shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {MODELS.map((model) => <SelectItem key={model.id} value={model.id}>{model.label}</SelectItem>)}
+                <p className="max-w-56 px-2 py-2 text-[11px] text-muted">The model is fixed after your first message.</p>
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="text-xs text-muted">{MODELS.find((model) => model.id === selectedModel)?.label}</span>
+          )}
           <div className="flex items-center gap-3">
             <span className="hidden items-center gap-1 text-[11px] text-faint sm:flex">
               <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">

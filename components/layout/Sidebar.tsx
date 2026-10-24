@@ -7,11 +7,10 @@ import {
   Network,
   Search,
   SquarePen,
-  LogOut,
+  CircleUserRound,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
-import { signOut } from '@/app/login/actions';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from './nav-items';
 import { Logo } from '@/components/ui/Logo';
@@ -161,27 +160,26 @@ export function Sidebar({
           {chatHistory}
         </div>
       )}
-      <form
-        action={signOut}
+      <div
         className={cn(
           'mt-auto shrink-0 border-t border-black/5 py-3',
           compact ? 'px-2' : 'px-3',
         )}
       >
         <Button
-          type="submit"
+          asChild
           variant="ghost"
-          aria-label="Sign out"
-          title={compact ? 'Sign out' : undefined}
           className={cn(
             'h-8 w-full text-[13px] text-ink hover:bg-black/5 hover:text-ink',
             compact ? 'px-0' : 'justify-start gap-2.5 px-3',
           )}
         >
-          <LogOut className="size-4" />
-          {!compact && 'Sign out'}
+          <Link href="/profile" onClick={onNavigate} aria-label="Profile" aria-current={pathname === '/profile' ? 'page' : undefined} title={compact ? 'Profile' : undefined}>
+            <CircleUserRound className="size-4" />
+            {!compact && 'Profile'}
+          </Link>
         </Button>
-      </form>
+      </div>
     </aside>
   );
 }

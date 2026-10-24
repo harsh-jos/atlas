@@ -1,6 +1,5 @@
 """Durable model-request accounting. A failed request still consumes a request slot."""
 
-import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
@@ -10,7 +9,8 @@ from sqlalchemy import and_, case, func, select
 from app.agent.pricing import estimate_cost, token_rates
 from app.core.config import Settings
 from app.db.base import SessionScope
-from app.db.models import AgentRequest
+from app.db.models import AgentRequest, User
+from app.core.enums import Role
 
 
 class AgentLimitReached(RuntimeError):
@@ -39,58 +39,47 @@ class UsageTotals:
 
 
 class UsageStore:
-    def __init__(self, scope: SessionScope, user_id: UUID, session_id: str):
+    def __init__(self, scope: SessionScope, user_id: UUID, session_id: str | None = None):
         self.scope = scope
         self.user_id = user_id
         self.session_id = session_id
 
     def _owned(self):
-        return select(AgentRequest).where(
-            AgentRequest.user_id == self.user_id, AgentRequest.session_id == self.session_id
-        )
+        statement = select(AgentRequest).where(AgentRequest.user_id == self.user_id)
+        return statement.where(AgentRequest.session_id == self.session_id) if self.session_id is not None else statement
 
     def reserve(self, invocation_id: str, model: str, research: bool, settings: Settings) -> UUID:
         with self.scope() as session:
-            # Serialize only the short reservation transaction, not the model/network call.
-            if session.get_bind().dialect.name == "postgresql":
-                key = f"{self.user_id}:{self.session_id}".encode()
-                lock_id = int.from_bytes(hashlib.blake2b(key, digest_size=8).digest(), signed=True)
-                session.execute(select(func.pg_advisory_xact_lock(lock_id)))
-            elif session.get_bind().dialect.name == "sqlite":
+            # Lock the account across all conversations before admitting any spending.
+            if session.get_bind().dialect.name == "sqlite":
                 session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            role = session.scalar(select(User.role).where(User.id == self.user_id).with_for_update())
             current_turn = AgentRequest.invocation_id == invocation_id
-            stats = session.execute(self._owned().with_only_columns(
-                func.count().label("total"),
+            stats = session.execute(select(AgentRequest).where(AgentRequest.user_id == self.user_id).with_only_columns(
                 func.coalesce(func.sum(case((current_turn, 1), else_=0)), 0).label("turn"),
-                func.coalesce(func.sum(case((AgentRequest.research, 1), else_=0)), 0).label("research"),
                 func.coalesce(func.sum(case((current_turn & AgentRequest.research, 1), else_=0)), 0).label("turn_research"),
                 func.coalesce(func.sum(case((and_(AgentRequest.estimated_cost_microusd.is_(None), ~AgentRequest.rejected), 1), else_=0)), 0).label("unknown"),
                 func.coalesce(func.sum(AgentRequest.estimated_cost_microusd), 0).label("spent"),
             )).one()
             if stats.turn >= settings.agent_max_calls_per_turn:
                 raise AgentLimitReached("The model-call limit for this reply was reached.")
-            if stats.total >= settings.agent_max_calls_per_session:
-                raise AgentLimitReached("The model-call limit for this conversation was reached.")
-            if research and (
-                stats.turn_research >= settings.agent_max_research_per_turn
-                or stats.research >= settings.agent_max_research_per_session
-            ):
+            if research and stats.turn_research >= settings.agent_max_research_per_turn:
                 raise AgentLimitReached("The research-request limit was reached.", "research_limit")
-            if settings.agent_session_budget_microusd:
+            if role != Role.SUPERUSER and settings.agent_account_budget_microusd:
                 rates = token_rates(
                     model, settings.vertex_location, datetime.now(timezone.utc).date()
                 )
                 if rates is None:
                     raise AgentLimitReached("No verified price is configured for this model.", "price_unknown")
-                # A pending request holds the session's remaining budget. Failed or interrupted
+                # A pending request holds the account's remaining budget. Failed or interrupted
                 # requests retain that hold instead of silently being treated as free.
                 if stats.unknown:
                     raise AgentLimitReached(
                         "A previous model request has pending or unknown cost. "
-                        "Further spending in this conversation is blocked.", "cost_unknown"
+                        "Further spending on this account is blocked.", "cost_unknown"
                     )
-                if stats.spent >= settings.agent_session_budget_microusd:
-                    raise AgentLimitReached("The spending limit for this conversation was reached.", "budget_limit")
+                if stats.spent >= settings.agent_account_budget_microusd:
+                    raise AgentLimitReached("Your free account has used all its credits.", "budget_limit")
             row = AgentRequest(
                 user_id=self.user_id,
                 session_id=self.session_id,
@@ -131,7 +120,24 @@ class UsageStore:
                     row.thought_tokens,
                     row.total_tokens,
                     row.search_queries if row.research else 0,
+                    cached_input_tokens=row.cached_input_tokens or 0,
+                    cached_input_rate=rates[0] // (20 if row.model == "gemini-4-argon" else 10),
                 )
+
+    def account_summary(self, settings: Settings) -> dict:
+        totals = UsageStore(self.scope, self.user_id).totals()
+        with self.scope() as session:
+            user = session.get(User, self.user_id)
+            limit = None if user.role == Role.SUPERUSER or not settings.agent_account_budget_microusd else settings.agent_account_budget_microusd / 10_000
+            used = totals.estimated_cost_microusd / 10_000
+            return {
+                "id": user.id, "email": user.email, "role": user.role,
+                "created_at": user.created_at,
+                "credits_used": used, "credit_limit": limit,
+                "credits_remaining": None if limit is None else max(0, limit - used),
+                "credits_pending": totals.unpriced_requests > 0,
+                "can_chat": limit is None or (used < limit and totals.unpriced_requests == 0),
+            }
 
     def totals(self) -> UsageTotals:
         with self.scope() as session:

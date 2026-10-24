@@ -7,13 +7,13 @@ from google.adk.sessions.schemas.v1 import StorageSession
 from sqlalchemy import func, select, tuple_
 
 from app.db.base import SessionScope
-from app.db.models import AgentTurn, AgentTurnEvent, User
+from app.db.models import AgentTurn, AgentTurnEvent, AgentRequest, User
+from app.agent.models import CHAT_MODELS
 from app.core.config import get_settings
-from app.core.enums import Role
 from app.core.errors import AppError
+from app.core.enums import Role
 
 ACTIVE = ("queued", "running")
-NORMAL_CONVERSATION_LIMIT = 3
 STOPPED = "Stopped. Already saved work remains."
 INTERRUPTED = (
     "This reply was interrupted. It was not automatically retried; already saved work remains."
@@ -32,6 +32,9 @@ def turn_data(row: AgentTurn) -> dict:
             "request_id",
             "session_id",
             "message",
+            "model",
+            "credits_used",
+            "credits_pending",
             "status",
             "cancel_requested",
             "reply",
@@ -62,28 +65,8 @@ class TurnStore:
 
     def conversation_allowance(self, user_id: UUID) -> dict:
         with self.scope() as session:
-            role = session.execute(select(User.role).where(User.id == user_id)).scalar_one()
             used = session.scalar(select(func.count()).select_from(self._conversation_ids(user_id)))
-            limit = None if role == Role.SUPERUSER else NORMAL_CONVERSATION_LIMIT
-            return {"used": used, "limit": limit, "can_start": limit is None or used < limit}
-
-    def _check_conversation_limit(self, session, user: User, session_id: str) -> None:
-        if user.role == Role.SUPERUSER:
-            return
-        conversations = self._conversation_ids(user.id)
-        if session.scalar(select(conversations.c.session_id).where(
-            conversations.c.session_id == session_id
-        )) is not None:
-            return
-        # Only three distinct IDs are needed to establish that the limit is full.
-        used = session.scalars(
-            select(conversations.c.session_id).limit(NORMAL_CONVERSATION_LIMIT)
-        ).all()
-        if len(used) >= NORMAL_CONVERSATION_LIMIT:
-            raise AppError(
-                "Your account has reached its limit of 3 conversations. Continue an existing conversation.",
-                "conversation_limit", 403,
-            )
+            return {"used": used, "limit": None, "can_start": True}
 
     @staticmethod
     def _event(session, row: AgentTurn, data: dict) -> None:
@@ -115,7 +98,7 @@ class TurnStore:
             ).order_by(AgentTurnEvent.sequence).limit(250)).all()
             return [{"id": row.sequence, "data": row.data} for row in rows]
 
-    def submit(self, user_id: UUID, session_id: str, request_id: UUID, message: str) -> dict:
+    def submit(self, user_id: UUID, session_id: str, request_id: UUID, message: str, model: str | None = None) -> dict:
         with self.scope() as session:
             if session.get_bind().dialect.name == "sqlite":
                 session.connection().exec_driver_sql("BEGIN IMMEDIATE")
@@ -127,10 +110,28 @@ class TurnStore:
             )
             existing = session.scalar(owned.where(AgentTurn.request_id == request_id))
             if existing:
-                if existing.message != message:
+                if existing.message != message or (model is not None and existing.model != model):
                     raise TurnConflict("This request ID was already used for a different message.")
                 return turn_data(existing)
-            self._check_conversation_limit(session, user, session_id)
+            if model is not None and model not in CHAT_MODELS:
+                raise AppError("Choose a supported Gemini model.", "invalid_model", 422)
+            first = session.scalar(owned.order_by(AgentTurn.created_at, AgentTurn.id).limit(1))
+            # Legacy conversations retain the configured model they previously used.
+            legacy = session.scalar(select(StorageSession.id).where(
+                StorageSession.user_id == str(user_id), StorageSession.id == session_id,
+                StorageSession.app_name == get_settings().agent_app_name,
+            ))
+            saved_model = session.scalar(owned.with_only_columns(AgentTurn.model).where(
+                AgentTurn.model.is_not(None)
+            ).order_by(AgentTurn.created_at, AgentTurn.id).limit(1))
+            locked_model = saved_model or (get_settings().agent_model if first or legacy else None)
+            if locked_model and model is not None and model != locked_model:
+                raise TurnConflict("The model cannot be changed after the first message.")
+            selected_model = locked_model or model or get_settings().agent_model
+            budget = get_settings().agent_account_budget_microusd
+            spent = session.scalar(select(func.coalesce(func.sum(AgentRequest.estimated_cost_microusd), 0)).where(AgentRequest.user_id == user_id))
+            if user.role != Role.SUPERUSER and budget and spent >= budget:
+                raise AppError("Your free account has used all its credits. Your saved conversations remain available.", "budget_limit", 403)
             if session.scalar(owned.where(AgentTurn.status.in_(ACTIVE))):
                 raise TurnConflict("A reply is already queued or running in this conversation.")
             # Serialize global admission only; execution and reads never hold this lock.
@@ -143,7 +144,7 @@ class TurnStore:
             if session.scalar(active) >= settings.agent_max_active_turns:
                 raise AppError("Atlas is busy. Try again after a reply finishes.", "queue_full", 503)
             row = AgentTurn(
-                user_id=user_id, session_id=session_id, request_id=request_id, message=message
+                user_id=user_id, session_id=session_id, request_id=request_id, message=message, model=selected_model
             )
             session.add(row)
             session.flush()
@@ -203,6 +204,7 @@ class TurnStore:
             if row.status in ACTIVE:
                 row.cancel_requested = True
                 if row.status == "queued":
+                    self._settle_usage(session, row)
                     row.status, row.error = "cancelled", STOPPED
                     row.error_code = "cancelled"
                 self._event(session, row, {"type": "turn.status", "status": row.status,
@@ -218,6 +220,7 @@ class TurnStore:
             ((AgentTurn.status == "queued") & (AgentTurn.created_at < unopened))
         ).with_for_update(skip_locked=True)).all()
         for stale in expired:
+            self._settle_usage(session, stale)
             stale.status = "cancelled" if stale.cancel_requested else "interrupted"
             stale.error = STOPPED if stale.cancel_requested else INTERRUPTED
             stale.error_code = stale.status
@@ -272,6 +275,16 @@ class TurnStore:
                 }][-10:]
             self._event(session, row, event)
 
+    @staticmethod
+    def _settle_usage(session, row: AgentTurn) -> None:
+        requests = session.scalars(select(AgentRequest).where(
+            AgentRequest.user_id == row.user_id, AgentRequest.session_id == row.session_id,
+            AgentRequest.invocation_id == str(row.id),
+        )).all()
+        row.credits_used = (sum(request.estimated_cost_microusd or 0 for request in requests) / 10_000
+                            if requests or row.model else None)
+        row.credits_pending = any(request.estimated_cost_microusd is None and not request.rejected for request in requests)
+
     def finish(
         self, turn_id: UUID, status: str, *, reply: str | None = None, error: str | None = None,
         error_code: str | None = None,
@@ -286,6 +299,7 @@ class TurnStore:
             )
             if row is None:
                 return
+            self._settle_usage(session, row)
             row.status = "cancelled" if row.cancel_requested else status
             row.error = STOPPED if row.cancel_requested else error
             row.error_code = "cancelled" if row.cancel_requested else (

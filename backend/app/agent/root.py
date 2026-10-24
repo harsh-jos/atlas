@@ -13,7 +13,7 @@ from app.agent.prompts import LEARNING_INSTRUCTION, RESEARCH_INSTRUCTION
 from app.core.config import get_settings
 
 
-def build_agent(tools: list[Callable], limits: RequestLimits) -> Agent:
+def build_agent(tools: list[Callable], limits: RequestLimits, model: str | None = None) -> Agent:
     settings = get_settings()
     config = types.GenerateContentConfig(
         # Each provider call must pass through our request and spending guards.
@@ -31,7 +31,7 @@ def build_agent(tools: list[Callable], limits: RequestLimits) -> Agent:
     }
     researcher = Agent(
         name="researcher",
-        model=settings.agent_search_model,
+        model=model or settings.agent_search_model,
         description="Finds reliable web evidence for one specific learning question.",
         static_instruction=RESEARCH_INSTRUCTION,
         generate_content_config=config.model_copy(deep=True),
@@ -40,7 +40,7 @@ def build_agent(tools: list[Callable], limits: RequestLimits) -> Agent:
     )
     return Agent(
         name="atlas",
-        model=settings.agent_model,
+        model=model or settings.agent_model,
         description="Guides one question at a time and connects prior explorations.",
         static_instruction=LEARNING_INSTRUCTION,
         instruction=learning_instruction,

@@ -40,13 +40,14 @@ async def run_turn(
     *,
     on_event: EventSink | None = None,
     turn_id: str | None = None,
+    model: str | None = None,
 ) -> str:
     """Run one turn, reporting progress to its persisted turn record."""
     if not get_settings().vertex_project:
         raise AgentUnavailable("the agent is not configured: set VERTEX_PROJECT")
 
-    limits = RequestLimits(UsageStore(get_session_scope(), user_id, session_id), get_settings())
-    agent = build_agent(build_toolkit(get_session_scope(), user_id, on_event=on_event), limits)
+    limits = RequestLimits(UsageStore(get_session_scope(), user_id, session_id), get_settings(), turn_id)
+    agent = build_agent(build_toolkit(get_session_scope(), user_id, on_event=on_event), limits, model)
     def load_preferences():
         with get_session_scope()() as db:
             return preferences(db, user_id)

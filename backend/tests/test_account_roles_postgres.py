@@ -9,37 +9,28 @@ from alembic.config import Config
 from sqlalchemy import delete, text
 from sqlalchemy.orm import sessionmaker
 
-from app.agent.turns import TurnStore
-from app.core.errors import AppError
 from app.db.models import User
 
 
-def test_postgres_serializes_starts_at_the_account_limit(engine):
+def test_postgres_serializes_spending_across_conversations(engine, agent_settings):
+    from app.agent.usage import UsageStore, AgentLimitReached
     factory = sessionmaker(engine, expire_on_commit=False)
     with factory.begin() as session:
         user = User(email=f"limit-{uuid4()}@example.com", password_hash="test-only")
         session.add(user)
         session.flush()
         user_id = user.id
-    store = TurnStore(factory.begin)
+    agent_settings.agent_account_budget_microusd = 3_000_000
     try:
-        for index in range(2):
-            turn = store.submit(user_id, f"s{index}", uuid4(), "Hello")
-            store.cancel(user_id, turn["id"])
-
         def attempt(index):
             try:
-                store.submit(user_id, f"new{index}", uuid4(), "Hello")
+                UsageStore(factory.begin, user_id, f"new{index}").reserve(str(index), "gemini-3.8-flash", False, agent_settings)
                 return True
-            except AppError as error:
-                assert error.code == "conversation_limit"
+            except AgentLimitReached as error:
+                assert error.code == "cost_unknown"
                 return False
-
         with ThreadPoolExecutor(max_workers=4) as pool:
             assert sorted(pool.map(attempt, range(4))) == [False, False, False, True]
-        assert store.conversation_allowance(user_id) == {
-            "used": 3, "limit": 3, "can_start": False,
-        }
     finally:
         with factory.begin() as session:
             session.execute(delete(User).where(User.id == user_id))

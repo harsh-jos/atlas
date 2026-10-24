@@ -107,7 +107,7 @@ def test_reopened_chat_shows_queued_message_then_completed_reply(client, token, 
     accepted = client.post("/agent/chat", json=BODY, headers=_auth(token)).json()
     snapshot = client.get("/agent/chat/s1", headers=_auth(token)).json()
     assert snapshot["latestTurn"]["status"] == "queued"
-    assert snapshot["messages"][-1] == {"role": "you", "text": "hello"}
+    assert snapshot["messages"][-1] == {"role": "you", "text": "hello", "creditsUsed": None, "creditsPending": False}
     store = TurnStore(client.app.dependency_overrides[get_session_scope]())
     claimed = store.claim(300)
     assert str(claimed["id"]) == accepted["id"]
@@ -131,8 +131,11 @@ def test_history_of_an_unknown_session_is_empty(client, token, monkeypatch):
 
     response = client.get("/agent/chat/never-started", headers=_auth(token))
     assert response.status_code == 200
-    assert response.json() == {"sessionId": "never-started", "messages": [], "latestTurn": None,
-                               "hasMore": False, "nextBefore": None, "nextLegacyOffset": 0}
+    body = response.json()
+    assert body.pop("account")["creditLimit"] == 300
+    assert body == {"sessionId": "never-started", "messages": [], "latestTurn": None,
+                    "hasMore": False, "nextBefore": None, "nextLegacyOffset": 0,
+                    "creditsUsed": 0, "creditsPending": False}
 
 
 def test_history_replays_prior_turns(client, token, monkeypatch):
@@ -145,11 +148,14 @@ def test_history_replays_prior_turns(client, token, monkeypatch):
 
     response = client.get("/agent/chat/s1", headers=_auth(token))
     assert response.status_code == 200
-    assert response.json() == {
+    body = response.json()
+    assert body.pop("account")["creditsUsed"] == 0
+    assert body == {
         "sessionId": "s1",
+        "creditsUsed": 0, "creditsPending": False,
         "messages": [
-            {"role": "you", "text": "what is a monad"},
-            {"role": "atlas", "text": "a burrito"},
+            {"role": "you", "text": "what is a monad", "creditsUsed": None, "creditsPending": False},
+            {"role": "atlas", "text": "a burrito", "creditsUsed": None, "creditsPending": False},
         ],
         "latestTurn": None,
         "hasMore": False, "nextBefore": None, "nextLegacyOffset": 2,
@@ -202,7 +208,7 @@ def test_stop_endpoint_is_retired(client, token):
     assert client.post(f"/agent/turns/{uuid4()}/cancel", headers=_auth(token)).status_code == 404
 
 
-def test_conversation_limit_is_enforced_through_the_api(client, token, monkeypatch):
+def test_conversation_count_has_no_cap_through_the_api(client, token, monkeypatch):
     from app.agent.turns import TurnStore
     from app.core.security import read_access_token
 
@@ -216,14 +222,13 @@ def test_conversation_limit_is_enforced_through_the_api(client, token, monkeypat
         assert response.status_code == 202
         store.cancel(read_access_token(token), UUID(response.json()["id"]))
     assert client.get("/agent/conversations/allowance", headers=_auth(token)).json() == {
-        "used": 3, "limit": 3, "canStart": False,
+        "used": 3, "limit": None, "canStart": True,
     }
     response = client.post("/agent/chat", headers=_auth(token), json={
         "session_id": "fourth", "message": "hello", "request_id": str(uuid4()),
     })
-    assert response.status_code == 403
-    assert response.json()["code"] == "conversation_limit"
-    assert "Continue an existing conversation" in response.json()["detail"]
+    assert response.status_code == 202
+    store.cancel(read_access_token(token), UUID(response.json()["id"]))
     assert client.post("/agent/chat", headers=_auth(token), json={
         "session_id": "s0", "message": "continue", "request_id": str(uuid4()),
     }).status_code == 202

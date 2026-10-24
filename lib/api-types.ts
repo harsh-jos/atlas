@@ -116,12 +116,31 @@ export interface Graph {
   links: GraphLink[];
 }
 
+export type ChatModel = 'gemini-4-argon' | 'gemini-3.8-flash' | 'gemini-3.7-flash' | 'gemini-3.6-flash';
+
 export interface ChatMessage {
+  creditsUsed?: number | null;
+  creditsPending?: boolean;
   role: 'you' | 'atlas';
   text: string;
 }
 
+export interface AccountUsage {
+  id: string;
+  email: string;
+  role: 'NORMAL' | 'SUPERUSER';
+  createdAt: string;
+  creditsUsed: number;
+  creditLimit: number | null;
+  creditsRemaining: number | null;
+  creditsPending: boolean;
+  canChat: boolean;
+}
+
 export interface ChatHistory {
+  account: AccountUsage;
+  creditsUsed: number;
+  creditsPending: boolean;
   hasMore?: boolean;
   nextBefore?: string | null;
   nextLegacyOffset?: number;
@@ -131,6 +150,9 @@ export interface ChatHistory {
 }
 
 export interface ChatTurn {
+  model: ChatModel | null;
+  creditsUsed: number | null;
+  creditsPending: boolean;
   id: string;
   requestId: string;
   sessionId: string;

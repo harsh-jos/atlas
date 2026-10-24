@@ -17,10 +17,10 @@ INCOMPLETE_NOTICE = "This reply is incomplete. Ask me to continue from the last 
 
 
 class RequestLimits:
-    def __init__(self, store: UsageStore, settings: Settings):
+    def __init__(self, store: UsageStore, settings: Settings, invocation_id: str | None = None):
         self.store = store
         self.settings = settings
-        self.invocation_id = str(uuid4())
+        self.invocation_id = invocation_id or str(uuid4())
         self.sources: dict[str, str] = {}
         self.pending: dict[tuple[str, str], list[UUID]] = {}
         self.truncated = False

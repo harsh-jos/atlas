@@ -260,6 +260,9 @@ class AgentTurn(OwnedRecord):
     session_id: Mapped[str] = mapped_column(String(64))
     request_id: Mapped[UUID]
     message: Mapped[str] = mapped_column(Text)
+    model: Mapped[str | None] = mapped_column(String(200))
+    credits_used: Mapped[float | None] = mapped_column(Float)
+    credits_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
     reply: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)

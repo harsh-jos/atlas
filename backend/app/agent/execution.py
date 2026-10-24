@@ -43,6 +43,7 @@ async def _execute(store: TurnStore, turn: dict, on_progress=None) -> None:
                 turn["message"],
                 on_event=progress,
                 turn_id=str(turn["id"]),
+                model=turn.get("model"),
             )
         if asyncio.current_task().cancelling():
             raise asyncio.CancelledError()

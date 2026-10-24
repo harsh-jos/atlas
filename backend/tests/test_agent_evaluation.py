@@ -35,7 +35,7 @@ def test_live_harness_keeps_one_session_and_requires_review():
                 "searchQueries": 2,
                 "estimatedCostMicrousd": 28_000,
                 "unpricedRequests": 0,
-                "sessionBudgetMicrousd": 5_000_000,
+                "accountBudgetMicrousd": 5_000_000,
                 "cachedInputTokens": 5,
                 "cacheUnreportedRequests": 0,
                 "rejectedRequests": 0,

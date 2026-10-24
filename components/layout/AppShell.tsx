@@ -35,6 +35,8 @@ export function AppShell({ children, chatHistory }: AppShellProps) {
       ? 'Knowledge graph'
       : pathname.startsWith('/search')
         ? 'Search'
+        : pathname.startsWith('/profile')
+        ? 'Profile'
         : 'Library';
   const detail = pathname.startsWith('/entries')
     ? 'Explanation'
