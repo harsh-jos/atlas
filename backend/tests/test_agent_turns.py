@@ -90,8 +90,9 @@ def test_execution_persists_progress_and_completion(
 ):
     accepted = submit(turns, usage_factory)
 
-    async def fake_turn(user_id, session_id, message, *, on_event, turn_id):
+    async def fake_turn(user_id, session_id, message, *, on_event, turn_id, model):
         assert turn_id == str(accepted["id"])
+        assert model == accepted["model"]
         await on_event({"type": "agent.tool", "name": "researcher"})
         assert turns.get(user_id, accepted["id"])["tool_name"] == "researcher"
         await on_event({"type": "agent.message", "text": "A tensor holds values."})

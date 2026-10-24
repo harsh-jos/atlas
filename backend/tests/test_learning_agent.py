@@ -197,7 +197,7 @@ def test_provider_failure_does_not_refund_request(local_sessions, usage_factory,
 def test_spending_limit_saves_notice_without_another_provider_call(
     local_sessions, usage_factory, agent_settings
 ):
-    agent_settings.agent_session_budget_microusd = 100
+    agent_settings.agent_account_budget_microusd = 100
     store = usage_factory()
     agent = make_agent(store, agent_settings, [answer("A tensor holds values.")])
     agent.model.model = "gemini-3.8-flash"
@@ -205,9 +205,9 @@ def test_spending_limit_saves_notice_without_another_provider_call(
     async def run():
         await sessions_module.ask(agent, "u1", "s1", "Explain a tensor.")
         reply = await sessions_module.ask(agent, "u1", "s1", "More?")
-        assert "spending limit" in reply and "incomplete" in reply
+        assert "used all its credits" in reply and "incomplete" in reply
         assert len(agent.model.requests) == 1
-        assert "spending limit" in (await sessions_module.read_history("u1", "s1"))[-1].text
+        assert "used all its credits" in (await sessions_module.read_history("u1", "s1"))[-1].text
 
     asyncio.run(run())
 
@@ -220,7 +220,7 @@ def test_interrupted_request_keeps_unknown_cost_and_blocks_retry(
             raise asyncio.CancelledError()
             yield  # Make this an async generator, like the real provider.
 
-    agent_settings.agent_session_budget_microusd = 5_000_000
+    agent_settings.agent_account_budget_microusd = 5_000_000
     store = usage_factory()
     agent = make_agent(store, agent_settings, [])
     agent.model = InterruptedModel(model="gemini-3.8-flash")
@@ -242,7 +242,7 @@ def test_interrupted_request_keeps_unknown_cost_and_blocks_retry(
 def test_research_spend_stops_the_guide_before_another_call(
     local_sessions, usage_factory, agent_settings
 ):
-    agent_settings.agent_session_budget_microusd = 20_000
+    agent_settings.agent_account_budget_microusd = 20_000
     store = usage_factory()
     tool_call = answer("")
     tool_call.content.parts = [types.Part(function_call=types.FunctionCall(
@@ -258,7 +258,7 @@ def test_research_spend_stops_the_guide_before_another_call(
     )])
 
     reply = asyncio.run(sessions_module.ask(agent, "u1", "s1", "Explain autograd."))
-    assert "spending limit" in reply and "incomplete" in reply
+    assert "used all its credits" in reply and "incomplete" in reply
     assert len(agent.model.requests) == 1
     assert len(researcher.model.requests) == 1
     assert store.totals().estimated_cost_microusd == 28_376
@@ -477,8 +477,8 @@ def test_provider_cache_usage_is_recorded_without_double_counting(
     assert totals.cache_unreported_requests == (1 if cached is None else 0)
     assert totals.input_tokens == 100
     assert totals.total_tokens == 130
-    # Conservative pricing intentionally does not discount cached input yet.
-    assert totals.estimated_cost_microusd == 1_000
+    # Published Argon introductory pricing includes cached-input savings.
+    assert totals.estimated_cost_microusd == (348 if cached == 80 else 500)
     assert usage_factory(owner=1).totals().cached_input_tokens == 0
 
 
@@ -500,7 +500,7 @@ def test_capacity_rejection_allows_manual_retry_but_server_failure_stays_unknown
             raise APIError(status, {"error": {"code": status, "message": "Provider failure"}})
             yield
 
-    agent_settings.agent_session_budget_microusd = 5_000_000
+    agent_settings.agent_account_budget_microusd = 5_000_000
     store = usage_factory()
     agent = make_agent(store, agent_settings, [])
     agent.model = FailedModel(model="gemini-3.8-flash")

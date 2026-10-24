@@ -3,15 +3,16 @@
 import { revalidatePath } from 'next/cache';
 import { type ActionResult, attempt } from '@/lib/actions';
 import { apiGet, apiSend } from '@/lib/api';
-import type { ChatTurn, ChatSessionSummary } from '@/lib/api-types';
+import type { ChatModel, ChatTurn, ChatSessionSummary } from '@/lib/api-types';
 
 /** Send one turn and refresh the saved session list. */
-export async function sendTurn(sessionId: string, message: string, requestId: string): Promise<ActionResult<ChatTurn>> {
+export async function sendTurn(sessionId: string, message: string, requestId: string, model?: ChatModel): Promise<ActionResult<ChatTurn>> {
   const result = await attempt(async () => {
     return apiSend<ChatTurn>('POST', '/agent/chat', {
       session_id: sessionId,
       message,
       request_id: requestId,
+      model,
     });
   });
 

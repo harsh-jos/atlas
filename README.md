@@ -90,13 +90,10 @@ changing its language requires a coordinated schema migration.
 
 ### Account types and conversations
 
-Normal accounts can start three conversations in total. Each conversation starts
-when its first message is accepted, including a reply that later fails or is interrupted.
-Further messages in those conversations remain available. Existing ADK conversations
-count toward the same limit; accepted turns and ADK history are counted once per chat.
-Accounts with more than three existing chats keep their history and can continue it.
-Superusers have no conversation-count limit. Other request, spending, storage, and
-active-reply limits still apply to both account types.
+Free accounts have a shared lifetime allowance of 300 credits ($3) across unlimited
+conversations. Superusers have no credit or conversation limit. Per-reply execution,
+context-size, concurrent-reply, and storage guards still apply to both account types.
+Usage from existing conversations counts toward the account allowance.
 
 The account-role migration makes existing accounts normal because the former `OWNER`
 role was the default for everyone. Both local signup and first Supabase sign-in create
@@ -128,19 +125,18 @@ input tokens; missing cache metadata is unknown, not a confirmed cache miss. Sta
 are separate from changing conversation context. Explicit caching is not enabled.
 Research-request limits count grounded model requests, not Google's internal search queries.
 Actual query and token counts come from provider metadata.
-`AGENT_SESSION_BUDGET_MICROUSD` defaults to 5000000 ($5); 0 explicitly disables the spending guard.
+`AGENT_ACCOUNT_BUDGET_MICROUSD` defaults to 3000000 ($3); 0 explicitly disables the spending guard.
 The guard stops further calls once estimated spending reaches the allowance. A pending request
 holds the remaining allowance, so concurrent calls cannot both claim it. Missing usage, an
-interrupted request, or missing research-query metadata blocks further spending in that session.
+interrupted request, or missing research-query metadata blocks further spending on that account.
 A confirmed HTTP 429 capacity rejection before any response is recorded separately and allows
 a manual retry; it still consumes a request slot. No automatic retry is added.
-Historical requests without cost records also block; start a new chat to continue.
+Historical requests without cost records also block; a new conversation does not reset account usage.
 The usage endpoint reports estimated cost, unpriced requests, and the configured allowance.
 
-Estimates use standard Vertex model list prices, include reasoning and individual search queries,
-and ignore cached-input discounts, free search allowances, and credits. Argon uses
-$4 per million input tokens and $20 per million output/reasoning tokens; the
-introductory discount through November 2026 is delivered as credits and is excluded. Each request's estimated
+Estimates use published standard Vertex prices, including dated introductory prices and
+reported cached-input discounts, reasoning, and individual search queries. Account-specific
+free search allowances and invoice adjustments require billing reconciliation. Each request's estimated
 cost is persisted when usage arrives; later settings changes do not reprice past requests.
 Unsupported models are
 blocked while the guard is enabled. See `backend/app/agent/pricing.py` for the dated pricing source
@@ -246,3 +242,7 @@ It needs deliberate integration before reuse. Historical database migrations rem
 so existing installations can upgrade without losing their migration history.
 
 Personal project. No open-source licence is currently applied.
+
+Free accounts share a lifetime allowance of 300 credits across unlimited conversations;
+superusers have no credit limit. The profile page shows account details and credit usage.
+The Gemini model is selected before the first message and locked for the conversation.

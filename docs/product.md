@@ -54,10 +54,11 @@ connection, stop, and return later without starting again.
 
 ## Boundaries and technical choices
 
-Normal accounts can start three conversations in total and continue those conversations.
-Superusers have no conversation-count limit. New and existing accounts default to normal;
-superuser status is assigned by an administrator. Existing conversations are preserved
-and count toward the limit. Spending and execution limits still apply to superusers.
+Free accounts share 300 lifetime credits across unlimited conversations. Superusers
+have unlimited credits. New and existing accounts default to normal; superuser status
+is assigned by an administrator. Existing usage counts toward the account allowance.
+Per-reply execution and storage limits still apply to superusers. The profile page
+shows account details, plan, shared credit usage and sign-out.
 
 Keep this repo. Use Google ADK in the Python backend and Next.js for the interface.
 Keep the UI simple and readable. Define and enforce budgets in code, not only in prompts.

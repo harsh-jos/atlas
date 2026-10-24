@@ -16,6 +16,7 @@ from app.agent.turns import TurnConflict, TurnStore
 from app.agent.stream import events as stream_events
 from app.auth.deps import CurrentUserId, SessionScopeDep
 from app.agent.usage import UsageStore
+from app.agent.models import ChatModel
 from app.core.config import get_settings
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -25,6 +26,7 @@ class ChatRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=64)
     message: str = Field(min_length=1, max_length=8000)
     request_id: UUID
+    model: ChatModel | None = None
 
 
 class ToolError(BaseModel):
@@ -38,9 +40,12 @@ class ChatTurn(BaseModel):
 
     id: UUID
     request_id: UUID
+    model: str | None = None
     session_id: str
     message: str
     status: Literal["queued", "running", "completed", "failed", "interrupted", "cancelled", "incomplete"]
+    credits_used: float | None = None
+    credits_pending: bool = False
     cancel_requested: bool
     reply: str | None
     error: str | None
@@ -52,8 +57,31 @@ class ChatTurn(BaseModel):
 
 
 class ChatMessage(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
     role: Literal["you", "atlas"]
     text: str
+    credits_used: float | None = None
+    credits_pending: bool = False
+
+
+class AccountUsage(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    id: UUID
+    email: str
+    role: Literal["NORMAL", "SUPERUSER"]
+    created_at: datetime
+    credits_used: float
+    credit_limit: float | None
+    credits_remaining: float | None
+    credits_pending: bool
+    can_chat: bool
+
+
+@router.get("/account", response_model=AccountUsage)
+async def account(user_id: CurrentUserId, scope: SessionScopeDep):
+    return await asyncio.to_thread(UsageStore(scope, user_id).account_summary, get_settings())
 
 
 class ChatHistory(BaseModel):
@@ -62,6 +90,9 @@ class ChatHistory(BaseModel):
 
     session_id: str
     messages: list[ChatMessage]
+    credits_used: float = 0
+    account: AccountUsage
+    credits_pending: bool = False
     latest_turn: ChatTurn | None = None
     has_more: bool = False
     next_before: UUID | None = None
@@ -103,6 +134,7 @@ async def chat(request: ChatRequest, user_id: CurrentUserId, scope: SessionScope
             request.session_id,
             request.request_id,
             request.message,
+            request.model,
         )
     except TurnConflict as error:
         raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from None
@@ -162,10 +194,18 @@ async def history(session_id: str, user_id: CurrentUserId, scope: SessionScopeDe
         messages = messages[1:]
     visible = [ChatMessage(role=message.role, text=message.text) for message in messages]
     for row in rows:
-        visible.append(ChatMessage(role="you", text=row["message"]))
+        visible.append(ChatMessage(role="you", text=row["message"],
+            credits_used=row["credits_used"] if not row["reply"] else None,
+            credits_pending=row["credits_pending"] if not row["reply"] else False))
         if row["reply"]:
-            visible.append(ChatMessage(role="atlas", text=row["reply"]))
+            visible.append(ChatMessage(role="atlas", text=row["reply"],
+                credits_used=row["credits_used"], credits_pending=row["credits_pending"]))
+    totals = await asyncio.to_thread(UsageStore(scope, user_id, session_id).totals)
+    account_usage = await asyncio.to_thread(UsageStore(scope, user_id).account_summary, get_settings())
     return ChatHistory(
+        credits_used=totals.estimated_cost_microusd / 10_000,
+        account=AccountUsage(**account_usage),
+        credits_pending=totals.unpriced_requests > 0,
         session_id=session_id, messages=visible,
         latest_turn=ChatTurn(**rows[-1]) if rows else None,
         has_more=managed_more or legacy_more,
@@ -203,7 +243,7 @@ class AgentUsage(BaseModel):
     search_queries: int
     estimated_cost_microusd: int
     unpriced_requests: int
-    session_budget_microusd: int
+    account_budget_microusd: int
     cached_input_tokens: int
     cache_unreported_requests: int
     rejected_requests: int
@@ -214,5 +254,5 @@ async def usage(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep)
     """Owned provider usage. Unreported requests are unknown, not free."""
     totals = await asyncio.to_thread(UsageStore(scope, user_id, session_id).totals)
     return AgentUsage(
-        **asdict(totals), session_budget_microusd=get_settings().agent_session_budget_microusd
+        **asdict(totals), account_budget_microusd=get_settings().agent_account_budget_microusd
     )

@@ -8,14 +8,11 @@ from sqlalchemy.exc import NoResultFound
 from app.agent.usage import AgentLimitReached
 
 
-def test_limits_survive_reopening(usage_factory, agent_settings):
-    agent_settings.agent_max_calls_per_session = 1
+def test_conversation_has_no_lifetime_request_limit(usage_factory, agent_settings):
     store = usage_factory()
-    store.reserve("turn1", "gemini", False, agent_settings)
-    with pytest.raises(AgentLimitReached, match="conversation"):
-        usage_factory().reserve("turn2", "gemini", False, agent_settings)
-    assert usage_factory().totals().model_requests == 1
-    assert usage_factory().totals().unreported_requests == 1
+    for index in range(260):
+        store.reserve(f"turn{index}", "gemini", False, agent_settings)
+    assert usage_factory().totals().model_requests == 260
 
 
 def test_research_counts_towards_both_limits(usage_factory, agent_settings):
@@ -62,11 +59,11 @@ def test_usage_is_owned_and_session_scoped(usage_factory, agent_settings):
 
 
 def test_concurrent_reservations_cannot_overspend_slots(usage_factory, agent_settings):
-    agent_settings.agent_max_calls_per_session = 1
+    agent_settings.agent_max_calls_per_turn = 1
 
     def reserve(turn):
         try:
-            usage_factory().reserve(turn, "gemini", False, agent_settings)
+            usage_factory().reserve("same-turn", "gemini", False, agent_settings)
             return True
         except AgentLimitReached:
             return False
@@ -78,7 +75,7 @@ def test_concurrent_reservations_cannot_overspend_slots(usage_factory, agent_set
 
 
 def test_research_can_be_disabled(usage_factory, agent_settings):
-    agent_settings.agent_max_research_per_session = 0
+    agent_settings.agent_max_research_per_turn = 0
     with pytest.raises(AgentLimitReached, match="research"):
         usage_factory().reserve("turn1", "gemini", True, agent_settings)
     assert usage_factory().totals().model_requests == 0
@@ -86,12 +83,12 @@ def test_research_can_be_disabled(usage_factory, agent_settings):
 
 @pytest.mark.parametrize(("model", "expected_cost"), [
     ("gemini-3.8-flash", 1_682_000),
-    ("gemini-4-argon", 8_182_000),
+    ("gemini-4-argon", 4_182_000),
 ])
 def test_cost_includes_reasoning_and_each_search_query(
     usage_factory, agent_settings, model, expected_cost
 ):
-    agent_settings.agent_session_budget_microusd = 20_000_000
+    agent_settings.agent_account_budget_microusd = 20_000_000
     store = usage_factory()
     request = store.reserve("turn", model, True, agent_settings)
     store.record(
@@ -104,7 +101,7 @@ def test_cost_includes_reasoning_and_each_search_query(
 
 
 def test_cost_budget_survives_reopening_and_blocks_after_overrun(usage_factory, agent_settings):
-    agent_settings.agent_session_budget_microusd = 100
+    agent_settings.agent_account_budget_microusd = 100
     store = usage_factory()
     request = store.reserve("turn", "gemini-3.8-flash", False, agent_settings)
     store.record(
@@ -112,15 +109,16 @@ def test_cost_budget_survives_reopening_and_blocks_after_overrun(usage_factory, 
         output_tokens=20, thought_tokens=10, total_tokens=130,
     )
     assert store.totals().estimated_cost_microusd == 188
-    with pytest.raises(AgentLimitReached, match="spending limit"):
+    with pytest.raises(AgentLimitReached, match="used all its credits"):
         usage_factory().reserve("next", "gemini-3.8-flash", False, agent_settings)
     assert usage_factory(owner=1).totals().estimated_cost_microusd == 0
-    usage_factory(session_id="new").reserve("turn", "gemini-3.8-flash", False, agent_settings)
+    with pytest.raises(AgentLimitReached, match="used all its credits"):
+        usage_factory(session_id="new").reserve("turn", "gemini-3.8-flash", False, agent_settings)
 
 
 @pytest.mark.parametrize("reported", [False, True])
 def test_pending_or_unknown_cost_blocks_further_calls(usage_factory, agent_settings, reported):
-    agent_settings.agent_session_budget_microusd = 5_000_000
+    agent_settings.agent_account_budget_microusd = 5_000_000
     store = usage_factory()
     request = store.reserve("turn", "gemini-3.8-flash", True, agent_settings)
     if reported:
@@ -132,7 +130,7 @@ def test_pending_or_unknown_cost_blocks_further_calls(usage_factory, agent_setti
 
 
 def test_settling_known_cost_releases_the_budget_hold(usage_factory, agent_settings):
-    agent_settings.agent_session_budget_microusd = 1_000
+    agent_settings.agent_account_budget_microusd = 1_000
     store = usage_factory()
     request = store.reserve("turn", "gemini-3.8-flash", False, agent_settings)
     store.record(request, agent_settings, reported=True, total_tokens=100)
@@ -141,11 +139,11 @@ def test_settling_known_cost_releases_the_budget_hold(usage_factory, agent_setti
 
 
 def test_concurrent_requests_cannot_both_claim_remaining_budget(usage_factory, agent_settings):
-    agent_settings.agent_session_budget_microusd = 1_000
+    agent_settings.agent_account_budget_microusd = 1_000
 
     def reserve(turn):
         try:
-            usage_factory().reserve(turn, "gemini-3.8-flash", False, agent_settings)
+            usage_factory(session_id=turn).reserve(turn, "gemini-3.8-flash", False, agent_settings)
             return True
         except AgentLimitReached:
             return False
@@ -155,7 +153,7 @@ def test_concurrent_requests_cannot_both_claim_remaining_budget(usage_factory, a
 
 
 def test_unpriced_models_are_rejected_before_request(usage_factory, agent_settings):
-    agent_settings.agent_session_budget_microusd = 1_000
+    agent_settings.agent_account_budget_microusd = 1_000
     with pytest.raises(AgentLimitReached, match="verified price"):
         usage_factory().reserve("turn", "different-model", False, agent_settings)
     assert usage_factory().totals().model_requests == 0
@@ -173,30 +171,31 @@ def test_price_rounding_region_and_scheduled_change():
 
 
 @pytest.mark.parametrize("day", ["2026-10-24", "2026-11-30", "2026-12-01"])
-def test_argon_uses_list_prices_without_promotional_credits(day):
+def test_argon_uses_dated_public_introductory_prices(day):
     from datetime import date
     from app.agent.pricing import token_rates
 
+    factor = 1 if day < "2026-12-01" else 2
     assert token_rates("gemini-4-argon", "global", date.fromisoformat(day)) == (
-        4_000_000, 20_000_000
+        2_000_000 * factor, 10_000_000 * factor
     )
     assert token_rates("gemini-4-argon", "us", date.fromisoformat(day)) == (
-        4_400_000, 22_000_000
+        2_200_000 * factor, 11_000_000 * factor
     )
 
 
 def test_rejection_is_owned_and_still_consumes_request_allowance(usage_factory, agent_settings):
     store = usage_factory()
-    agent_settings.agent_session_budget_microusd = 5_000_000
+    agent_settings.agent_account_budget_microusd = 5_000_000
     request = store.reserve("first", "gemini-3.8-flash", False, agent_settings)
     with pytest.raises(NoResultFound):
         usage_factory(owner=1).reject(request)
     store.reject(request)
     assert store.totals().rejected_requests == 1
     assert store.totals().unreported_requests == store.totals().unpriced_requests == 0
-    agent_settings.agent_max_calls_per_session = 1
-    with pytest.raises(AgentLimitReached, match="conversation"):
-        store.reserve("retry", "gemini-3.8-flash", False, agent_settings)
+    agent_settings.agent_max_calls_per_turn = 1
+    with pytest.raises(AgentLimitReached, match="reply"):
+        store.reserve("first", "gemini-3.8-flash", False, agent_settings)
 
 
 def test_completed_usage_cannot_be_reclassified_as_rejected(usage_factory, agent_settings):

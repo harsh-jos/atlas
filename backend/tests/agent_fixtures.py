@@ -24,10 +24,8 @@ def agent_settings():
         jwt_secret="test-only",
         vertex_project="test-project",
         agent_max_calls_per_turn=6,
-        agent_max_calls_per_session=12,
         agent_max_research_per_turn=2,
-        agent_max_research_per_session=4,
-        agent_session_budget_microusd=0,
+        agent_account_budget_microusd=0,
     )
 
 

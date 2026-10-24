@@ -103,6 +103,8 @@ test('thinking uses only heartbeat text and unfinished calls stop spinning at tu
 test('activity stays after the prompt and before a streaming reply, including loaded history', async () => {
   const { ChatPanel } = await load('../components/chat/ChatPanel.tsx', {
     'next/navigation': { useRouter: () => ({}) },
+    '@/lib/credits': { formatCredits: String },
+    '@/components/shadcn/select': {},
     '@/app/chat/actions': { sendTurn: () => {} },
     '@/components/chat/ChatActivity': { ChatActivity },
     '@/components/chat/ChatMarkdown': { ChatMarkdown: ({ text }) => createElement('p', null, text) },
@@ -114,6 +116,8 @@ test('activity stays after the prompt and before a streaming reply, including lo
     sessionId: 'session',
     initialSnapshot: {
       sessionId: 'session',
+      creditsUsed: 0,
+      account: { canChat: true, creditLimit: 300, creditsRemaining: 300 },
       messages: [
         { role: 'you', text: 'Previous prompt' },
         { role: 'atlas', text: 'Previous reply' },
