@@ -88,9 +88,35 @@ changing its language requires a coordinated schema migration.
 
 ## Agent development
 
+### Account types and conversations
+
+Normal accounts can start three conversations in total. Each conversation starts
+when its first message is accepted, including a reply that later fails or is interrupted.
+Further messages in those conversations remain available. Existing ADK conversations
+count toward the same limit; accepted turns and ADK history are counted once per chat.
+Accounts with more than three existing chats keep their history and can continue it.
+Superusers have no conversation-count limit. Other request, spending, storage, and
+active-reply limits still apply to both account types.
+
+The account-role migration makes existing accounts normal because the former `OWNER`
+role was the default for everyone. Both local signup and first Supabase sign-in create
+normal accounts. Roles come from Atlas's database, never from signup fields or user metadata.
+An administrator with database access can assign a role from `backend/`:
+
+```sh
+uv run python -m app.auth.roles --email you@example.com --role superuser
+uv run python -m app.auth.roles --email you@example.com --role normal
+```
+
+Sign in once before assigning a role so the account exists. Changes apply to the
+next submission without signing in again. Run `uv run python -m app.db.bootstrap`
+before starting the updated backend to apply the role migration.
+
+### Models and execution
+
 Prepare the complete schema with `uv run python -m app.db.bootstrap` from `backend/` before starting the backend.
 This applies Alembic migrations and creates ADK chat tables under a deployment lock.
-The default is `gemini-3.8-flash` on Vertex AI, with high reasoning. Both the guide and
+The default is `gemini-4-argon` on Vertex AI, with high reasoning. Both the guide and
 research tool use it. Override `AGENT_MODEL` and `AGENT_SEARCH_MODEL` when needed.
 Project access is required. No alternative model is selected automatically.
 
@@ -111,12 +137,15 @@ a manual retry; it still consumes a request slot. No automatic retry is added.
 Historical requests without cost records also block; start a new chat to continue.
 The usage endpoint reports estimated cost, unpriced requests, and the configured allowance.
 
-Estimates use standard Vertex Flash list prices, include reasoning and individual search queries,
-and ignore cached-input discounts, free search allowances, and credits. Each request's estimated
+Estimates use standard Vertex model list prices, include reasoning and individual search queries,
+and ignore cached-input discounts, free search allowances, and credits. Argon uses
+$4 per million input tokens and $20 per million output/reasoning tokens; the
+introductory discount through November 2026 is delivered as credits and is excluded. Each request's estimated
 cost is persisted when usage arrives; later settings changes do not reprice past requests.
 Unsupported models are
 blocked while the guard is enabled. See `backend/app/agent/pricing.py` for the dated pricing source
-and the published January 2027 rate change. This is an admission guard, not a hard billing cap:
+and the retained Flash January 2027 rate change. Automatic SDK continuation is disabled
+so each model call passes through the request and spending guards. This is an admission guard, not a hard billing cap:
 the final in-flight request can exceed the remaining amount. No output-token ceiling is added.
 
 ## Chat transport and interruptions

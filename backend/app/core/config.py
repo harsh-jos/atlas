@@ -55,8 +55,8 @@ class Settings(BaseSettings):
     vertex_project: str | None = None
     google_application_credentials: str | None = None
     vertex_location: str = "global"
-    agent_model: str = "gemini-3.8-flash"
-    agent_search_model: str = "gemini-3.8-flash"
+    agent_model: str = "gemini-4-argon"
+    agent_search_model: str = "gemini-4-argon"
     agent_app_name: str = "atlas"
 
     # Loop guards, not lesson-length targets. Both guide and research calls count.

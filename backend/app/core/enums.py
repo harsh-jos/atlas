@@ -4,8 +4,8 @@ from enum import StrEnum
 
 
 class Role(StrEnum):
-    OWNER = "OWNER"
-    MEMBER = "MEMBER"
+    NORMAL = "NORMAL"
+    SUPERUSER = "SUPERUSER"
 
 
 class ArtifactFormat(StrEnum):

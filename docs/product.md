@@ -54,6 +54,11 @@ connection, stop, and return later without starting again.
 
 ## Boundaries and technical choices
 
+Normal accounts can start three conversations in total and continue those conversations.
+Superusers have no conversation-count limit. New and existing accounts default to normal;
+superuser status is assigned by an administrator. Existing conversations are preserved
+and count toward the limit. Spending and execution limits still apply to superusers.
+
 Keep this repo. Use Google ADK in the Python backend and Next.js for the interface.
 Keep the UI simple and readable. Define and enforce budgets in code, not only in prompts.
 Choose budget amounts and hosting after the first learning loop works.
@@ -65,8 +70,8 @@ Portability and continuity are required; permanent operation of a hosted service
 ## Current state
 
 This is the target, not a claim that v0.1 is complete. Chat history, the reader, search,
-editing, auth, storage, and an artifact graph remain as foundations. The first agent build
-uses Gemini 3.8 Flash on Vertex AI, with high reasoning and focused teaching instructions.
+editing, auth, storage, and an artifact graph remain as foundations. The current agent build
+uses Gemini 4 Argon on Vertex AI, with high reasoning and focused teaching instructions.
 It has a bounded research tool, source links, persistent request accounting, and explicit
 incomplete replies when limits are reached. Scripted ADK checks cover history, ownership,
 research, failure, and request limits. Live PyTorch scenarios have been reviewed for teaching quality; see the dated evaluation notes.
@@ -96,7 +101,17 @@ Formal language validation and independent semantic consent verification are not
 Keep feature boxes unchecked until their full behaviour has been verified.
 Archived experiments are reference code only and are excluded from the active app.
 
-The model and web research choice is Google ADK with Gemini 3.8 Flash on Vertex AI.
+The model and web research choice is Google ADK with Gemini 4 Argon on Vertex AI.
+Argon became the default on 24 October 2026. Earlier live evaluations used Flash;
+Argon teaching quality still needs a live review. Two direct SDK smoke requests on
+24 October verified project access, text output, Google Search grounding, and usage
+metadata. These do not establish end-to-end teaching quality. The SDK is upgraded,
+automatic continuation is disabled, and continuation output is marked incomplete.
+Backend lint, TypeScript, frontend lint, and the production build pass. After the
+account-role changes, all 226 backend tests passed against isolated PostgreSQL,
+including role migration, legacy-chat counting, and concurrent conversation starts.
+Browser checks verified the three-chat limit screen, existing-chat navigation, and
+the server refusal when opening a fourth chat through a direct URL.
 No application output-token ceiling is set. Concision comes from teaching scope and language.
 Provider truncation is still reported; usage accounting still records output tokens.
 

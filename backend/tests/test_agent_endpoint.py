@@ -1,13 +1,14 @@
 """The chat route must refuse strangers and fail honestly when the agent is not configured."""
 
 import pytest
-from uuid import uuid4
+from uuid import UUID, uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.agent.router import router as agent_router
 from app.auth.service import AuthService
 from app.core.config import get_settings
+from app.core.http_errors import ErrorMiddleware
 from app.db.base import get_session_scope
 
 EMAIL = "chat@example.com"
@@ -24,6 +25,7 @@ def client(session):
         yield session
 
     app = FastAPI()
+    app.add_middleware(ErrorMiddleware)
     app.include_router(agent_router)
     app.dependency_overrides[get_session_scope] = lambda: scope
     with TestClient(app) as test_client:
@@ -198,6 +200,33 @@ def test_sessions_reports_a_session_with_no_messages_yet(client, token, monkeypa
 
 def test_stop_endpoint_is_retired(client, token):
     assert client.post(f"/agent/turns/{uuid4()}/cancel", headers=_auth(token)).status_code == 404
+
+
+def test_conversation_limit_is_enforced_through_the_api(client, token, monkeypatch):
+    from app.agent.turns import TurnStore
+    from app.core.security import read_access_token
+
+    monkeypatch.setattr(get_settings(), "vertex_project", "test-only")
+    store = TurnStore(client.app.dependency_overrides[get_session_scope]())
+    assert client.get("/agent/conversations/allowance").status_code == 401
+    for index in range(3):
+        response = client.post("/agent/chat", headers=_auth(token), json={
+            "session_id": f"s{index}", "message": "hello", "request_id": str(uuid4()),
+        })
+        assert response.status_code == 202
+        store.cancel(read_access_token(token), UUID(response.json()["id"]))
+    assert client.get("/agent/conversations/allowance", headers=_auth(token)).json() == {
+        "used": 3, "limit": 3, "canStart": False,
+    }
+    response = client.post("/agent/chat", headers=_auth(token), json={
+        "session_id": "fourth", "message": "hello", "request_id": str(uuid4()),
+    })
+    assert response.status_code == 403
+    assert response.json()["code"] == "conversation_limit"
+    assert "Continue an existing conversation" in response.json()["detail"]
+    assert client.post("/agent/chat", headers=_auth(token), json={
+        "session_id": "s0", "message": "continue", "request_id": str(uuid4()),
+    }).status_code == 202
 
 
 def test_history_cursor_keeps_older_turns_accessible(client, session, token, monkeypatch):

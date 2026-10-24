@@ -151,3 +151,9 @@ export interface ChatSessionSummary {
   firstMessage: string | null;
   updatedAt: string;
 }
+
+export interface ConversationAllowance {
+  used: number;
+  limit: number | null;
+  canStart: boolean;
+}

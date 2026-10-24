@@ -16,6 +16,8 @@ from app.core.config import get_settings
 def build_agent(tools: list[Callable], limits: RequestLimits) -> Agent:
     settings = get_settings()
     config = types.GenerateContentConfig(
+        # Each provider call must pass through our request and spending guards.
+        automatic_continuation=False,
         thinking_config=types.ThinkingConfig(thinking_level=types.ThinkingLevel.HIGH),
         http_options=types.HttpOptions(
             timeout=settings.agent_turn_timeout_seconds * 1000,

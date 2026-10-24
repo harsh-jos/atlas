@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.auth.deps import user_for_token
 from app.core import security
 from app.core.config import get_settings, Settings
+from app.core.enums import Role
 from app.db.models import User
 
 
@@ -37,6 +38,7 @@ def test_verified_subject_provisions_once_without_password(session, supabase):
     token = supabase()
     first = user_for_token(session, token)
     assert first.password_hash is None and first.supabase_user_id is not None
+    assert first.role == Role.NORMAL
     assert user_for_token(session, token).id == first.id
     assert session.scalar(select(User).where(User.id == first.id)).email == "new@example.com"
 
@@ -56,6 +58,11 @@ def test_wrong_signature_is_rejected(supabase):
     payload = jwt.decode(supabase(), options={"verify_signature": False})
     with pytest.raises(jwt.InvalidSignatureError):
         security.read_supabase_identity(jwt.encode(payload, key, algorithm="ES256"))
+
+
+def test_supabase_user_metadata_cannot_grant_superuser_status(session, supabase):
+    user = user_for_token(session, supabase(user_metadata={"role": "SUPERUSER"}))
+    assert user.role == Role.NORMAL
 
 
 def test_email_match_never_links_an_existing_local_account(session, supabase):

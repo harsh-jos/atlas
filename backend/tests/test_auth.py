@@ -32,13 +32,21 @@ def test_password_is_never_stored_in_the_clear(session):
 
 def test_register_returns_the_user_without_the_hash(registered):
     assert registered["email"] == EMAIL
-    assert registered["role"] == "OWNER"
+    assert registered["role"] == "NORMAL"
     assert "password_hash" not in registered
 
 
 def test_duplicate_email_is_rejected(client, registered):
     response = client.post("/auth/register", json={"email": EMAIL, "password": PASSWORD})
     assert response.status_code == 409
+
+
+def test_signup_cannot_grant_superuser_status(client):
+    response = client.post("/auth/register", json={
+        "email": EMAIL, "password": PASSWORD, "role": "SUPERUSER",
+    })
+    assert response.status_code == 201
+    assert response.json()["role"] == "NORMAL"
 
 
 def test_short_passwords_are_rejected(client):

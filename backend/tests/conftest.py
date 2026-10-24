@@ -1,11 +1,13 @@
 """Database fixtures: one scratch database per run, one rolled-back transaction per test."""
 
+import asyncio
 import os
 from pathlib import Path
 
 import pytest
 from alembic import command
 from alembic.config import Config
+from google.adk.sessions import DatabaseSessionService
 
 from agent_fixtures import agent_settings, usage_factory  # noqa: F401
 from fastapi import FastAPI
@@ -45,6 +47,13 @@ def engine():
         command.upgrade(config, "head")
         command.upgrade(config, "head")
         command.check(config)
+    async def prepare_chat():
+        service = DatabaseSessionService(db_url=test_engine.url.render_as_string(hide_password=False))
+        try:
+            await service.prepare_tables()
+        finally:
+            await service.close()
+    asyncio.run(prepare_chat())
     yield test_engine
     test_engine.dispose()
 

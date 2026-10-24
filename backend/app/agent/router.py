@@ -76,6 +76,19 @@ class ChatSessionSummary(BaseModel):
     updated_at: datetime
 
 
+class ConversationAllowance(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    used: int
+    limit: int | None
+    can_start: bool
+
+
+@router.get("/conversations/allowance", response_model=ConversationAllowance)
+async def conversation_allowance(user_id: CurrentUserId, scope: SessionScopeDep):
+    return await asyncio.to_thread(TurnStore(scope).conversation_allowance, user_id)
+
+
 @router.post("/chat", response_model=ChatTurn, status_code=status.HTTP_202_ACCEPTED)
 async def chat(request: ChatRequest, user_id: CurrentUserId, scope: SessionScopeDep) -> ChatTurn:
     """Commit before acknowledging. Retrying the same request ID returns the same turn."""

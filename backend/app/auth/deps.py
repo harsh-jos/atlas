@@ -97,7 +97,7 @@ CurrentUserId = Annotated[UUID, Depends(get_current_user_id)]
 
 
 def require_role(*allowed: Role):
-    """Gate a route on the caller's role; the matrix stays out until sharing exists."""
+    """Gate a route on the caller's database-assigned account role."""
 
     def guard(user: CurrentUser) -> User:
         if user.role not in allowed:
