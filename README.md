@@ -152,25 +152,22 @@ ID and message returns that turn; conflicting reuse or a second active turn in t
 returns HTTP 409. `GET /agent/turns/{id}` reports owned status, latest tool progress, reply, and errors.
 `GET /agent/chat/{session_id}` restores the conversation and latest turn, including queued messages.
 
-The browser opens `GET /agent/turns/{id}/events` through the Next.js SSE proxy. That request
-atomically claims and executes its specific owned turn. ADK streams visible response chunks,
-tool starts, completions, safe failures, and terminal snapshots. Progress commits before delivery;
-`Last-Event-ID` replays saved events without rerunning an interrupted turn.
+The browser observes `GET /agent/turns/{id}/events` through the Next.js SSE proxy.
+Hosted Cloud Tasks jobs own execution; a database-backed lifespan worker handles development.
+Closing a tab does not stop generation. Reconnects replay committed progress without duplicating
+provider work; Stop explicitly cancels. Concept extraction runs separately after the answer.
 
-There is no queue worker or background polling. A local async event wakes delivery when progress
-commits; 15-second heartbeats do not query the database. No LISTEN connection is needed. The first
-stream owns execution; simultaneous connections cannot execute it again.
+Responses interleave prose with validated diagrams, steppers, comparisons, plots and reviewed
+image figures. Reusable artifacts support the same components, isolated HTML simulations,
+revision history, download and print/PDF export. Concept pages include developed overviews,
+typed connections and exact source-conversation links. Memory and saving preferences remain
+separate. Older completed explanations can request concept extraction from their chat.
 
-Closing the stream or navigating away interrupts generation. Partial output and committed tool
-writes remain. Graceful shutdown marks interruption; abrupt crashes expire after the turn timeout
-plus 30 seconds on the next claim/submission. Unopened submissions expire after 60 seconds.
-The Stop button and endpoint have been removed. No automatic model retry or continuation is added.
-
-The hosted setup uses Supabase Auth, Postgres, and private Storage with two Cloud Run services.
-Local auth and disk uploads remain available for development. See [deployment setup](docs/deployment.md)
-for configuration, migrations, provider setup, credentials, and the connection-lifetime trade-off.
-GitHub Actions checks PRs and can deploy `main` through keyless GCP authentication; deployment
-stays disabled until `GCP_DEPLOY_ENABLED=true` is configured.
+Defaults are 20 model calls and 900 seconds per teaching turn, with separate bounded enrichment.
+Set `AGENT_EXTRACTION_MODEL`, `AGENT_IMAGE_MODEL` and `AGENT_MAX_IMAGES_PER_TURN` as needed.
+All provider calls share admission/accounting; image output has its own modality rate.
+Apply migrations before serving. See [agent runtime](docs/agent-runtime.md),
+[tool/component guide](docs/agent-guide.md) and [hosting setup](docs/deployment.md).
 
 ## Backend failures and capacity
 

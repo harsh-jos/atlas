@@ -6,18 +6,36 @@ export const dynamic = 'force-dynamic';
 
 interface ChatPageProps {
   params: Promise<{ sessionId: string }>;
-  searchParams: Promise<{turn?: string; block?: string; question?:string}>;
+  searchParams: Promise<{ turn?: string; block?: string; question?: string }>;
 }
 
-export default async function ChatPage({ params, searchParams }: ChatPageProps) {
+export default async function ChatPage({
+  params,
+  searchParams,
+}: ChatPageProps) {
   const { sessionId } = await params;
   // An unstarted session returns an empty history, so a fresh URL simply opens a blank chat.
-  const snapshot = await apiGet<ChatHistory>(`/agent/chat/${encodeURIComponent(sessionId)}`);
+  const snapshot = await apiGet<ChatHistory>(
+    `/agent/chat/${encodeURIComponent(sessionId)}`,
+  );
 
   const query = await searchParams;
-  if(query.turn && /^[0-9a-f-]{36}$/i.test(query.turn) && !snapshot.messages.some(m=>m.turnId===query.turn)) {
-    const focused = await apiGet<ChatHistory['messages']>(`/agent/chat/${encodeURIComponent(sessionId)}/turn/${query.turn}`);
+  if (
+    query.turn &&
+    /^[0-9a-f-]{36}$/i.test(query.turn) &&
+    !snapshot.messages.some((m) => m.turnId === query.turn)
+  ) {
+    const focused = await apiGet<ChatHistory['messages']>(
+      `/agent/chat/${encodeURIComponent(sessionId)}/turn/${query.turn}`,
+    );
     snapshot.messages = [...focused, ...snapshot.messages];
   }
-  return <ChatPanel key={sessionId} sessionId={sessionId} initialSnapshot={snapshot} initialDraft={query.question?.slice(0,7000)} />;
+  return (
+    <ChatPanel
+      key={sessionId}
+      sessionId={sessionId}
+      initialSnapshot={snapshot}
+      initialDraft={query.question?.slice(0, 7000)}
+    />
+  );
 }
