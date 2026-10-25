@@ -1,4 +1,4 @@
-/** Preserve the ledger's precision while keeping whole balances readable. */
+/** Round credit displays without changing ledger values. */
 export function formatCredits(value: number): string {
-  return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  return value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
