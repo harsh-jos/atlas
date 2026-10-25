@@ -1,7 +1,7 @@
 """Durable turn records and atomic request ownership; no queue worker."""
 
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from google.adk.sessions.schemas.v1 import StorageSession
 from sqlalchemy import func, select, tuple_
@@ -53,8 +53,9 @@ def turn_data(row: AgentTurn) -> dict:
 
 
 class TurnStore:
-    def __init__(self, scope: SessionScope):
+    def __init__(self, scope: SessionScope, execution_token: UUID | None = None):
         self.scope = scope
+        self.execution_token = execution_token
 
     @staticmethod
     def _conversation_ids(user_id: UUID):
@@ -174,6 +175,16 @@ class TurnStore:
             row = session.scalar(
                 select(AgentTurn).where(AgentTurn.user_id == user_id, AgentTurn.id == turn_id)
             )
+            if row and row.status == "running" and row.lease_until:
+                now = datetime.now(timezone.utc)
+                lease = row.lease_until.replace(tzinfo=timezone.utc) if row.lease_until.tzinfo is None else row.lease_until
+                if lease < now:
+                    self._expire(session)
+            if row and row.enrichment_status == "running" and row.enrichment_lease_until:
+                now = datetime.now(timezone.utc)
+                lease = row.enrichment_lease_until.replace(tzinfo=timezone.utc) if row.enrichment_lease_until.tzinfo is None else row.enrichment_lease_until
+                if lease < now:
+                    row.enrichment_status, row.enrichment_error = "failed", "Concept update was interrupted. Your answer is saved."
             return turn_data(row) if row else None
 
     def summaries(self, user_id: UUID, limit: int = 100) -> list[dict]:
@@ -218,7 +229,7 @@ class TurnStore:
 
     def _expire(self, session) -> None:
         now = datetime.now(timezone.utc)
-        unopened = now - timedelta(seconds=get_settings().agent_stream_start_timeout_seconds)
+        unopened = now - timedelta(seconds=get_settings().agent_queue_timeout_seconds)
         expired = session.scalars(select(AgentTurn).where(
             ((AgentTurn.status == "running") & (AgentTurn.lease_until < now)) |
             ((AgentTurn.status == "queued") & (AgentTurn.created_at < unopened))
@@ -248,16 +259,18 @@ class TurnStore:
             if row is None:
                 return None
             row.status = "running"
+            row.execution_token = uuid4()
             row.lease_until = now + timedelta(seconds=timeout_seconds + 30)
             self._event(session, row, {"type": "turn.status", "status": "running"})
             session.flush()
-            return {**turn_data(row), "user_id": row.user_id}
+            return {**turn_data(row), "user_id": row.user_id, "execution_token": row.execution_token}
 
     def progress(self, turn_id: UUID, event: dict) -> None:
         with self.scope() as session:
             row = session.scalar(
                 select(AgentTurn)
-                .where(AgentTurn.id == turn_id, AgentTurn.status == "running")
+                .where(AgentTurn.id == turn_id, AgentTurn.status == "running",
+                       *([AgentTurn.execution_token == self.execution_token] if self.execution_token else []))
                 .with_for_update()
             )
             if row is None:
@@ -301,7 +314,8 @@ class TurnStore:
                 session.connection().exec_driver_sql("BEGIN IMMEDIATE")
             row = session.scalar(
                 select(AgentTurn)
-                .where(AgentTurn.id == turn_id, AgentTurn.status == "running")
+                .where(AgentTurn.id == turn_id, AgentTurn.status == "running",
+                       *([AgentTurn.execution_token == self.execution_token] if self.execution_token else []))
                 .with_for_update()
             )
             if row is None:

@@ -167,12 +167,12 @@ def test_stop_drains_an_inflight_database_tool(turns, usage_factory, monkeypatch
         finished.set()
         return {'saved': True}
 
-    monkeypatch.setattr('app.agent.toolkit.knowledge.remember_concept', save)
+    monkeypatch.setattr('app.agent.toolkit.knowledge.read_explanation', save)
     tool = next(t for t in build_toolkit(turns.scope, usage_factory().user_id)
-                if t.__name__ == 'remember_concept')
+                if t.__name__ == 'read_saved_explanation')
 
     async def run():
-        task = asyncio.create_task(tool('Tensor', 'Values.'))
+        task = asyncio.create_task(tool('tensor'))
         try:
             assert await asyncio.to_thread(started.wait, 2)
             task.cancel()
@@ -246,7 +246,7 @@ def test_tool_failure_does_not_disappear_when_the_model_reports_success(turns, u
         raise RuntimeError('private database details')
         yield
     async def explanation(*args, on_event, **kwargs):
-        tool = build_toolkit(broken_scope, usage_factory().user_id, on_event=on_event)[0]
+        tool = next(t for t in build_toolkit(broken_scope, usage_factory().user_id, on_event=on_event) if t.__name__ == 'search_knowledge_base')
         result = await tool('tensors')
         assert result['code'] == 'internal_error'
         return 'A tensor stores values.'

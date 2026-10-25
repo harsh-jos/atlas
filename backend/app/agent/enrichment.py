@@ -3,7 +3,8 @@ import asyncio
 import json
 import logging
 import re
-from uuid import UUID
+from uuid import UUID, uuid4
+from datetime import datetime, timedelta, timezone
 
 from google.genai import types
 from pydantic import BaseModel, ConfigDict, Field
@@ -84,11 +85,11 @@ def candidates(scope, user_id):
                     .order_by(Concept.updated_at.desc()).limit(80))]
 
 
-def apply(scope, user_id, turn_id, extraction, existing):
+def apply(scope, user_id, turn_id, extraction, existing, token):
     with scope() as session:
         user = lock_owner(session, user_id)
         turn = session.scalar(select(AgentTurn).where(AgentTurn.id == turn_id, AgentTurn.user_id == user_id).with_for_update())
-        if not turn or turn.status != "completed" or turn.enrichment_status == "completed":
+        if not turn or turn.status != "completed" or turn.enrichment_status != "running" or turn.enrichment_token != token:
             return
         if not user.agent_memory_enabled:
             turn.enrichment_status = "skipped"
@@ -138,14 +139,22 @@ async def enrich(scope, user_id: UUID, turn_id: UUID):
     def load():
         with scope() as session:
             user = lock_owner(session, user_id)
-            turn = session.get(AgentTurn, turn_id)
-            if not turn or turn.user_id != user_id or turn.status != "completed" or turn.enrichment_status not in (None, "pending", "failed"):
+            turn = session.scalar(select(AgentTurn).where(AgentTurn.id == turn_id, AgentTurn.user_id == user_id).with_for_update())
+            if not turn or turn.user_id != user_id or turn.status != "completed":
+                return None
+            if turn.enrichment_status == "running" and turn.enrichment_lease_until and turn.enrichment_lease_until < datetime.now(timezone.utc):
+                turn.enrichment_status, turn.enrichment_error = "failed", "Concept update was interrupted. Your answer is saved."
+                return None
+            if turn.enrichment_status not in (None, "pending", "failed") or turn.enrichment_attempts >= 3:
                 return None
             if not user.agent_memory_enabled or not get_settings().agent_enrichment_enabled:
                 turn.enrichment_status = "skipped"
                 return None
             turn.enrichment_status = "running"
-            return {"question": turn.message, "document": turn.response_document or document(turn.reply or ""), "session_id": turn.session_id}
+            turn.enrichment_token = uuid4()
+            turn.enrichment_attempts += 1
+            turn.enrichment_lease_until = datetime.now(timezone.utc) + timedelta(seconds=210)
+            return {"question": turn.message, "document": turn.response_document or document(turn.reply or ""), "session_id": turn.session_id, "token": turn.enrichment_token}
     data = await asyncio.to_thread(load)
     if not data:
         return
@@ -155,13 +164,13 @@ async def enrich(scope, user_id: UUID, turn_id: UUID):
         async with asyncio.timeout(180):
             response = await generate(UsageStore(scope, user_id, data["session_id"]), str(turn_id), get_settings().agent_extraction_model, json.dumps(payload)[:160000], types.GenerateContentConfig(system_instruction=INSTRUCTION, response_mime_type="application/json", response_schema=Extraction, http_options=types.HttpOptions(timeout=175000, retry_options=types.HttpRetryOptions(attempts=1))))
             extraction = Extraction.model_validate_json(response.text)
-        await asyncio.to_thread(apply, scope, user_id, turn_id, extraction, existing)
+        await asyncio.to_thread(apply, scope, user_id, turn_id, extraction, existing, data["token"])
     except Exception:
         log.exception("concept_enrichment_failed turn_id=%s", turn_id)
         def fail():
             with scope() as session:
                 turn = session.get(AgentTurn, turn_id)
-                if turn and turn.user_id == user_id:
+                if turn and turn.user_id == user_id and turn.enrichment_token == data["token"]:
                     turn.enrichment_status, turn.enrichment_error = "failed", "Could not update concepts. The explanation is saved."
         await asyncio.to_thread(fail)
 

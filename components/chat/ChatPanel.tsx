@@ -18,7 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/shadcn/select';
 import { Textarea } from '@/components/shadcn/textarea';
 import { ScrollArea } from '@/components/shadcn/scroll-area';
-import { sendTurn } from '@/app/chat/actions';
+import { sendTurn, cancelTurn, retryConceptUpdate } from '@/app/chat/actions';
 import { formatCredits } from '@/lib/credits';
 import { askAbout, parseLearningResponse } from '@/lib/learning-response';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
@@ -238,7 +238,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     return ()=>window.clearTimeout(timer);
   }, []);
 
-  // The first SSE request owns execution; reconnects replay saved events without rerunning it.
+  // SSE only observes durable worker events; every tab can follow the same reply.
   useEffect(() => {
     if (!activeTurnId) return;
     const controller = new AbortController();
@@ -275,6 +275,8 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
           responseDocument: event.document ?? null,
           toolName: null,
         });
+      } else if (event.type === 'agent.enrichment') {
+        setTurn(current => current && {...current, enrichmentStatus: event.status});
       } else if (event.type === 'turn.status') {
         // A terminal status is immediately followed by its authoritative snapshot.
         if (event.status === 'running' || event.status === 'queued') {
@@ -304,6 +306,22 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
       source.close();
     };
   }, [activeTurnId, router, refresh]);
+
+  const enrichmentTurnId = turn && !isActive(turn) && ['pending','running'].includes(turn.enrichmentStatus ?? '') ? turn.id : null;
+  useEffect(() => {
+    if(!enrichmentTurnId)return;
+    const controller=new AbortController();
+    const timer=setInterval(async()=>{
+      try {
+        const response=await fetch(`/api/turns/${enrichmentTurnId}`, {signal:controller.signal});
+        if(!response.ok)return;
+        const next=await response.json() as ChatTurn;
+        setTurn(current=>current?.id===next.id?next:current);
+        if(!['pending','running'].includes(next.enrichmentStatus??'')) {void refresh();router.refresh();}
+      } catch { /* Saved answer stays usable while the connection recovers. */ }
+    },3000);
+    return ()=>{controller.abort();clearInterval(timer);};
+  },[enrichmentTurnId,refresh,router]);
 
   // A foreground return also picks up work submitted in another tab.
   useEffect(() => {
@@ -533,8 +551,10 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         {historyPage.account.creditsPending ? 'Some credit usage is pending or unavailable.' : 'You’ve used your free credits.'}{' '}
         <Link href="/profile" className="underline underline-offset-2">View account</Link>
       </p>}
+      {isActive(turn) && <div className="mx-auto flex items-center gap-3 px-4 pt-2 text-xs text-muted"><span>Your reply continues if you leave this page.</span><button disabled={turn?.cancelRequested} className="focus-ring rounded-lg border px-3 py-1.5" onClick={async()=>{if(!turn)return;const result=await cancelTurn(turn.id);if(result.error !== undefined)setError(result.error);else setTurn(result.value);}}>{turn?.cancelRequested?'Stopping…':'Stop'}</button></div>}
       {selectedPassage && <div className="mx-auto flex max-w-[var(--chat-measure)] items-center gap-3 px-4 pt-3 text-xs"><button className="focus-ring rounded-lg border px-3 py-2 text-accent" onClick={()=>askAbout(selectedPassage)}>Ask about selected passage</button><button onClick={()=>setSelectedPassage('')} className="text-muted">Dismiss</button></div>}
       {turn?.enrichmentStatus && <p className="px-4 pt-2 text-center text-xs text-muted">{turn.enrichmentStatus==='completed'?'Concepts updated':turn.enrichmentStatus==='failed'?'Concept update could not finish; your answer is saved.':turn.enrichmentStatus==='skipped'?'': 'Updating your concept map…'}</p>}
+      {turn?.enrichmentStatus==='failed' && <button className="mx-auto mt-2 text-xs text-accent underline" onClick={async()=>{const result=await retryConceptUpdate(turn.id);if(result.error !== undefined)setError(result.error);else setTurn(result.value);}}>Retry concept update</button>}
       <Composer
         selectedModel={turn?.model ?? selectedModel}
         onModelChange={setSelectedModel}

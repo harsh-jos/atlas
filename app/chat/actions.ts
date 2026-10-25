@@ -26,3 +26,11 @@ export async function sendTurn(sessionId: string, message: string, requestId: st
 export async function loadOlderSessions(offset: number): Promise<ActionResult<ChatSessionSummary[]>> {
   return attempt(() => apiGet<ChatSessionSummary[]>(`/agent/sessions?offset=${Math.max(0, Math.floor(offset))}`));
 }
+
+
+export async function cancelTurn(turnId: string): Promise<ActionResult<ChatTurn>> {
+  return attempt(() => apiSend<ChatTurn>('POST', `/agent/turns/${encodeURIComponent(turnId)}/cancel`));
+}
+export async function retryConceptUpdate(turnId: string): Promise<ActionResult<ChatTurn>> {
+  return attempt(() => apiSend<ChatTurn>('POST', `/agent/turns/${encodeURIComponent(turnId)}/enrich`));
+}
