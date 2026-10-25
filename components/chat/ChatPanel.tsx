@@ -25,7 +25,7 @@ import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { ChatActivity } from '@/components/chat/ChatActivity';
 import type { ToolEvent } from '@/lib/chat-activity';
 import { Button } from '@/components/ui/Button';
-import type { ChatHistory, ChatMessage, ChatTurn, ChatModel } from '@/lib/api-types';
+import type { AccountUsage, ChatHistory, ChatMessage, ChatTurn, ChatModel } from '@/lib/api-types';
 
 const MODELS: { id: ChatModel; label: string }[] = [
   { id: 'gemini-4-argon', label: 'Gemini 4 Argon' },
@@ -540,14 +540,6 @@ export function ChatPanel({ sessionId, initialSnapshot, initialDraft = "" }: Cha
           </Button>
         </div>
       )}
-      <div className="mx-auto flex w-full max-w-[var(--chat-measure)] flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-3 text-[11px] text-muted" aria-live="polite">
-        <span>
-          {formatCredits(historyPage.creditsUsed ?? 0)}{historyPage.creditsPending ? '+' : ''} credits this conversation · Estimated
-        </span>
-        <Link href="/profile" className="hover:text-ink">
-          {historyPage.account.creditLimit == null ? `${formatCredits(historyPage.account.creditsUsed)} credits used · Unlimited` : `${formatCredits(historyPage.account.creditsRemaining ?? 0)} credits remaining`}
-        </Link>
-      </div>
       {creditBlocked && !pending && <p className="px-4 pt-2 text-center text-xs text-muted">
         {historyPage.account.creditsPending ? 'Some credit usage is pending or unavailable.' : 'You’ve used your free credits.'}{' '}
         <Link href="/profile" className="underline underline-offset-2">View account</Link>
@@ -557,6 +549,7 @@ export function ChatPanel({ sessionId, initialSnapshot, initialDraft = "" }: Cha
       {turn?.enrichmentStatus && <p className="px-4 pt-2 text-center text-xs text-muted">{turn.enrichmentStatus==='completed'?'Concepts updated':turn.enrichmentStatus==='failed'?'Concept update could not finish; your answer is saved.':turn.enrichmentStatus==='skipped'?'': 'Updating your concept map…'}</p>}
       {turn && !isActive(turn) && turn.status==='completed' && (turn.enrichmentStatus==='failed' || !turn.enrichmentStatus) && <button className="mx-auto mt-2 text-xs text-accent underline" onClick={async()=>{const result=await retryConceptUpdate(turn.id);if(result.error !== undefined)setError(result.error);else setTurn(result.value);}}>{turn.enrichmentStatus==='failed'?'Retry concept update':'Build concepts from this explanation'}</button>}
       <Composer
+        account={historyPage.account}
         selectedModel={turn?.model ?? selectedModel}
         onModelChange={setSelectedModel}
         showModelSelector={!turn && entries.length === 0 && !pending}
@@ -670,6 +663,7 @@ function EmptyState({ onPick }: { onPick: (prompt: string) => void }) {
 }
 
 interface ComposerProps {
+  account: AccountUsage;
   selectedModel: ChatModel;
   onModelChange: (model: ChatModel) => void;
   showModelSelector: boolean;
@@ -680,6 +674,7 @@ interface ComposerProps {
 }
 
 function Composer({
+  account,
   selectedModel,
   onModelChange,
   showModelSelector,
@@ -740,12 +735,7 @@ function Composer({
             <span className="text-xs text-muted">{MODELS.find((model) => model.id === selectedModel)?.label}</span>
           )}
           <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-1 text-[11px] text-faint sm:flex">
-              <kbd className="rounded-[4px] border bg-surface-soft px-1.5 py-0.5">
-                ⏎
-              </kbd>
-              send · Shift + Enter for a new line
-            </span>
+            <CreditBalanceRing account={account} />
               <Button
                 type="submit"
                 size="icon"
@@ -762,6 +752,28 @@ function Composer({
         Atlas can make mistakes. Check sources for important details.
       </p>
     </form>
+  );
+}
+
+function CreditBalanceRing({ account }: { account: AccountUsage }) {
+  const remaining = account.creditsRemaining ?? 0;
+  const fraction = account.creditLimit === null
+    ? 1
+    : account.creditLimit > 0
+      ? Math.min(1, Math.max(0, remaining / account.creditLimit))
+      : 0;
+  const label = account.creditLimit === null
+    ? `${formatCredits(account.creditsUsed)} credits used · Unlimited`
+    : `${formatCredits(remaining)} of ${formatCredits(account.creditLimit)} credits remaining`;
+  const description = `${label}${account.creditsPending ? ' · Some usage is pending' : ''}`;
+
+  return (
+    <Link href="/profile" aria-label={description} title={description} className="focus-ring flex size-8 shrink-0 items-center justify-center rounded-full">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="text-black/10" />
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" pathLength="100" strokeDasharray={`${fraction * 100} 100`} transform="rotate(-90 12 12)" className="text-blue-500" />
+      </svg>
+    </Link>
   );
 }
 
