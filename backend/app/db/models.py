@@ -107,6 +107,9 @@ class Concept(OwnedRecord):
     description: Mapped[str | None] = mapped_column(Text)
     color: Mapped[str | None] = mapped_column(String(32))
     overview: Mapped[str | None] = mapped_column(Text)
+    aliases: Mapped[list | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    enrichment_locked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    overview_generated: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
     artifacts: Mapped[list["Artifact"]] = relationship(
         back_populates="concept", cascade="all, delete-orphan", passive_deletes=True
@@ -265,6 +268,9 @@ class AgentTurn(OwnedRecord):
     credits_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
     reply: Mapped[str | None] = mapped_column(Text)
+    enrichment_status: Mapped[str | None] = mapped_column(String(20))
+    enrichment_error: Mapped[str | None] = mapped_column(Text)
+    learning_context: Mapped[dict | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     response_document: Mapped[dict | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     error: Mapped[str | None] = mapped_column(Text)
     tool_name: Mapped[str | None] = mapped_column(String(200))
@@ -303,3 +309,21 @@ class ConceptConnection(OwnedRecord):
     kind: Mapped[str] = mapped_column(String(20))
     note: Mapped[str] = mapped_column(Text)
     origin: Mapped[Origin] = mapped_column(_enum(Origin), default=Origin.AI)
+
+
+class ConceptMention(OwnedRecord):
+    __tablename__ = "concept_mentions"
+    __table_args__ = (UniqueConstraint("concept_id", "turn_id", "block_id"),)
+    concept_id: Mapped[UUID] = mapped_column(ForeignKey("concepts.id", ondelete="CASCADE"))
+    turn_id: Mapped[UUID] = mapped_column(ForeignKey("agent_turns.id", ondelete="CASCADE"))
+    block_id: Mapped[str] = mapped_column(String(40))
+    excerpt: Mapped[str] = mapped_column(Text)
+    extractor_version: Mapped[str] = mapped_column(String(40))
+
+
+class ConceptRevision(OwnedRecord):
+    __tablename__ = "concept_revisions"
+    __table_args__ = (UniqueConstraint("concept_id", "turn_id"),)
+    concept_id: Mapped[UUID] = mapped_column(ForeignKey("concepts.id", ondelete="CASCADE"))
+    turn_id: Mapped[UUID] = mapped_column(ForeignKey("agent_turns.id", ondelete="CASCADE"))
+    overview: Mapped[str] = mapped_column(Text)

@@ -132,7 +132,7 @@ class GraphNode(Payload):
 class GraphLink(Payload):
     source: UUID
     target: UUID
-    relation_type: RelationType | Literal["requires", "related_to", "explains"]
+    relation_type: RelationType | Literal["requires", "related_to", "explains", "contrasts_with", "uses", "part_of", "enables"]
     note: str | None
     origin: Origin
 
@@ -244,3 +244,9 @@ def concept_neighbourhood(slug: str, session: SessionDep, user_id: CurrentUserId
         return neighbourhood(session, user_id, slug)
     except ValueError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "concept not found") from None
+
+
+@router.get("/concepts/{slug}/discussions")
+def concept_discussions(slug: str, session: SessionDep, user_id: CurrentUserId):
+    from app.agent.provenance import discussions
+    return discussions(session, user_id, slug)

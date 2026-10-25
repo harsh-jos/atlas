@@ -19,7 +19,9 @@ from app.agent.session import (
 )
 from app.agent.turns import TurnStore
 from app.agent.toolkit import build_toolkit
-from app.agent.context import PREFERENCES_KEY
+from app.agent.context import PREFERENCES_KEY, CONTEXT_KEY
+from app.db.models import AgentTurn
+from sqlalchemy import select
 from app.agent.knowledge import preferences
 from app.core.config import get_settings
 from app.db.base import get_session_scope
@@ -50,13 +52,15 @@ async def run_turn(
     agent = build_agent(build_toolkit(get_session_scope(), user_id, on_event=on_event), limits, model)
     def load_preferences():
         with get_session_scope()() as db:
-            return preferences(db, user_id)
+            current = preferences(db, user_id)
+            notes = db.scalar(select(AgentTurn.learning_context).where(AgentTurn.user_id == user_id, AgentTurn.session_id == session_id, AgentTurn.learning_context.is_not(None)).order_by(AgentTurn.created_at.desc()).limit(1))
+            return current, notes or {}
 
-    current_preferences = await asyncio.to_thread(load_preferences)
+    current_preferences, notes = await asyncio.to_thread(load_preferences)
     try:
         reply = await ask(
             agent, str(user_id), session_id, message, on_event=on_event, turn_id=turn_id,
-            state_delta={PREFERENCES_KEY: current_preferences},
+            state_delta={PREFERENCES_KEY: current_preferences, CONTEXT_KEY: notes if current_preferences["memory_enabled"] else {}},
         )
         if limits.truncated and on_event:
             await on_event({"type": "agent.incomplete", "code": "provider_truncated"})

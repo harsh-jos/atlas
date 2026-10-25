@@ -49,6 +49,8 @@ class ChatTurn(BaseModel):
     cancel_requested: bool
     reply: str | None
     response_document: dict | None = None
+    enrichment_status: str | None = None
+    enrichment_error: str | None = None
     error: str | None
     error_code: str | None = None
     tool_errors: list[ToolError] = Field(default_factory=list)
@@ -259,3 +261,14 @@ async def usage(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep)
     return AgentUsage(
         **asdict(totals), account_budget_microusd=get_settings().agent_account_budget_microusd
     )
+
+
+@router.get("/chat/{session_id}/turn/{turn_id}", response_model=list[ChatMessage])
+async def focused_turn(session_id: str, turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep):
+    row = await asyncio.to_thread(TurnStore(scope).get, user_id, turn_id)
+    if not row or row["session_id"] != session_id:
+        raise HTTPException(404, "turn not found")
+    result = [ChatMessage(role="you", text=row["message"], turn_id=turn_id)]
+    if row["reply"]:
+        result.append(ChatMessage(role="atlas", text=row["reply"], turn_id=turn_id, document=row.get("response_document")))
+    return result

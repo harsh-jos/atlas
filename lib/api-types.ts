@@ -106,7 +106,7 @@ export interface GraphNode {
 export interface GraphLink {
   source: string;
   target: string;
-  relationType: RelationType | 'requires' | 'related_to' | 'explains';
+  relationType: RelationType | 'requires' | 'related_to' | 'explains' | 'contrasts_with' | 'uses' | 'part_of' | 'enables';
   note: string | null;
   origin: Origin;
 }
@@ -153,6 +153,8 @@ export interface ChatHistory {
 }
 
 export interface ChatTurn {
+  enrichmentStatus?: string | null;
+  enrichmentError?: string | null;
   responseDocument?: LearningDocument | null;
   model: ChatModel | null;
   creditsUsed: number | null;

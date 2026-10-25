@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     agent_model: str = "gemini-4-argon"
     agent_search_model: str = "gemini-4-argon"
     agent_app_name: str = "atlas"
+    agent_extraction_model: str = "gemini-3.8-flash"
+    agent_enrichment_enabled: bool = True
 
     # Loop guards, not lesson-length targets. Both guide and research calls count.
     agent_max_calls_per_turn: int = Field(default=12, ge=1, le=100)

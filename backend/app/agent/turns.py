@@ -40,6 +40,8 @@ def turn_data(row: AgentTurn) -> dict:
             "cancel_requested",
             "reply",
             "response_document",
+            "enrichment_status",
+            "enrichment_error",
             "error",
             "error_code",
             "tool_errors",
@@ -310,6 +312,8 @@ class TurnStore:
             row.error_code = "cancelled" if row.cancel_requested else (
                 error_code or ("interrupted" if status == "interrupted" else None)
             )
+            if row.status == "completed" and row.enrichment_status is None:
+                row.enrichment_status = "pending"
             row.lease_until = row.tool_name = None
             if reply is not None:
                 row.reply = reply

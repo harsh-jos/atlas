@@ -51,6 +51,9 @@ async def _execute(store: TurnStore, turn: dict, on_progress=None) -> None:
         await asyncio.to_thread(
             store.finish, turn["id"], status, reply=reply, error_code=incomplete_code
         )
+        if status == "completed":
+            from app.agent.enrichment import enrich
+            await enrich(store.scope, turn["user_id"], turn["id"])
         log.info("turn_finished turn_id=%s status=%s code=%s", turn["id"], status, incomplete_code)
     except asyncio.CancelledError:
         await asyncio.to_thread(store.finish, turn["id"], "interrupted", error=INTERRUPTED)

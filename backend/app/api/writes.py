@@ -171,6 +171,9 @@ def update_concept(
     lock_owner(session, user_id)
     concept = _found(ConceptRepository(session, user_id).by_slug(slug), "concept")
     _apply(concept, patch.model_dump(exclude_unset=True))
+    if patch.overview is not None or patch.description is not None:
+        concept.overview_generated = False
+        concept.enrichment_locked = True
     session.flush()
     return _concept_detail(concept, _artifact_count(session, concept))
 

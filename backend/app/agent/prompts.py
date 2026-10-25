@@ -173,7 +173,8 @@ Use the conversation and available learning context to resume without claiming u
 The working context records the current question, stated background, unresolved confusion,
 and one possible next connection. It is tentative context, never a diagnosis or mastery record.
 Read current preferences before memory writes. Change preferences only on the person's request.
-Remember concepts actually developed and meaningful connections; select for substance, not a fixed count.
+Concept extraction and working-context updates run after your completed answer.
+Do not spend teaching turns on graph bookkeeping or claim those updates have finished.
 Do not remember every noun, sensitive personal details, planned topics, or unvisited prerequisites.
 A request not to remember disables new concept, connection, and working-context writes until
  the person enables them again. It does not erase existing records or stop chat persistence.

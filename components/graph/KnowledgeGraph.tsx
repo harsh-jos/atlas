@@ -55,12 +55,20 @@ import {
 
 const outgoingLabels = {
   ...RELATION_OUTGOING_LABELS,
+  contrasts_with: 'Contrasts with',
+  uses: 'Uses',
+  part_of: 'Part of',
+  enables: 'Enables',
   requires: 'Builds on',
   related_to: 'Related to',
   explains: 'Explains',
 };
 const incomingLabels = {
   ...RELATION_INCOMING_LABELS,
+  contrasts_with: 'Contrasts with',
+  uses: 'Used by',
+  part_of: 'Contains',
+  enables: 'Enabled by',
   requires: 'Used by',
   related_to: 'Related to',
   explains: 'Explained by',

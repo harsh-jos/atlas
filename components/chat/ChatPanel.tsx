@@ -20,6 +20,7 @@ import { Textarea } from '@/components/shadcn/textarea';
 import { ScrollArea } from '@/components/shadcn/scroll-area';
 import { sendTurn } from '@/app/chat/actions';
 import { formatCredits } from '@/lib/credits';
+import { askAbout, parseLearningResponse } from '@/lib/learning-response';
 import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
 import { ChatActivity } from '@/components/chat/ChatActivity';
 import type { ToolEvent } from '@/lib/chat-activity';
@@ -98,7 +99,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const [turn, setTurn] = useState<ChatTurn | null>(initialSnapshot.latestTurn);
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const visibleEntries = useMemo(() => turn?.reply
-    ? [...entries, { role: 'atlas' as const, text: turn.reply, creditsUsed: turn.creditsUsed, creditsPending: turn.creditsPending }]
+    ? [...entries, { role: 'atlas' as const, text: turn.reply, turnId: turn.id, document: turn.responseDocument, creditsUsed: turn.creditsUsed, creditsPending: turn.creditsPending }]
     : entries, [entries, turn]);
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -200,8 +201,8 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         setDraft('');
         setEntries((current) => [
           ...current,
-          ...(turn?.reply ? [{ role: 'atlas' as const, text: turn.reply, creditsUsed: turn.creditsUsed, creditsPending: turn.creditsPending }] : []),
-          { role: 'you', text: message },
+          ...(turn?.reply ? [{ role: 'atlas' as const, text: turn.reply, turnId: turn.id, document: turn.responseDocument, creditsUsed: turn.creditsUsed, creditsPending: turn.creditsPending }] : []),
+          { role: 'you', text: message, turnId: result.value.id },
         ]);
         setToolEvents([]);
         setTurn(result.value);
@@ -218,6 +219,24 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
     },
     [sessionId, storageKey, pending, creditBlocked, turn, selectedModel, refresh],
   );
+
+  const [selectedPassage, setSelectedPassage] = useState('');
+  useEffect(() => {
+    const receive = (event: Event) => {setDraft((event as CustomEvent<string>).detail); setSelectedPassage('');};
+    const selection = (event: Event) => setSelectedPassage((event as CustomEvent<string>).detail);
+    window.addEventListener('atlas:ask-about', receive);
+    window.addEventListener('atlas:selection', selection);
+    return () => {window.removeEventListener('atlas:ask-about', receive);window.removeEventListener('atlas:selection', selection);};
+  }, []);
+  useEffect(() => {
+    const query=new URLSearchParams(window.location.search);const target=query.get('turn');const block=query.get('block');
+    if(!target)return;
+    const timer=window.setTimeout(()=>{
+      const element=document.getElementById(`turn-${target}${block?`-${block}`:''}`) ?? document.getElementById(`turn-${target}`);
+      if(element){followBottomRef.current=false;element.scrollIntoView({block:'center'});element.classList.add('ring-2','ring-accent/30','rounded-lg');}
+    }, 150);
+    return ()=>window.clearTimeout(timer);
+  }, []);
 
   // The first SSE request owns execution; reconnects replay saved events without rerunning it.
   useEffect(() => {
@@ -247,12 +266,13 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         }
       } else if (event.type === 'agent.delta') {
         setTurn((current) => current && {
-          ...current, reply: (current.reply ?? '') + event.text, toolName: null,
+          ...current, reply: (current.reply ?? '') + event.text, responseDocument: null, toolName: null,
         });
       } else if (event.type === 'agent.message') {
         setTurn((current) => current && {
           ...current,
           reply: event.reply ?? [current.reply, event.text].filter(Boolean).join('\n\n'),
+          responseDocument: event.document ?? null,
           toolName: null,
         });
       } else if (event.type === 'turn.status') {
@@ -463,7 +483,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
               ))}
               <ChatActivity events={toolEvents} pending={isActive(turn) || (submitting && !turn)} />
               {turn?.reply && (
-                <MessageRow role="atlas" text={turn.reply} creditsUsed={isActive(turn) ? undefined : turn.creditsUsed} creditsPending={turn.creditsPending} />
+                <MessageRow role="atlas" text={turn.reply} turnId={turn.id} document={turn.responseDocument} creditsUsed={isActive(turn) ? undefined : turn.creditsUsed} creditsPending={turn.creditsPending} />
               )}
             </div>
           )}
@@ -513,6 +533,8 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
         {historyPage.account.creditsPending ? 'Some credit usage is pending or unavailable.' : 'You’ve used your free credits.'}{' '}
         <Link href="/profile" className="underline underline-offset-2">View account</Link>
       </p>}
+      {selectedPassage && <div className="mx-auto flex max-w-[var(--chat-measure)] items-center gap-3 px-4 pt-3 text-xs"><button className="focus-ring rounded-lg border px-3 py-2 text-accent" onClick={()=>askAbout(selectedPassage)}>Ask about selected passage</button><button onClick={()=>setSelectedPassage('')} className="text-muted">Dismiss</button></div>}
+      {turn?.enrichmentStatus && <p className="px-4 pt-2 text-center text-xs text-muted">{turn.enrichmentStatus==='completed'?'Concepts updated':turn.enrichmentStatus==='failed'?'Concept update could not finish; your answer is saved.':turn.enrichmentStatus==='skipped'?'': 'Updating your concept map…'}</p>}
       <Composer
         selectedModel={turn?.model ?? selectedModel}
         onModelChange={setSelectedModel}
@@ -526,7 +548,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   );
 }
 
-function MessageRow({ role, text, creditsUsed, creditsPending }: ChatMessage) {
+function MessageRow({ role, text, creditsUsed, creditsPending, document: responseDocument, turnId }: ChatMessage) {
   if (role === 'you') {
     return (
       <div className="flex flex-col items-end gap-2">
@@ -539,11 +561,14 @@ function MessageRow({ role, text, creditsUsed, creditsPending }: ChatMessage) {
   }
 
   return (
-    <div className="group min-w-0">
-      <ChatMarkdown text={text} />
+    <div className="group min-w-0 scroll-mt-6" id={turnId ? `turn-${turnId}` : undefined} onMouseUp={() => {
+      const selection=window.getSelection();
+      if(selection && selection.toString().trim().length>15 && selection.toString().length<4000) window.dispatchEvent(new CustomEvent('atlas:selection', {detail:selection.toString()}));
+    }}>
+      <ChatMarkdown text={text} document={responseDocument} responseId={turnId ? `turn-${turnId}` : undefined}/>
       <div className="mt-3 flex items-center gap-3">
         <CreditUsage used={creditsUsed} pending={creditsPending} />
-        <CopyButton text={text} />
+        <CopyButton text={responseDocument?.fallbackText ?? parseLearningResponse(text).fallbackText} />
       </div>
     </div>
   );
