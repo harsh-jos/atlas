@@ -106,7 +106,10 @@ def apply(scope, user_id, turn_id, extraction, existing, token):
             evidence = [e for e in idea.evidence if e.block_id in blocks and e.excerpt in blocks[e.block_id]]
             if not evidence:
                 continue
+            if idea.existing_slug in versions and not any(c.slug == idea.existing_slug for c in owned):
+                continue  # A deletion after candidate retrieval wins over this stale extraction.
             concept = next((c for c in owned if c.slug == idea.existing_slug and c.slug in versions), None) or names.get(normalize(idea.name))
+            created = concept is None
             if concept is None:
                 data = remember_concept(session, user_id, idea.name, idea.description)
                 concept = session.scalar(select(Concept).where(Concept.user_id == user_id, Concept.slug == data["slug"]))
@@ -118,8 +121,10 @@ def apply(scope, user_id, turn_id, extraction, existing, token):
             if unchanged and not concept.enrichment_locked and (not concept.overview or concept.overview_generated):
                 if not session.scalar(select(ConceptRevision.id).where(ConceptRevision.concept_id == concept.id, ConceptRevision.turn_id == turn.id)):
                     session.add(ConceptRevision(user_id=user_id, concept_id=concept.id, turn_id=turn.id, overview=idea.overview))
+                was_generated = concept.overview_generated
                 concept.overview, concept.overview_generated = idea.overview, True
-                concept.description = idea.description
+                if created or was_generated or not concept.description:
+                    concept.description = idea.description
                 concept.aliases = list(dict.fromkeys([*(concept.aliases or []), *[a[:200] for a in idea.aliases]]))[:20]
             for e in evidence:
                 found = session.scalar(select(ConceptMention.id).where(ConceptMention.concept_id == concept.id, ConceptMention.turn_id == turn.id, ConceptMention.block_id == e.block_id))

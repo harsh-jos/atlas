@@ -107,7 +107,7 @@ def test_reopened_chat_shows_queued_message_then_completed_reply(client, token, 
     accepted = client.post("/agent/chat", json=BODY, headers=_auth(token)).json()
     snapshot = client.get("/agent/chat/s1", headers=_auth(token)).json()
     assert snapshot["latestTurn"]["status"] == "queued"
-    assert snapshot["messages"][-1] == {"role": "you", "text": "hello", "creditsUsed": None, "creditsPending": False}
+    assert snapshot["messages"][-1] == {"role": "you", "text": "hello", "document": None, "turnId": accepted["id"], "creditsUsed": None, "creditsPending": False}
     store = TurnStore(client.app.dependency_overrides[get_session_scope]())
     claimed = store.claim(300)
     assert str(claimed["id"]) == accepted["id"]
@@ -154,8 +154,8 @@ def test_history_replays_prior_turns(client, token, monkeypatch):
         "sessionId": "s1",
         "creditsUsed": 0, "creditsPending": False,
         "messages": [
-            {"role": "you", "text": "what is a monad", "creditsUsed": None, "creditsPending": False},
-            {"role": "atlas", "text": "a burrito", "creditsUsed": None, "creditsPending": False},
+            {"role": "you", "text": "what is a monad", "document": None, "turnId": None, "creditsUsed": None, "creditsPending": False},
+            {"role": "atlas", "text": "a burrito", "document": None, "turnId": None, "creditsUsed": None, "creditsPending": False},
         ],
         "latestTurn": None,
         "hasMore": False, "nextBefore": None, "nextLegacyOffset": 2,
