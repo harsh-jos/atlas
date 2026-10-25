@@ -7,10 +7,10 @@ from uuid import UUID, uuid4
 from datetime import datetime, timedelta, timezone
 
 from google.genai import types
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 from sqlalchemy import select
 
-from app.agent.context import bounded_context
+from app.agent.context import FIELD_LIMITS, bounded_context
 from app.agent.knowledge import connect_concepts, lock_owner, remember_concept
 from app.agent.provider import generate
 from app.agent.response import document, component_text
@@ -19,7 +19,7 @@ from app.core.config import get_settings
 from app.db.models import AgentTurn, Concept, ConceptMention, ConceptRevision
 
 log = logging.getLogger(__name__)
-VERSION = "concepts-v2"
+VERSION = "concepts-v3"
 
 
 class Model(BaseModel):
@@ -55,6 +55,13 @@ class Extraction(Model):
     background: str = Field(default="", max_length=1000)
     confusion: str = Field(default="", max_length=1000)
     next_connection: str = Field(default="", max_length=500)
+
+    @field_validator("question", "background", "confusion", "next_connection", mode="before")
+    @classmethod
+    def bound_context_notes(cls, value, info: ValidationInfo):
+        # Optional notes must not discard otherwise valid, grounded graph updates.
+        # Keep the persisted limits; non-string values still fail normal validation.
+        return value.strip()[:FIELD_LIMITS[info.field_name]] if isinstance(value, str) else value
 
 
 def extraction_schema():
@@ -94,8 +101,9 @@ from the supplied candidate list when the concept matches, including synonyms. D
 merely related ideas. Aliases must be short names for the SAME concept. Connections refer
 to the exact names in your concepts array: requires (source needs target), related_to or
 contrasts_with (symmetric), uses, part_of, enables (directed). Explain why each edge holds and supply an exact excerpt supporting the relationship.
-Working context: record the current question, only explicitly stated background, unresolved
-confusion, and an optional next connection. Prior exposure is never understanding or mastery.
+Working context: briefly summarize the current question (at most 500 characters),
+only explicitly stated background (at most 1000 characters), unresolved
+confusion (at most 1000 characters), and an optional next connection (at most 500 characters). Prior exposure is never understanding or mastery.
 '''
 
 
