@@ -13,7 +13,7 @@ import {
   Network,
   BookOpen,
   ArrowDown,
-  SquarePen,
+  Coffee,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/shadcn/select';
 import { Textarea } from '@/components/shadcn/textarea';
@@ -460,15 +460,17 @@ export function ChatPanel({ sessionId, initialSnapshot, initialDraft = "" }: Cha
               )}
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="New conversation"
-            title="New conversation"
-            onClick={() => router.push('/chat')}
+          <a
+            href="https://www.buymeacoffee.com/harshjos"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Buy me a coffee (opens in a new tab)"
+            title="Buy me a coffee (opens in a new tab)"
+            className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg border border-hairline bg-surface px-2.5 text-xs font-medium text-ink transition-colors hover:border-accent-line hover:bg-accent-soft hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:px-3"
           >
-            <SquarePen className="size-4" />
-          </Button>
+            <Coffee className="size-4" aria-hidden="true" />
+            <span>Buy me a coffee</span>
+          </a>
         </div>
       </header>
       <ScrollArea
