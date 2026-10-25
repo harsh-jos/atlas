@@ -540,8 +540,8 @@ export function ChatPanel({ sessionId, initialSnapshot, initialDraft = "" }: Cha
           </Button>
         </div>
       )}
-      {creditBlocked && !pending && <p className="px-4 pt-2 text-center text-xs text-muted">
-        {historyPage.account.creditsPending ? 'Some credit usage is pending or unavailable.' : 'You’ve used your free credits.'}{' '}
+      {creditBlocked && !pending && !historyPage.account.creditsPending && <p className="px-4 pt-2 text-center text-xs text-muted">
+        You’ve used your free credits.{' '}
         <Link href="/profile" className="underline underline-offset-2">View account</Link>
       </p>}
       {isActive(turn) && <div className="mx-auto flex items-center gap-3 px-4 pt-2 text-xs text-muted"><span>Your reply continues if you leave this page.</span><button disabled={turn?.cancelRequested} className="focus-ring rounded-lg border px-3 py-1.5" onClick={async()=>{if(!turn)return;const result=await cancelTurn(turn.id);if(result.error !== undefined)setError(result.error);else setTurn(result.value);}}>{turn?.cancelRequested?'Stopping…':'Stop'}</button></div>}
