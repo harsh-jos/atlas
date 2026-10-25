@@ -1,7 +1,11 @@
 """Focused checks for new persistence, ownership, grounding, and worker boundaries."""
 import asyncio
+import json
+from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.agent.response import document
@@ -77,3 +81,113 @@ def test_image_modality_is_priced_without_double_counting(usage_factory, agent_s
     with store.scope() as session:
         # 100 input tokens at $0.50/M plus 1120 image tokens at $60/M.
         assert session.get(AgentRequest, request).estimated_cost_microusd == 67250
+
+
+def test_enrichment_uses_small_vertex_schema_and_still_enforces_limits(usage_factory, agent_settings, monkeypatch):
+    from app.agent import enrichment
+    store = TurnStore(usage_factory().scope)
+    owner = usage_factory().user_id
+    with store.scope() as session:
+        for model in (Concept, ConceptConnection, ConceptMention, ConceptRevision):
+            model.__table__.create(session.get_bind())
+    accepted = store.submit(owner, 's1', uuid4(), 'What is a computation graph?')
+    store.claim(900, accepted['id'], owner)
+    answer = 'A computation graph records mathematical operations and the dependencies between their inputs and outputs.'
+    store.finish(accepted['id'], 'completed', reply=answer)
+    idea = dict(name='Computation graph', description=answer, overview=answer,
+                evidence=[dict(block_id='b0', excerpt=answer)])
+
+    async def generate(store, invocation, model, contents, config):
+        assert config.response_schema is None
+        schema = config.response_json_schema
+        assert 'maxItems' not in json.dumps(schema)
+        assert 'minItems' not in json.dumps(schema)
+        assert schema['$defs']['Idea']['properties']['evidence']['items']['$ref'] == '#/$defs/Evidence'
+        assert 'at most 12' in schema['properties']['concepts']['description']
+        assert config.automatic_continuation is False
+        return SimpleNamespace(text=json.dumps(dict(concepts=[idea])))
+
+    monkeypatch.setattr(enrichment, 'get_settings', lambda: agent_settings)
+    monkeypatch.setattr(enrichment, 'generate', generate)
+    asyncio.run(enrichment.enrich(store.scope, owner, accepted['id']))
+    with store.scope() as session:
+        assert session.get(AgentTurn, accepted['id']).enrichment_status == 'completed'
+        assert len(session.scalars(select(Concept)).all()) == 1
+    # Provider grammar relaxation must never relax application validation.
+    with pytest.raises(ValidationError):
+        enrichment.Extraction.model_validate(dict(concepts=[idea] * 13))
+    with pytest.raises(ValidationError):
+        enrichment.Extraction.model_validate(dict(concepts=[dict(idea, evidence=[])]))
+
+
+def test_repair_migration_restores_only_failed_enrichment_retries(usage_factory, monkeypatch):
+    import importlib.util
+    from pathlib import Path
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from app.agent.router import retry_enrichment
+    from app.agent import runtime
+
+    store = TurnStore(usage_factory().scope)
+    owner = usage_factory().user_id
+    rows = {}
+    for state in ('failed', 'completed', 'pending', 'running'):
+        accepted = store.submit(owner, state, uuid4(), 'Explain graphs.')
+        store.claim(900, accepted['id'], owner)
+        store.finish(accepted['id'], 'completed', reply='Saved explanation.')
+        with store.scope() as session:
+            row = session.get(AgentTurn, accepted['id'])
+            row.enrichment_status, row.enrichment_attempts = state, 3
+        rows[state] = accepted['id']
+
+    path = Path(__file__).parents[1] / 'alembic/versions/a020_retry_failed_extraction.py'
+    spec = importlib.util.spec_from_file_location('repair', path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    with store.scope() as session:
+        with Operations.context(MigrationContext.configure(session.connection())):
+            migration.upgrade()
+        for state, turn_id in rows.items():
+            row = session.get(AgentTurn, turn_id)
+            assert row.enrichment_status == state
+            assert row.enrichment_attempts == (0 if state == 'failed' else 3)
+    scheduled = []
+    monkeypatch.setattr(runtime, 'enqueue', lambda *args: scheduled.append(args))
+    result = asyncio.run(retry_enrichment(rows['failed'], owner, store.scope))
+    assert result.enrichment_status == 'pending'
+    assert scheduled == [(rows['failed'], owner, 'enrich', 0)]
+
+
+def test_enrichment_task_names_do_not_reuse_failed_v1_jobs(agent_settings, monkeypatch):
+    from app.agent import runtime
+    from app.agent.enrichment import VERSION
+    agent_settings.agent_execution_backend = 'cloud_tasks'
+    agent_settings.agent_tasks_api_url = 'https://api.example.com'
+    agent_settings.agent_tasks_service_account = 'worker@example.com'
+    monkeypatch.setattr(runtime, 'get_settings', lambda: agent_settings)
+    monkeypatch.setattr(runtime.google.auth, 'default', lambda **kwargs: (None, None))
+    sent = []
+
+    class Session:
+        def __init__(self, credentials):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def post(self, url, json, timeout):
+            sent.append(json['task'])
+            return SimpleNamespace(status_code=200)
+
+    monkeypatch.setattr(runtime, 'AuthorizedSession', Session)
+    turn_id, owner = uuid4(), uuid4()
+    runtime.enqueue(turn_id, owner, 'enrich', 0)
+    runtime.enqueue(turn_id, owner, 'enrich', 0)
+    runtime.enqueue(turn_id, owner, 'enrich', 1)
+    assert sent[0]['name'].endswith(f'/enrich-{VERSION}-{turn_id}-0')
+    assert sent[0]['name'] == sent[1]['name']
+    assert sent[0]['name'] != sent[2]['name']
+    assert sent[0]['httpRequest']['url'].endswith(f'/turns/{turn_id}/enrich')

@@ -19,7 +19,7 @@ from app.core.config import get_settings
 from app.db.models import AgentTurn, Concept, ConceptMention, ConceptRevision
 
 log = logging.getLogger(__name__)
-VERSION = "concepts-v1"
+VERSION = "concepts-v2"
 
 
 class Model(BaseModel):
@@ -55,6 +55,31 @@ class Extraction(Model):
     background: str = Field(default="", max_length=1000)
     confusion: str = Field(default="", max_length=1000)
     next_connection: str = Field(default="", max_length=500)
+
+
+def extraction_schema():
+    """Keep Vertex's decoding grammar small; validate all bounds locally below.
+
+    Nested maxItems/minItems in this schema cause Vertex to reject the entire
+    request with INVALID_ARGUMENT, even for an empty extraction. Retain the
+    shape and describe array limits without compiling them into the grammar.
+    """
+    def simplify(value):
+        if isinstance(value, list):
+            return [simplify(item) for item in value]
+        if not isinstance(value, dict):
+            return value
+        result = {key: simplify(item) for key, item in value.items()
+                  if key not in ("minItems", "maxItems")}
+        if "minItems" in value or "maxItems" in value:
+            limits = []
+            if "minItems" in value:
+                limits.append(f"at least {value['minItems']}")
+            if "maxItems" in value:
+                limits.append(f"at most {value['maxItems']}")
+            result["description"] = (result.get("description", "") + " Return " + " and ".join(limits) + " items.").strip()
+        return result
+    return simplify(Extraction.model_json_schema())
 
 
 INSTRUCTION = '''Extract useful concepts from the completed explanation, not every noun.
@@ -171,7 +196,7 @@ async def enrich(scope, user_id: UUID, turn_id: UUID):
         existing = await asyncio.to_thread(candidates, scope, user_id)
         payload = {"question": data["question"], "previous_context": data["previous_context"], "blocks": [{"id": b["id"], "text": _text(b)} for b in data["document"]["blocks"]], "existing_concepts": existing}
         async with asyncio.timeout(180):
-            response = await generate(UsageStore(scope, user_id, data["session_id"]), str(turn_id), get_settings().agent_extraction_model, json.dumps(payload), types.GenerateContentConfig(system_instruction=INSTRUCTION, response_mime_type="application/json", response_schema=Extraction, http_options=types.HttpOptions(timeout=175000, retry_options=types.HttpRetryOptions(attempts=1))))
+            response = await generate(UsageStore(scope, user_id, data["session_id"]), str(turn_id), get_settings().agent_extraction_model, json.dumps(payload), types.GenerateContentConfig(system_instruction=INSTRUCTION, response_mime_type="application/json", response_json_schema=extraction_schema(), automatic_continuation=False, http_options=types.HttpOptions(timeout=175000, retry_options=types.HttpRetryOptions(attempts=1))))
             extraction = Extraction.model_validate_json(response.text)
         await asyncio.to_thread(apply, scope, user_id, turn_id, extraction, existing, data["token"])
     except Exception:
