@@ -208,6 +208,8 @@ def read_explanation(session: Session, user_id: UUID, slug: str) -> dict:
         "slug": row.slug,
         "title": row.title,
         "summary": row.summary,
+        "kind": (row.meta or {}).get("kind", "markdown"),
+        "metadata": row.meta,
         "body": (row.body or "")[:60000],
         "truncated": len(row.body or "") > 60000,
         "updated_at": row.updated_at.isoformat(),

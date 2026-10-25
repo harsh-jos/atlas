@@ -167,6 +167,27 @@ def build_toolkit(
         """
         return await execute(knowledge.revise_explanation, slug, expected_updated_at, body, summary, user_requested)
 
+    async def create_artifact(concept_name: str, title: str, summary: str, content: str, kind: str = "components", source_urls: list[str] | None = None, user_requested: bool = False) -> dict:
+        """Save a reusable learning artifact when requested or automatic saving is agreed.
+
+        kind: markdown, components (same inline atlas component syntax), or simulation
+        (self-contained HTML/CSS/JS in a sandbox, no network or host access). Include all
+        necessary reasoning; use actual source URLs. Return the artifact URL after saving.
+        Set user_requested only for an explicit save/create request. A simulation needs
+        working controls, visible assumptions, and a useful explanation. No external scripts.
+        """
+        from app.agent.artifacts import create
+        return await execute(create, concept_name, title, summary, content, kind, source_urls or [], user_requested, session_id, turn_id)
+
+    async def update_artifact(slug: str, expected_updated_at: str, content: str, summary: str, kind: str, user_requested: bool = False) -> dict:
+        """Revise an owned artifact after reading it. Preserves immutable prior revisions.
+
+        Supply the timestamp returned by read_saved_explanation. Stale edits are rejected.
+        kind is markdown, components, or simulation. Only revise when requested or agreed.
+        """
+        from app.agent.artifacts import revise
+        return await execute(revise, slug, expected_updated_at, content, summary, kind, user_requested)
+
     async def generate_image(teaching_goal: str, factual_brief: str, composition: str, labels: list[str], aspect_ratio: str = "4:3") -> dict:
         """Generate and visually review one calm teaching illustration, embedded in this reply.
 
@@ -210,6 +231,6 @@ def build_toolkit(
         set_learning_preferences,
         remove_concept_connection,
         read_saved_explanation,
-        save_explanation,
-        revise_saved_explanation,
+        create_artifact,
+        update_artifact,
     ]

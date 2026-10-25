@@ -150,7 +150,12 @@ def update_artifact(
         _found(ConceptRepository(session, user.id).get(fields["concept_id"]), "concept")
     after = _cost(fields.get("body", artifact.body), fields.get("summary", artifact.summary))
     _charge(session, user, after - _cost(artifact.body, artifact.summary))
+    from app.agent.artifacts import record_revision
+    from app.agent.response import document
+    record_revision(session, artifact)
     _apply(artifact, fields)
+    if (artifact.meta or {}).get("kind") in {"components", "markdown"}:
+        artifact.meta = {**artifact.meta, "document": document(artifact.body or ""), "revision": artifact.meta.get("revision", 1) + 1}
     session.flush()
     return artifact_detail(slug, session, user.id)
 

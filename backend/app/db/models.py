@@ -329,3 +329,9 @@ class ConceptRevision(OwnedRecord):
     concept_id: Mapped[UUID] = mapped_column(ForeignKey("concepts.id", ondelete="CASCADE"))
     turn_id: Mapped[UUID] = mapped_column(ForeignKey("agent_turns.id", ondelete="CASCADE"))
     overview: Mapped[str] = mapped_column(Text)
+
+
+class ArtifactRevision(OwnedRecord):
+    __tablename__ = "artifact_revisions"
+    artifact_id: Mapped[UUID] = mapped_column(ForeignKey("artifacts.id", ondelete="CASCADE"))
+    snapshot: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
