@@ -8,6 +8,7 @@ from sqlalchemy import func, select, tuple_
 
 from app.db.base import SessionScope
 from app.db.models import AgentTurn, AgentTurnEvent, AgentRequest, User
+from app.agent.response import document
 from app.agent.models import CHAT_MODELS
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -38,6 +39,7 @@ def turn_data(row: AgentTurn) -> dict:
             "status",
             "cancel_requested",
             "reply",
+            "response_document",
             "error",
             "error_code",
             "tool_errors",
@@ -273,6 +275,9 @@ class TurnStore:
                 row.tool_errors = [*row.tool_errors, {
                     "name": event["name"], "code": event["code"], "message": event["message"]
                 }][-10:]
+            if event["type"] == "agent.message":
+                row.response_document = document(row.reply or "")
+                event = {**event, "document": row.response_document}
             self._event(session, row, event)
 
     @staticmethod
@@ -308,4 +313,5 @@ class TurnStore:
             row.lease_until = row.tool_name = None
             if reply is not None:
                 row.reply = reply
+                row.response_document = document(reply)
             self._event(session, row, {"type": "turn.status", "status": row.status})

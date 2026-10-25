@@ -265,6 +265,7 @@ class AgentTurn(OwnedRecord):
     credits_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
     reply: Mapped[str | None] = mapped_column(Text)
+    response_document: Mapped[dict | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     error: Mapped[str | None] = mapped_column(Text)
     tool_name: Mapped[str | None] = mapped_column(String(200))
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

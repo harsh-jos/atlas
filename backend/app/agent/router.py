@@ -48,6 +48,7 @@ class ChatTurn(BaseModel):
     credits_pending: bool = False
     cancel_requested: bool
     reply: str | None
+    response_document: dict | None = None
     error: str | None
     error_code: str | None = None
     tool_errors: list[ToolError] = Field(default_factory=list)
@@ -61,6 +62,8 @@ class ChatMessage(BaseModel):
 
     role: Literal["you", "atlas"]
     text: str
+    document: dict | None = None
+    turn_id: UUID | None = None
     credits_used: float | None = None
     credits_pending: bool = False
 
@@ -194,11 +197,11 @@ async def history(session_id: str, user_id: CurrentUserId, scope: SessionScopeDe
         messages = messages[1:]
     visible = [ChatMessage(role=message.role, text=message.text) for message in messages]
     for row in rows:
-        visible.append(ChatMessage(role="you", text=row["message"],
+        visible.append(ChatMessage(role="you", text=row["message"], turn_id=row["id"],
             credits_used=row["credits_used"] if not row["reply"] else None,
             credits_pending=row["credits_pending"] if not row["reply"] else False))
         if row["reply"]:
-            visible.append(ChatMessage(role="atlas", text=row["reply"],
+            visible.append(ChatMessage(role="atlas", text=row["reply"], turn_id=row["id"], document=row.get("response_document"),
                 credits_used=row["credits_used"], credits_pending=row["credits_pending"]))
     totals = await asyncio.to_thread(UsageStore(scope, user_id, session_id).totals)
     account_usage = await asyncio.to_thread(UsageStore(scope, user_id).account_summary, get_settings())
