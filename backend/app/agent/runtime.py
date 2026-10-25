@@ -34,7 +34,11 @@ def enqueue(turn_id, user_id, phase="run", attempt=0):
     parent = f"projects/{project}/locations/{settings.agent_tasks_location}/queues/{settings.agent_tasks_queue}"
     credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
     body = base64.b64encode(json.dumps({"user_id": str(user_id)}).encode()).decode()
-    task = {"name": f"{parent}/tasks/{phase}-{turn_id}-{attempt}", "dispatchDeadline": "1800s",
+    task_phase = phase
+    if phase == "enrich":
+        from app.agent.enrichment import VERSION
+        task_phase = f"{phase}-{VERSION}"
+    task = {"name": f"{parent}/tasks/{task_phase}-{turn_id}-{attempt}", "dispatchDeadline": "1800s",
         "httpRequest": {"httpMethod": "POST", "url": f"{url.rstrip('/')}/internal/agent/turns/{turn_id}/{phase}",
             "headers": {"Content-Type": "application/json"}, "body": body,
             "oidcToken": {"serviceAccountEmail": account, "audience": url.rstrip('/')}}}
