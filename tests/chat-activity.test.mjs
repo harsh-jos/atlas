@@ -96,7 +96,7 @@ test('thinking uses only heartbeat text and unfinished calls stop spinning at tu
   assert.match(stopped, /Stopped/);
   assert.doesNotMatch(stopped, /animate-spin|Thinking|lucide-check/);
   const completed = renderActivity([start('a'), finish('a')], false);
-  assert.match(completed, /<details[^>]*open/);
+  assert.doesNotMatch(completed, /<details[^>]*open/);
   assert.match(completed, /lucide-check/);
 });
 
@@ -104,6 +104,7 @@ test('activity stays after the prompt and before a streaming reply, including lo
   const { ChatPanel } = await load('../components/chat/ChatPanel.tsx', {
     'next/navigation': { useRouter: () => ({}) },
     '@/lib/credits': { formatCredits: String },
+    '@/lib/learning-response': await load('../lib/learning-response.ts'),
     '@/components/shadcn/select': {},
     '@/app/chat/actions': { sendTurn: () => {} },
     '@/components/chat/ChatActivity': { ChatActivity },

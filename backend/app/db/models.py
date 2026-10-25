@@ -93,6 +93,7 @@ class Asset(OwnedRecord):
 
     file_name: Mapped[str] = mapped_column(String(255))
     mime_type: Mapped[str] = mapped_column(String(127))
+    meta: Mapped[dict | None] = mapped_column("metadata", JSON().with_variant(JSONB(), "postgresql"))
     size: Mapped[int]
 
 
@@ -107,6 +108,9 @@ class Concept(OwnedRecord):
     description: Mapped[str | None] = mapped_column(Text)
     color: Mapped[str | None] = mapped_column(String(32))
     overview: Mapped[str | None] = mapped_column(Text)
+    aliases: Mapped[list | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    enrichment_locked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    overview_generated: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
     artifacts: Mapped[list["Artifact"]] = relationship(
         back_populates="concept", cascade="all, delete-orphan", passive_deletes=True
@@ -233,6 +237,7 @@ class AgentRequest(OwnedRecord):
     # A subset of input_tokens. NULL means the provider did not report cache usage.
     cached_input_tokens: Mapped[int | None] = mapped_column(BigInteger)
     output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    output_image_tokens: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
     thought_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     search_queries: Mapped[int] = mapped_column(default=0)
@@ -265,6 +270,14 @@ class AgentTurn(OwnedRecord):
     credits_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     status: Mapped[str] = mapped_column(String(16), default="queued", index=True)
     reply: Mapped[str | None] = mapped_column(Text)
+    execution_token: Mapped[UUID | None] = mapped_column()
+    enrichment_token: Mapped[UUID | None] = mapped_column()
+    enrichment_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    enrichment_attempts: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    enrichment_status: Mapped[str | None] = mapped_column(String(20))
+    enrichment_error: Mapped[str | None] = mapped_column(Text)
+    learning_context: Mapped[dict | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    response_document: Mapped[dict | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
     error: Mapped[str | None] = mapped_column(Text)
     tool_name: Mapped[str | None] = mapped_column(String(200))
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -302,3 +315,28 @@ class ConceptConnection(OwnedRecord):
     kind: Mapped[str] = mapped_column(String(20))
     note: Mapped[str] = mapped_column(Text)
     origin: Mapped[Origin] = mapped_column(_enum(Origin), default=Origin.AI)
+
+
+class ConceptMention(OwnedRecord):
+    __tablename__ = "concept_mentions"
+    __table_args__ = (UniqueConstraint("concept_id", "turn_id", "block_id"),)
+    concept_id: Mapped[UUID] = mapped_column(ForeignKey("concepts.id", ondelete="CASCADE"))
+    turn_id: Mapped[UUID] = mapped_column(ForeignKey("agent_turns.id", ondelete="CASCADE"))
+    block_id: Mapped[str] = mapped_column(String(40))
+    excerpt: Mapped[str] = mapped_column(Text)
+    extractor_version: Mapped[str] = mapped_column(String(40))
+
+
+class ConceptRevision(OwnedRecord):
+    __tablename__ = "concept_revisions"
+    __table_args__ = (UniqueConstraint("concept_id", "turn_id"),)
+    concept_id: Mapped[UUID] = mapped_column(ForeignKey("concepts.id", ondelete="CASCADE"))
+    turn_id: Mapped[UUID] = mapped_column(ForeignKey("agent_turns.id", ondelete="CASCADE"))
+    overview: Mapped[str] = mapped_column(Text)
+
+
+class ArtifactRevision(OwnedRecord):
+    size: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    __tablename__ = "artifact_revisions"
+    artifact_id: Mapped[UUID] = mapped_column(ForeignKey("artifacts.id", ondelete="CASCADE"))
+    snapshot: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))

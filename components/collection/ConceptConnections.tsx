@@ -10,7 +10,7 @@ export interface ConceptNeighbourhood {
     slug: string;
     name: string;
     connection_id: string;
-    kind: 'requires' | 'related_to';
+    kind: 'requires' | 'related_to' | 'contrasts_with' | 'uses' | 'part_of' | 'enables';
     direction: 'incoming' | 'outgoing';
     note: string;
   }[];
@@ -31,7 +31,7 @@ export function ConceptConnections({ slug, graph }: { slug: string; graph: Conce
           <li key={edge.connection_id} className="flex items-start justify-between gap-4 text-sm">
             <div>
               <span className="text-muted">
-                {edge.kind === 'related_to' ? 'Related to' : edge.direction === 'outgoing' ? 'Builds on' : 'Used by'}{' '}
+                {({related_to:'Related to',contrasts_with:'Contrasts with',requires:edge.direction==='outgoing'?'Builds on':'Used by',uses:edge.direction==='outgoing'?'Uses':'Used by',part_of:edge.direction==='outgoing'?'Part of':'Contains',enables:edge.direction==='outgoing'?'Enables':'Enabled by'})[edge.kind]}{' '}
               </span>
               <Link href={`/collections/${edge.slug}`} className="text-accent underline underline-offset-2">{edge.name}</Link>
               <p className="mt-1 text-muted">{edge.note}</p>

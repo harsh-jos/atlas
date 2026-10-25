@@ -89,15 +89,15 @@ def remember_concept(session: Session, user_id: UUID, name: str, description: st
 def connect_concepts(
     session: Session, user_id: UUID, from_slug: str, to_slug: str, kind: str, note: str
 ) -> dict:
-    if kind not in {"requires", "related_to"}:
-        raise ValueError("Connection kind must be requires or related_to.")
+    if kind not in {"requires", "related_to", "contrasts_with", "uses", "part_of", "enables"}:
+        raise ValueError("Unsupported concept connection kind.")
     note = bounded(note, "Connection reason", 1000)
     require_memory(session, user_id)
     source = owned(session, Concept, user_id, from_slug)
     target = owned(session, Concept, user_id, to_slug)
     if source.id == target.id:
         raise ValueError("A concept cannot connect to itself.")
-    if kind == "related_to" and str(source.id) > str(target.id):
+    if kind in {"related_to", "contrasts_with"} and str(source.id) > str(target.id):
         source, target = target, source
     row = session.scalar(
         select(ConceptConnection).where(
@@ -208,6 +208,8 @@ def read_explanation(session: Session, user_id: UUID, slug: str) -> dict:
         "slug": row.slug,
         "title": row.title,
         "summary": row.summary,
+        "kind": (row.meta or {}).get("kind", "markdown"),
+        "metadata": row.meta,
         "body": (row.body or "")[:60000],
         "truncated": len(row.body or "") > 60000,
         "updated_at": row.updated_at.isoformat(),

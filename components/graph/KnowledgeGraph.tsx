@@ -55,12 +55,20 @@ import {
 
 const outgoingLabels = {
   ...RELATION_OUTGOING_LABELS,
+  contrasts_with: 'Contrasts with',
+  uses: 'Uses',
+  part_of: 'Part of',
+  enables: 'Enables',
   requires: 'Builds on',
   related_to: 'Related to',
   explains: 'Explains',
 };
 const incomingLabels = {
   ...RELATION_INCOMING_LABELS,
+  contrasts_with: 'Contrasts with',
+  uses: 'Used by',
+  part_of: 'Contains',
+  enables: 'Enabled by',
   requires: 'Used by',
   related_to: 'Related to',
   explains: 'Explained by',
@@ -1085,6 +1093,7 @@ export function KnowledgeGraph({ data }: KnowledgeGraphProps) {
                   <ArrowUpRight className="size-3" />
                 </Link>
               </Button>
+              {!!selectedNode.discussions?.length && <div className="mt-4 space-y-2 border-t pt-3"><h3 className="text-xs font-medium">From your conversations</h3>{selectedNode.discussions.map(d=><Link key={d.turnId} href={d.url} className="block text-xs leading-5 text-accent underline underline-offset-2">{d.question.slice(0,120)} →</Link>)}</div>}
               <div className="mt-5 border-t pt-3">
                 <p className="mb-3 text-xs font-medium text-ink">
                   Connected ideas

@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import Select, asc, desc, func, select, literal, union_all
 from sqlalchemy.orm import Session, selectinload
 
-from app.db.models import Artifact, Concept, ConceptConnection, Relation, Source
+from app.db.models import Artifact, Concept, ConceptConnection, Relation, Source, ConceptMention, AgentTurn
 
 Sort = Literal["created_asc", "created_desc", "updated_desc", "title_asc"]
 
@@ -184,11 +184,17 @@ def get_graph(session: Session, user_id: UUID, limit: int = 200, offset: int = 0
         .where(ConceptConnection.user_id == user_id,
                ConceptConnection.from_id.in_(ids), ConceptConnection.to_id.in_(ids))
     ).all()
+    discussions = {}
+    mentions = session.execute(select(ConceptMention, AgentTurn).join(AgentTurn, AgentTurn.id == ConceptMention.turn_id).where(ConceptMention.user_id == user_id, AgentTurn.user_id == user_id, ConceptMention.concept_id.in_(ids)).order_by(ConceptMention.created_at.desc()).limit(1000)).all()
+    for mention, turn in mentions:
+        links_for_concept = discussions.setdefault(mention.concept_id, [])
+        if len(links_for_concept) < 2 and not any(d["turnId"] == str(turn.id) for d in links_for_concept):
+            links_for_concept.append({"question": turn.message, "turnId": str(turn.id), "url": f"/chat/{turn.session_id}?turn={turn.id}&block={mention.block_id}"})
     return {
         "nodes": [{"id": row.id, "title": row.title, "slug": row.slug, "summary": row.summary,
                    "concept_name": row.concept_name,
                    "concept_color": row.concept_color or _FALLBACK_COLOUR,
-                   "node_kind": row.node_kind} for row in rows],
+                   "node_kind": row.node_kind, "discussions": discussions.get(row.id, [])} for row in rows],
         "links": [
             {"source": source, "target": target, "relation_type": kind, "note": note, "origin": origin}
             for source, target, kind, note, origin in [*links, *connections]

@@ -1,4 +1,8 @@
 import logging
+import asyncio
+from contextlib import suppress
+from app.core.config import get_settings
+from app.agent.runtime import local_worker, router as worker_router
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -26,7 +30,14 @@ async def lifespan(app: FastAPI):
     try:
         await prepare_database()
         app.state.schema_ready = True
-        yield
+        worker = asyncio.create_task(local_worker()) if get_settings().agent_execution_backend == "local" else None
+        try:
+            yield
+        finally:
+            if worker:
+                worker.cancel()
+                with suppress(asyncio.CancelledError):
+                    await worker
     finally:
         app.state.schema_ready = False
         try:
@@ -45,6 +56,7 @@ app.add_exception_handler(RequestValidationError, validation_error)
 
 app.include_router(auth_router)
 app.include_router(agent_router)
+app.include_router(worker_router)
 app.include_router(library_router)
 app.include_router(writes_router)
 app.include_router(assets_router)

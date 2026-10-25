@@ -1,8 +1,7 @@
 # Cloud Run + Supabase
 
 Atlas is prepared for two Cloud Run services (Next.js and FastAPI) and one Supabase project
-(Auth, Postgres, and private Storage). The agent executes inside the SSE request, so neither
-an always-on worker nor a broker is required. Local Docker Compose still uses local auth,
+(Auth, Postgres, and private Storage). Cloud Tasks owns agent execution while SSE observes persisted progress; no always-on worker is required. Local Docker Compose still uses local auth,
 Postgres, and disk uploads by default.
 
 This guide prepares a deployment; nothing is deployed just by building or testing the repository.
@@ -67,7 +66,7 @@ Enable Cloud Run, Artifact Registry, Vertex AI, IAM, IAM Credentials, and Securi
 export PROJECT_ID=polar-ensign-512612-b4
 export REGION=asia-northeast1
 gcloud config set project "$PROJECT_ID"
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com aiplatform.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com aiplatform.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com cloudtasks.googleapis.com
 ```
 
 Create the image repository and service accounts once:
@@ -82,11 +81,24 @@ Use separate identities for deployment and application runtime. Give `atlas-depl
 
 - `roles/run.admin` on the project (creating public services needs IAM policy permissions).
 - `roles/serviceusage.serviceUsageConsumer` on the project.
+- `roles/cloudtasks.queueAdmin` on the project, for creating/configuring the agent queue.
 - `roles/artifactregistry.writer` on the `atlas` repository.
 - `roles/iam.serviceAccountUser` on the `atlas-runtime` service account.
 
 Give `atlas-runtime` `roles/aiplatform.user` on the project used in `VERTEX_PROJECT`. Cloud Run
 supplies Application Default Credentials; do not upload a downloaded credential JSON file.
+
+Also give `atlas-runtime` `roles/cloudtasks.enqueuer` on the project and
+`roles/iam.serviceAccountUser` on its own service-account resource (it enqueues jobs using
+that identity). These IAM grants are a one-time administrator setup, not performed by CI.
+The Cloud Tasks service agent needs its normal `roles/cloudtasks.serviceAgent` grant to mint
+OIDC tokens. `deploy/cloud-run.sh` creates the bounded `atlas-agent` queue if absent and wires
+its project, location, API URL and service-account audience into the backend revision.
+
+The worker endpoints validate Google OIDC tokens from exactly `AGENT_TASKS_SERVICE_ACCOUNT`
+and the `AGENT_TASKS_API_URL` audience. End-user JWTs cannot run jobs. Keep hosted
+`AGENT_EXECUTION_BACKEND=cloud_tasks`; the development database-polling worker requires
+CPU outside requests and must not be used with scale-to-zero request-based Cloud Run.
 
 ### Trust GitHub without a service-account key
 
@@ -158,7 +170,9 @@ The existing workflow now has backend, frontend, and deployment jobs:
    from the Actions tab also require `main` and the flag. PRs never deploy.
 3. The deployment job builds both containers before authentication and before touching the live DB.
 4. Workload Identity Federation impersonates `atlas-deploy`, then pushes both images to Artifact Registry.
-5. Migrations run from the GitHub runner against Supabase. No Cloud Run migration job is required.
+5. The deployment script checks/creates its Cloud Tasks queue before touching the live database.
+   Missing API/IAM setup stops here. It then applies all pending Alembic revisions from the GitHub
+   runner against Supabase. No manual SQL or Cloud Run migration job is required.
 6. The API deploys, then the web service. The script discovers service URLs and sets `ATLAS_API_URL`
    and `APP_URL`. Migration/API failures prevent later rollout steps. Production deployments are serialized.
 
@@ -194,9 +208,9 @@ are never read by the PR test fixtures.
 ## Defaults and trade-offs
 
 - Both services: request-based CPU, zero minimum instances, maximum one instance. Cold starts
-  are expected. Request timeout is 600 seconds on both sides of the SSE proxy.
-- Agent: 480-second turn timeout, leaving time for database cleanup before Cloud Run's deadline.
-- API: concurrency 4, one CPU, 1 GiB RAM. Web: concurrency 20, one CPU, 512 MiB RAM.
+  are expected. API timeout is 1800 seconds for Cloud Tasks jobs; web SSE timeout is 600 seconds and reconnects safely.
+- Agent: 900-second turn timeout, leaving time for database cleanup before Cloud Run's deadline.
+- API: concurrency 8, one CPU, 1 GiB RAM. Web: concurrency 20, one CPU, 512 MiB RAM.
 - Application and ADK each get their own pool of two connections per API instance, no overflow:
   at most four pooled connections on the API instance, plus migration/administrative access.
 - Per-user storage allowance: 50 MiB. Image maximum: 10 MiB. Agent session estimated-spending
@@ -210,20 +224,15 @@ Use GCP budget alerts and your credits. No heartbeat traffic is used to keep eit
 
 ## Stream lifetime and recovery
 
-Submitting a turn persists it and returns HTTP 202. Opening its SSE URL atomically claims and
-executes **that exact owned turn**. Tool activity and text are persisted before delivery. A local
-async event wakes delivery; idle heartbeats do not query Postgres. There is no queue scanner,
-LISTEN connection, cancellation flag polling, or Stop endpoint/button.
+Submitting a turn persists it and schedules an OIDC-authenticated Cloud Tasks job. SSE
+observes the durable event log; multiple tabs can observe and closing them does not cancel
+work. Stop signals the worker. Completed answers schedule a separate concept-enrichment job.
+See [agent-runtime.md](agent-runtime.md) for leases, fencing, dispatch retry and accounting.
 
-Closing the connection, navigating away, or shutting down the service interrupts the request.
-Partial replies and committed tool writes remain. Reconnect replays saved events; it never reruns
-an interrupted turn. Only one connection owns execution. A second simultaneous connection gets
-`stream.conflict`; reload after the owning connection finishes to read the saved result.
-
-An unopened submission expires after 60 seconds; a crashed running turn expires after its turn
-lease (timeout + 30 seconds). Stale records are marked interrupted on the next claim/submission,
-not by periodic background work. They are never automatically executed again. An in-flight
-provider request may still be billed and a database tool is drained before interruption completes.
+Closing the browser leaves the Cloud Tasks worker request running. Reconnection replays
+saved progress without a second provider call. A service crash leaves partial work and
+uncertain usage intact; expired execution leases become interrupted rather than being replayed.
+Queued work can wait up to an hour; execution leases last the configured timeout plus 30 seconds.
 
 ## Existing local data
 
@@ -261,7 +270,7 @@ against remote storage, so it cannot silently report a misleading remote cleanup
 2. Sign in with Google; reload the page and verify the session remains available.
 3. Send a chat; verify text and tool events arrive incrementally through the web service.
 4. Upload, read, and delete an image. A second account must receive 404 for its URL.
-5. Close a chat stream during generation; reopen and verify interruption with saved partial output.
+5. Close a chat stream during generation; reopen and verify the same worker continues, then test Stop.
 6. Revisit after a cold start. No local files or process memory should be required to restore data.
 
 Local automated checks cover the migrations, signed Supabase tokens (including wrong issuer,

@@ -48,6 +48,9 @@ class ChatTurn(BaseModel):
     credits_pending: bool = False
     cancel_requested: bool
     reply: str | None
+    response_document: dict | None = None
+    enrichment_status: str | None = None
+    enrichment_error: str | None = None
     error: str | None
     error_code: str | None = None
     tool_errors: list[ToolError] = Field(default_factory=list)
@@ -61,6 +64,8 @@ class ChatMessage(BaseModel):
 
     role: Literal["you", "atlas"]
     text: str
+    document: dict | None = None
+    turn_id: UUID | None = None
     credits_used: float | None = None
     credits_pending: bool = False
 
@@ -138,6 +143,12 @@ async def chat(request: ChatRequest, user_id: CurrentUserId, scope: SessionScope
         )
     except TurnConflict as error:
         raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from None
+    if row["status"] == "queued":
+        from app.agent.runtime import enqueue
+        try:
+            await asyncio.to_thread(enqueue, row["id"], user_id)
+        except Exception:
+            raise HTTPException(503, "The message is saved but could not be scheduled. Retry the same message.") from None
     return ChatTurn(**row)
 
 
@@ -194,11 +205,11 @@ async def history(session_id: str, user_id: CurrentUserId, scope: SessionScopeDe
         messages = messages[1:]
     visible = [ChatMessage(role=message.role, text=message.text) for message in messages]
     for row in rows:
-        visible.append(ChatMessage(role="you", text=row["message"],
+        visible.append(ChatMessage(role="you", text=row["message"], turn_id=row["id"],
             credits_used=row["credits_used"] if not row["reply"] else None,
             credits_pending=row["credits_pending"] if not row["reply"] else False))
         if row["reply"]:
-            visible.append(ChatMessage(role="atlas", text=row["reply"],
+            visible.append(ChatMessage(role="atlas", text=row["reply"], turn_id=row["id"], document=row.get("response_document"),
                 credits_used=row["credits_used"], credits_pending=row["credits_pending"]))
     totals = await asyncio.to_thread(UsageStore(scope, user_id, session_id).totals)
     account_usage = await asyncio.to_thread(UsageStore(scope, user_id).account_summary, get_settings())
@@ -256,3 +267,44 @@ async def usage(session_id: str, user_id: CurrentUserId, scope: SessionScopeDep)
     return AgentUsage(
         **asdict(totals), account_budget_microusd=get_settings().agent_account_budget_microusd
     )
+
+
+@router.get("/chat/{session_id}/turn/{turn_id}", response_model=list[ChatMessage])
+async def focused_turn(session_id: str, turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep):
+    row = await asyncio.to_thread(TurnStore(scope).get, user_id, turn_id)
+    if not row or row["session_id"] != session_id:
+        raise HTTPException(404, "turn not found")
+    result = [ChatMessage(role="you", text=row["message"], turn_id=turn_id)]
+    if row["reply"]:
+        result.append(ChatMessage(role="atlas", text=row["reply"], turn_id=turn_id, document=row.get("response_document")))
+    return result
+
+
+@router.post("/turns/{turn_id}/cancel", response_model=ChatTurn)
+async def cancel_turn(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep):
+    row = await asyncio.to_thread(TurnStore(scope).cancel, user_id, turn_id)
+    if not row:
+        raise HTTPException(404, "turn not found")
+    return ChatTurn(**row)
+
+
+@router.post("/turns/{turn_id}/enrich", response_model=ChatTurn)
+async def retry_enrichment(turn_id: UUID, user_id: CurrentUserId, scope: SessionScopeDep):
+    from sqlalchemy import select
+    from app.db.models import AgentTurn
+    def prepare():
+        with scope() as session:
+            row = session.scalar(select(AgentTurn).where(AgentTurn.id == turn_id, AgentTurn.user_id == user_id).with_for_update())
+            if not row:
+                raise HTTPException(404, "turn not found")
+            if row.status != "completed" or row.enrichment_status not in (None, "failed") or row.enrichment_attempts >= 3:
+                raise HTTPException(409, "This concept update cannot be retried.")
+            row.enrichment_status = "pending"
+            return row.enrichment_attempts
+    attempt = await asyncio.to_thread(prepare)
+    from app.agent.runtime import enqueue
+    try:
+        await asyncio.to_thread(enqueue, turn_id, user_id, "enrich", attempt)
+    except Exception:
+        raise HTTPException(503, "Concept update is saved but could not be scheduled.") from None
+    return ChatTurn(**(await asyncio.to_thread(TurnStore(scope).get, user_id, turn_id)))

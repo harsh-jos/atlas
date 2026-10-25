@@ -5,6 +5,11 @@ import { toolCallsFromEvents, type ToolEvent } from '@/lib/chat-activity';
 const TOOL_LABELS: Record<string, string> = {
   search_knowledge_base: 'Finding saved explanations',
   researcher: 'Checking sources',
+  generate_image: 'Creating and checking an illustration',
+  read_source_page: 'Reading source evidence',
+  calculate: 'Checking the calculation',
+  create_artifact: 'Building your artifact',
+  update_artifact: 'Revising your artifact',
   inspect_concept_graph: 'Looking at connected ideas',
   remember_concept: 'Keeping this idea',
   connect_concepts: 'Connecting ideas',
@@ -20,7 +25,7 @@ export function ChatActivity({ events, pending }: { events: ToolEvent[]; pending
   return (
     <div className="space-y-2" aria-label="Agent activity">
       {calls.length > 0 && (
-        <details className="rounded-lg border border-black/5 px-3 py-2 text-xs text-muted" open>
+        <details className="rounded-lg border border-black/5 px-3 py-2 text-xs text-muted" open={pending}>
           <summary className="cursor-pointer">Tool activity</summary>
           <ol className="mt-2 space-y-1.5" aria-live="polite">
             {calls.map((call) => {

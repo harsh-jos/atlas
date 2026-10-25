@@ -18,6 +18,9 @@ import { collectionFilterHref, parseSort } from '@/lib/collectionFilters';
 import type { ConceptPage } from '@/lib/api-types';
 import { cn } from '@/lib/utils';
 
+import { ChatMarkdown } from '@/components/chat/ChatMarkdown';
+import { ConceptDiscussions, type Discussion } from '@/components/collection/ConceptDiscussions';
+
 export const dynamic = 'force-dynamic';
 
 interface CollectionPageProps {
@@ -61,6 +64,7 @@ export default async function CollectionPage({
     `/concepts/${encodeURIComponent(slug)}/neighbourhood`,
   );
 
+  const discussions = await apiGetOrNull<Discussion[]>(`/concepts/${encodeURIComponent(slug)}/discussions`);
   const { concept, artifacts, tags, totalTags, matched, pageSize } = data;
   const totalPages = Math.max(1, Math.ceil(matched / pageSize));
   const rangeStart = matched === 0 ? 0 : (page - 1) * pageSize + 1;
@@ -81,6 +85,8 @@ export default async function CollectionPage({
         entryCount={concept.artifactCount}
       />
 
+      {concept.overview && <section className="my-6 max-w-3xl" aria-label="Concept explanation"><ChatMarkdown text={concept.overview}/></section>}
+      <ConceptDiscussions discussions={discussions ?? []}/>
       {graph && <ConceptConnections slug={slug} graph={graph} />}
 
       <div className="mb-5 flex flex-wrap items-center gap-2 border-b py-3.5">

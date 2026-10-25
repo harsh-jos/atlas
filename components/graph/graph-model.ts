@@ -3,11 +3,16 @@ import type { Graph, GraphNode, GraphLink } from '@/lib/api-types';
 export type RelationKind = GraphLink['relationType'];
 export const UNDIRECTED = new Set<RelationKind>([
   'related_to',
+  'contrasts_with',
   'SEE_ALSO',
   'CONTRASTS',
 ]);
 export const RELATION_LABELS: Record<RelationKind, string> = {
   requires: 'Builds on',
+  contrasts_with: 'Contrasts with',
+  uses: 'Uses',
+  part_of: 'Part of',
+  enables: 'Enables',
   related_to: 'Related to',
   explains: 'Explains',
   PART_OF: 'Part of',

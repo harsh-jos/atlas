@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import hashlib
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -18,6 +19,8 @@ from sqlalchemy import cast, func, select, literal
 from sqlalchemy.dialects.postgresql import JSONB, JSONPATH
 from google.adk.sessions.schemas.v1 import StorageEvent, StorageSession
 
+from app.agent.prompts import LEARNING_INSTRUCTION
+from app.agent.response import COMPONENT_INSTRUCTION
 from app.agent.usage import AgentLimitReached
 from app.core.config import get_settings
 from app.core.errors import AppError
@@ -196,7 +199,10 @@ async def ask(
                 run_config=RunConfig(
                     streaming_mode=StreamingMode.SSE,
                     max_llm_calls=settings.agent_max_calls_per_turn + 1,
-                    custom_metadata={"atlas_turn_id": turn_id} if turn_id else None,
+                    custom_metadata={"atlas_turn_id": turn_id,
+                                     "prompt_hash": hashlib.sha256((LEARNING_INSTRUCTION + COMPONENT_INSTRUCTION).encode()).hexdigest()[:16],
+                                     "build": os.environ.get("K_REVISION", "local"),
+                                     "response_schema": 1} if turn_id else None,
                 ),
             ):
                 if on_event:

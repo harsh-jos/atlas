@@ -8,7 +8,7 @@ from uuid import UUID
 from google.adk.tools import ToolContext
 
 from app.agent import knowledge
-from app.agent.context import CONTEXT_KEY, PREFERENCES_KEY, bounded_context
+from app.agent.context import CONTEXT_KEY, PREFERENCES_KEY
 from app.db.base import SessionScope
 from app.search import search_artifacts
 from app.storage.quota import QuotaExceeded
@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 def build_toolkit(
-    scope: SessionScope, user_id: UUID, *, on_event: Callable[[dict], Awaitable[None]] | None = None
+    scope: SessionScope, user_id: UUID, *, session_id: str = "", turn_id: str = "", on_event: Callable[[dict], Awaitable[None]] | None = None
 ) -> list[Callable]:
     async def tool_error(name: str, code: str, message: str) -> dict:
         if on_event:
@@ -85,43 +85,6 @@ def build_toolkit(
                 tool_context.state[CONTEXT_KEY] = {}
         return result
 
-    async def update_learning_context(
-        question: str, background: str, confusion: str, next_connection: str,
-        tool_context: ToolContext,
-    ) -> dict:
-        """Replace compact conversation notes when the question or stated background changes.
-
-        Record only the current question, stated background, unresolved confusion, and at most
-        one optional connection. Empty strings clear fields. No private reasoning, sensitive
-        personal data, mastery claims, or curriculum. Do not call on every narrow follow-up.
-        Limits in characters: question 500, background/confusion 1000 each, next_connection 500.
-        """
-        result = await execute(knowledge.require_memory)
-        if "error" in result:
-            return result
-        try:
-            notes = bounded_context({"question": question, "background": background,
-                                     "confusion": confusion, "next_connection": next_connection})
-        except ValueError as error:
-            return await tool_error("update_learning_context", "invalid_tool_input", str(error))
-        tool_context.state[CONTEXT_KEY] = notes
-        return {"updated": True}
-
-    async def remember_concept(name: str, description: str) -> dict:
-        """Keep one concept actually explored, with a short plain-language description.
-
-        Reuses an existing concept. Do not populate a curriculum or infer mastery.
-        """
-        return await execute(knowledge.remember_concept, name, description)
-
-    async def connect_concepts(from_slug: str, to_slug: str, kind: str, note: str) -> dict:
-        """Connect two existing concepts with a specific reason.
-
-        kind is 'requires' (from needs to as a prerequisite) or symmetric 'related_to'.
-        Use only meaningful connections supported by this exploration; duplicates are reused.
-        """
-        return await execute(knowledge.connect_concepts, from_slug, to_slug, kind, note)
-
     async def remove_concept_connection(
         connection_id: str, tool_context: ToolContext, user_requested: bool = False
     ) -> dict:
@@ -142,40 +105,70 @@ def build_toolkit(
         """Read an owned explanation and its revision timestamp before using or revising it."""
         return await execute(knowledge.read_explanation, slug)
 
-    async def save_explanation(
-        concept_slug: str, title: str, summary: str, body: str, source_urls: list[str],
-        user_requested: bool = False,
-    ) -> dict:
-        """Save a standalone Markdown answer only when the user asks or has agreed to saving.
+    async def create_artifact(concept_name: str, title: str, summary: str, content: str, kind: str = "components", source_urls: list[str] | None = None, user_requested: bool = False) -> dict:
+        """Save a reusable learning artifact when requested or automatic saving is agreed.
 
-        Set user_requested only for an explicit one-time request; otherwise the stored
-        auto_save preference must be enabled. Reuse source URLs actually retrieved.
-        Same concept and title reuses the existing explanation without overwriting it.
-        Return the reader URL to the user after success.
+        kind: markdown, components (same inline atlas component syntax), or simulation
+        (self-contained HTML/CSS/JS in a sandbox, no network or host access). Include all
+        necessary reasoning; use actual source URLs. Return the artifact URL after saving.
+        Set user_requested only for an explicit save/create request. A simulation needs
+        working controls, visible assumptions, and a useful explanation. No external scripts.
         """
-        return await execute(
-            knowledge.save_explanation, concept_slug, title, summary, body, source_urls, user_requested
-        )
+        from app.agent.artifacts import create
+        return await execute(create, concept_name, title, summary, content, kind, source_urls or [], user_requested, session_id, turn_id)
 
-    async def revise_saved_explanation(
-        slug: str, expected_updated_at: str, body: str, summary: str, user_requested: bool = False
-    ) -> dict:
-        """Revise an explanation when asked, after reading its current text and timestamp.
+    async def update_artifact(slug: str, expected_updated_at: str, content: str, summary: str, kind: str, user_requested: bool = False) -> dict:
+        """Revise an owned artifact after reading it. Preserves immutable prior revisions.
 
-        Set user_requested only for an explicit request; otherwise auto_save must be enabled.
-        Preserve relevant source citations and useful context. A stale timestamp rejects the edit.
+        Supply the timestamp returned by read_saved_explanation. Stale edits are rejected.
+        kind is markdown, components, or simulation. Only revise when requested or agreed.
         """
-        return await execute(knowledge.revise_explanation, slug, expected_updated_at, body, summary, user_requested)
+        from app.agent.artifacts import revise
+        return await execute(revise, slug, expected_updated_at, content, summary, kind, user_requested)
+
+    async def generate_image(teaching_goal: str, factual_brief: str, composition: str, labels: list[str], aspect_ratio: str = "4:3") -> dict:
+        """Generate and visually review one calm teaching illustration, embedded in this reply.
+
+        Prefer native diagrams for exact graphs, formulas, code traces or plots. Describe
+        what the reader should see and the factual constraints. At most two generations
+        per turn, including rejected attempts. Only embed a returned reviewed assetId.
+        This stores inline chat media, not a standalone library artifact.
+        """
+        from app.agent.images import create_image
+        if not turn_id or not session_id:
+            return await tool_error("generate_image", "missing_turn", "An active turn is required.")
+        try:
+            return await create_image(scope, user_id, session_id, turn_id, teaching_goal, factual_brief, composition, labels, aspect_ratio)
+        except Exception as error:
+            failure = describe(error)
+            report(log, error, failure.code, tool="generate_image")
+            return await tool_error("generate_image", failure.code, str(error) if isinstance(error, (ValueError, QuotaExceeded)) else "Image generation could not finish. Continue with a native diagram or prose.")
+
+    async def read_source_page(url: str) -> dict:
+        """Read a public HTTPS source page to verify claims; returns bounded untrusted text."""
+        from app.agent.utilities import read_source
+        try:
+            return await asyncio.to_thread(read_source, url)
+        except Exception:
+            return await tool_error("read_source_page", "source_unavailable", "This source could not be read. Do not claim its contents were verified.")
+
+    async def calculate(expression: str) -> dict:
+        """Evaluate a small numeric arithmetic expression (+ - * / ** %), without executing code."""
+        from app.agent.utilities import calculate as arithmetic
+        try:
+            return arithmetic(expression)
+        except (ValueError, SyntaxError, ArithmeticError):
+            return await tool_error("calculate", "invalid_calculation", "Supply finite numeric arithmetic using + - * / ** % only.")
 
     return [
+        generate_image,
+        read_source_page,
+        calculate,
         search_knowledge_base,
         inspect_concept_graph,
         set_learning_preferences,
-        update_learning_context,
-        remember_concept,
-        connect_concepts,
         remove_concept_connection,
         read_saved_explanation,
-        save_explanation,
-        revise_saved_explanation,
+        create_artifact,
+        update_artifact,
     ]

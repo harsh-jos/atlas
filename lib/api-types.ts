@@ -1,3 +1,4 @@
+import type { LearningDocument } from '@/lib/learning-response';
 /** Wire shapes returned by the Python API. Mirrors app/api/library.py. */
 
 export type RelationType = 'PART_OF' | 'USES' | 'PREREQUISITE' | 'CONTRASTS' | 'SEE_ALSO';
@@ -93,6 +94,7 @@ export interface SearchHit {
 }
 
 export interface GraphNode {
+  discussions?: {question:string;turnId:string;url:string}[];
   nodeKind: 'concept' | 'explanation';
   id: string;
   title: string;
@@ -105,7 +107,7 @@ export interface GraphNode {
 export interface GraphLink {
   source: string;
   target: string;
-  relationType: RelationType | 'requires' | 'related_to' | 'explains';
+  relationType: RelationType | 'requires' | 'related_to' | 'explains' | 'contrasts_with' | 'uses' | 'part_of' | 'enables';
   note: string | null;
   origin: Origin;
 }
@@ -119,6 +121,8 @@ export interface Graph {
 export type ChatModel = 'gemini-4-argon' | 'gemini-3.8-flash' | 'gemini-3.7-flash' | 'gemini-3.6-flash';
 
 export interface ChatMessage {
+  turnId?: string;
+  document?: LearningDocument | null;
   creditsUsed?: number | null;
   creditsPending?: boolean;
   role: 'you' | 'atlas';
@@ -150,6 +154,9 @@ export interface ChatHistory {
 }
 
 export interface ChatTurn {
+  enrichmentStatus?: string | null;
+  enrichmentError?: string | null;
+  responseDocument?: LearningDocument | null;
   model: ChatModel | null;
   creditsUsed: number | null;
   creditsPending: boolean;

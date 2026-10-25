@@ -58,12 +58,26 @@ class Settings(BaseSettings):
     agent_model: str = "gemini-4-argon"
     agent_search_model: str = "gemini-4-argon"
     agent_app_name: str = "atlas"
+    agent_extraction_model: str = "gemini-3.8-flash"
+    agent_enrichment_enabled: bool = True
+    agent_image_model: str = "gemini-3.1-flash-image"
+    agent_image_review_model: str = "gemini-3.8-flash"
+    agent_max_images_per_turn: int = Field(default=2, ge=0, le=2)
+    agent_image_timeout_seconds: int = Field(default=150, ge=10, le=300)
 
     # Loop guards, not lesson-length targets. Both guide and research calls count.
-    agent_max_calls_per_turn: int = Field(default=12, ge=1, le=100)
+    agent_max_calls_per_turn: int = Field(default=20, ge=1, le=100)
     agent_max_research_per_turn: int = Field(default=3, ge=0, le=20)
     agent_max_request_bytes: int = Field(default=2_000_000, ge=1024)
-    agent_turn_timeout_seconds: int = Field(default=300, ge=1, le=1800)
+    agent_turn_timeout_seconds: int = Field(default=900, ge=1, le=1500)
+    agent_execution_backend: Literal["local", "cloud_tasks"] = "local"
+    agent_worker_concurrency: int = Field(default=2, ge=1, le=8)
+    agent_queue_timeout_seconds: int = Field(default=3600, ge=60, le=86400)
+    agent_tasks_project: str | None = None
+    agent_tasks_location: str = "asia-south1"
+    agent_tasks_queue: str = "atlas-agent"
+    agent_tasks_service_account: str | None = None
+    agent_tasks_api_url: str | None = None
     agent_max_active_turns: int = Field(default=100, ge=1)
     agent_max_active_turns_per_user: int = Field(default=3, ge=1)
     # Admission guard in millionths of USD. Zero explicitly disables it.

@@ -21,7 +21,7 @@ from app.api.library import get_artifact as artifact_detail
 from app.auth.deps import CurrentUser, CurrentUserId, SessionDep
 from app.agent.knowledge import lock_owner
 from app.core.enums import RelationType, SourceType
-from app.db.models import Artifact, Concept, Relation, Source, User
+from app.db.models import Artifact, ArtifactRevision, Concept, Relation, Source, User
 from app.db.repository import OwnedRepository
 from app.storage.quota import text_bytes
 from app.storage.quota import QuotaExceeded, QuotaService
@@ -150,7 +150,15 @@ def update_artifact(
         _found(ConceptRepository(session, user.id).get(fields["concept_id"]), "concept")
     after = _cost(fields.get("body", artifact.body), fields.get("summary", artifact.summary))
     _charge(session, user, after - _cost(artifact.body, artifact.summary))
+    from app.agent.artifacts import record_revision
+    from app.agent.response import document
+    try:
+        record_revision(session, artifact)
+    except QuotaExceeded as error:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, str(error)) from None
     _apply(artifact, fields)
+    if (artifact.meta or {}).get("kind") in {"components", "markdown"}:
+        artifact.meta = {**artifact.meta, "document": document(artifact.body or ""), "revision": artifact.meta.get("revision", 1) + 1}
     session.flush()
     return artifact_detail(slug, session, user.id)
 
@@ -160,7 +168,8 @@ def delete_artifact(slug: str, session: SessionDep, user: CurrentUser) -> None:
     user = lock_owner(session, user.id)
     artifacts = ArtifactRepository(session, user.id)
     artifact = _found(artifacts.by_slug(slug), "artifact")
-    _charge(session, user, -_cost(artifact.body, artifact.summary))
+    revision_bytes = session.scalar(select(func.coalesce(func.sum(ArtifactRevision.size), 0)).where(ArtifactRevision.user_id == user.id, ArtifactRevision.artifact_id == artifact.id))
+    _charge(session, user, -(_cost(artifact.body, artifact.summary) + revision_bytes))
     artifacts.delete(artifact)
 
 
@@ -171,6 +180,9 @@ def update_concept(
     lock_owner(session, user_id)
     concept = _found(ConceptRepository(session, user_id).by_slug(slug), "concept")
     _apply(concept, patch.model_dump(exclude_unset=True))
+    if {"overview", "description"} & patch.model_fields_set:
+        concept.overview_generated = False
+        concept.enrichment_locked = True
     session.flush()
     return _concept_detail(concept, _artifact_count(session, concept))
 
@@ -187,7 +199,8 @@ def delete_concept(slug: str, session: SessionDep, user: CurrentUser) -> None:
             + func.octet_length(func.coalesce(Artifact.summary, ""))
         ), 0)).where(Artifact.user_id == user.id, Artifact.concept_id == concept.id)
     )
-    _charge(session, user, -size)
+    revision_bytes = session.scalar(select(func.coalesce(func.sum(ArtifactRevision.size), 0)).join(Artifact, Artifact.id == ArtifactRevision.artifact_id).where(Artifact.user_id == user.id, Artifact.concept_id == concept.id))
+    _charge(session, user, -(size + revision_bytes))
     session.execute(delete(Concept).where(Concept.id == concept.id, Concept.user_id == user.id))
 
 

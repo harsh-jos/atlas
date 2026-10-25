@@ -371,8 +371,8 @@ def test_learning_context_survives_reopening_without_leaking_to_another_chat(
         return agent
 
     async def run():
-        first = guide([call_tool("update_learning_context", **notes), answer("A cache reuses results.")])
-        await sessions_module.ask(first, "u1", "s1", "Explain caching. I know dictionaries.")
+        first = guide([answer("A cache reuses results.")])
+        await sessions_module.ask(first, "u1", "s1", "Explain caching. I know dictionaries.", state_delta={CONTEXT_KEY: notes})
         saved = await local_sessions.get_session(app_name=agent_settings.agent_app_name, user_id="u1", session_id="s1")
         assert saved.state[CONTEXT_KEY] == notes
         reopened = guide([answer("We explored reuse.")])
@@ -401,8 +401,6 @@ def test_preference_tool_clears_notes_and_blocks_subsequent_memory_tools(
     agent = build_agent(build_toolkit(store.scope, store.user_id), RequestLimits(store, agent_settings))
     agent.model = ScriptedModel(responses=[
         call_tool("set_learning_preferences", memory_enabled=False),
-        call_tool("update_learning_context", question="Must not persist", background="", confusion="", next_connection=""),
-        call_tool("remember_concept", name="Must not persist", description="Blocked before any concept query."),
         answer("Concept memory is off. Chat history still persists."),
     ])
 
@@ -414,7 +412,8 @@ def test_preference_tool_clears_notes_and_blocks_subsequent_memory_tools(
         assert saved.state.get(PREFERENCES_KEY, {}).get("memory_enabled", False) is False
         responses = [part.function_response.response for content in agent.model.requests[-1].contents
                      for part in content.parts or [] if part.function_response]
-        assert sum("disabled" in str(result) for result in responses) == 2
+        assert any("memory_enabled" in str(result) for result in responses)
+        assert not {"remember_concept", "connect_concepts", "update_learning_context"} & {t.__name__ for t in build_toolkit(store.scope, store.user_id)}
         assert "Old notes" not in current_context(agent.model.requests[-1])
         with store.scope() as db:
             persisted = preferences(db, store.user_id)
@@ -443,7 +442,6 @@ def test_context_bounds_and_connection_inspection_fail_explicitly(
 
     agent = build_agent(build_toolkit(store.scope, store.user_id, on_event=capture), RequestLimits(store, agent_settings))
     agent.model = ScriptedModel(responses=[
-        call_tool("update_learning_context", question="x" * 501, background="", confusion="", next_connection=""),
         call_tool("remove_concept_connection", connection_id="unseen", user_requested=True),
         call_tool("remove_concept_connection", connection_id="unseen"),
         answer("No changes were made."),
@@ -456,10 +454,12 @@ def test_context_bounds_and_connection_inspection_fail_explicitly(
 
     asyncio.run(run())
     errors = [event for event in events if event["type"] == "agent.tool_error"]
-    assert len(errors) == 3
-    assert "500" in errors[0]["message"]
-    assert "Inspect" in errors[1]["message"]
-    assert "user request" in errors[2]["message"]
+    from app.agent.context import bounded_context
+    with pytest.raises(ValueError, match="500"):
+        bounded_context({"question": "x" * 501})
+    assert len(errors) == 2
+    assert "Inspect" in errors[0]["message"]
+    assert "user request" in errors[1]["message"]
 
 
 @pytest.mark.parametrize("cached", [None, 0, 80])

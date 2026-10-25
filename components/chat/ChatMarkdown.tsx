@@ -7,6 +7,9 @@ import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 
+import { LearningVisual } from '@/components/learning/LearningVisual';
+import { parseLearningResponse, validVisual, type LearningDocument } from '@/lib/learning-response';
+
 const COPIED_RESET_MS = 1500;
 
 // A fenced block is a <code> that either carries a language class or spans lines —
@@ -126,17 +129,18 @@ const chatMarkdownComponents: Components = {
 
 export interface ChatMarkdownProps {
   text: string;
+  document?: LearningDocument | null;
+  responseId?: string;
 }
 
-/** Renders assistant replies as markdown — GFM tables/strikethrough, math, fenced code with copy. */
-export function ChatMarkdown({ text }: ChatMarkdownProps) {
-  return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex]}
-      components={chatMarkdownComponents}
-    >
-      {text}
-    </ReactMarkdown>
-  );
+function Markdown({text}: {text: string}) {
+  return <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]} components={chatMarkdownComponents}>{text}</ReactMarkdown>;
+}
+
+/** A single response can interleave prose and validated native learning components. */
+export function ChatMarkdown({ text, document, responseId }: ChatMarkdownProps) {
+  const parsed = document?.schemaVersion === 1 ? document : parseLearningResponse(text);
+  return <div>{parsed.blocks.map(block => <div key={block.id} id={responseId ? `${responseId}-${block.id}` : undefined} data-block-id={block.id}>
+    {block.type === 'markdown' ? <Markdown text={block.text}/> : validVisual(block.component) ? <LearningVisual visual={block.component} stateKey={`atlas-visual:${responseId??"preview"}:${block.id}`} renderMarkdown={value => <Markdown text={value}/>}/> : <Markdown text={'This visual could not be displayed.'}/>}
+  </div>)}{/^```atlas[^\n]*(?:\n|$)/m.test(text) && !/\n```\s*$/.test(text) && text.lastIndexOf('```atlas') > text.lastIndexOf('\n```') && <p role="status" className="my-3 animate-pulse text-sm text-muted">Building illustration…</p>}</div>;
 }

@@ -1,3 +1,5 @@
+import { InteractiveArtifact, ComponentArtifact, ArtifactActions } from '@/components/entry/InteractiveArtifact';
+import type { LearningDocument } from '@/lib/learning-response';
 import Link from 'next/link';
 import { Calendar, ChevronLeft, Clock, Link2 } from 'lucide-react';
 import type { ArtifactDetail, Relation } from '@/lib/api-types';
@@ -133,6 +135,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
                 )}
               </div>
 
+              <ArtifactActions slug={artifact.slug} sessionId={typeof artifact.metadata?.session_id === 'string'?artifact.metadata.session_id:undefined} turnId={typeof artifact.metadata?.turn_id === 'string'?artifact.metadata.turn_id:undefined}/>
               <EntryLineage prerequisites={prerequisites} enables={enables} />
             </header>
 
@@ -151,7 +154,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
               id={BODY_ID}
               className="entry-body min-w-0 max-w-[var(--reading-measure)]"
             >
-              {artifact.bodyHtml?.trim() ? (
+              {artifact.metadata?.runtime === 'sandbox-v1' ? <InteractiveArtifact html={artifact.bodyHtml || artifact.body || ''} summary={artifact.summary}/> : artifact.metadata?.kind === 'components' ? <ComponentArtifact slug={artifact.slug} body={artifact.body} document={artifact.metadata?.document as LearningDocument | null}/> : artifact.bodyHtml?.trim() ? (
                 <HtmlBody html={artifact.bodyHtml} />
               ) : (
                 <MarkdownBody body={artifact.body} />

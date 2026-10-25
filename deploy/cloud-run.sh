@@ -22,15 +22,25 @@ if [[ -z "${API_IMAGE:-}" && -z "${WEB_IMAGE:-}" ]]; then
 fi
 : "${API_IMAGE:?Set both API_IMAGE and WEB_IMAGE, or neither}"
 : "${WEB_IMAGE:?Set both API_IMAGE and WEB_IMAGE, or neither}"
+# Resolve infrastructure prerequisites before changing the live schema or API revision.
+# API enablement and IAM grants are administrator setup; CI does not broaden its own roles.
+# Durable HTTP jobs use OIDC; the worker endpoint validates this exact service identity.
+if ! gcloud tasks queues describe atlas-agent --project "$PROJECT_ID" --location "$REGION" >/dev/null 2>&1; then
+  gcloud tasks queues create atlas-agent --project "$PROJECT_ID" --location "$REGION" \
+    --max-concurrent-dispatches 4 --max-dispatches-per-second 2 --max-attempts 8 --min-backoff 5s --max-backoff 120s
+fi
 # Only run after both images have built and published successfully.
 "$ATLAS_DEPLOY_PYTHON" deploy/runtime_config.py
 gcloud run deploy atlas-api --project "$PROJECT_ID" --region "$REGION" \
   --image "$API_IMAGE" --service-account "$RUNTIME_SERVICE_ACCOUNT" \
   --env-vars-file "$BACKEND_ENV_FILE" --allow-unauthenticated --port 8080 \
-  --timeout 600s --concurrency 4 --min-instances 0 --max-instances 1 \
+  --timeout 1800s --concurrency 8 --min-instances 0 --max-instances 1 \
   --cpu 1 --memory 1Gi --cpu-throttling \
   --startup-probe httpGet.path=/healthz,httpGet.port=8080,initialDelaySeconds=0,periodSeconds=10,timeoutSeconds=5,failureThreshold=12
 API_URL="$(gcloud run services describe atlas-api --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
+gcloud run services update atlas-api --project "$PROJECT_ID" --region "$REGION" \
+  --update-env-vars "AGENT_EXECUTION_BACKEND=cloud_tasks,AGENT_TASKS_PROJECT=${PROJECT_ID},AGENT_TASKS_LOCATION=${REGION},AGENT_TASKS_QUEUE=atlas-agent,AGENT_TASKS_API_URL=${API_URL},AGENT_TASKS_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT}"
+
 gcloud run deploy atlas-web --project "$PROJECT_ID" --region "$REGION" \
   --image "$WEB_IMAGE" --service-account "$RUNTIME_SERVICE_ACCOUNT" \
   --env-vars-file "$WEB_ENV_FILE" --allow-unauthenticated --port 8080 \

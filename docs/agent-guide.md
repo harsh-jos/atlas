@@ -1,142 +1,107 @@
-# Atlas agent: behaviour, tools, and memory
+# Atlas agent: explanations, components, tools, and memory
 
-The product contract is [product.md](product.md). The active agent is an expert guide for
-one useful question at a time. It chooses a sensible entry, explains a mechanism with a
-concrete example, follows detours, and leaves the person free to stop. A chat need not
-produce a document. The Atlas skill informed this teaching approach; its HTML artifact
-workflow is not part of the application agent.
+Updated 25 October 2026. The runtime remains Google ADK with Gemini and a Next.js frontend.
+The guide answers the actual question, establishes the current baseline before history, and
+carries a concrete example through the mechanism. Depth follows the task rather than word or
+heading quotas. Optional detail can expand without fragmenting the central explanation.
 
-## Prompt and execution
+## Inline responses
 
-`backend/app/agent/prompts.py` separates teaching, platform, and research instructions.
-Domain-specific counterexamples belong in `backend/tests/agent_scenarios.json`, not in
-rules that every topic must carry. User-facing text uses clear technical English informed
-by ASD-STE100 principles, without claiming formal compliance or certification.
+`agent/response.py` defines the versioned document and bounded Pydantic component schemas.
+The guide writes ordinary Markdown interleaved with fenced `atlas` JSON objects. The frontend
+validates these into native React components; it never evaluates generated component code.
+This keeps the existing agent/provider and avoids a second visualization model or an entire
+chat-framework migration. The same blocks render in chat and reusable component artifacts.
 
-The 24 October prompt rewrite makes substantial answers longer and more structured by
-default. A broad first explanation has a flexible guide of 600–1000 words and 4–6 meaningful
-sections; a focused mechanism or procedure often needs 300–600 words and 2–4 sections.
-These are editorial guides, not enforced minimums or output-token limits. Explicit user
-constraints take precedence, and narrow follow-ups and action acknowledgements stay brief.
-The guide develops mechanisms, worked examples, assumptions, and useful consequences.
-Investigation, comparison, and practical-skill requests have different structures.
-See [the rewrite notes](agent-prompt-rewrite-2026-10-24.md) for sources and verification limits.
+Available components:
 
-The guide and its focused researcher use the configured Gemini models through Google ADK.
-The request-owned SSE execution, persisted turns, ownership, quotas, revision checks,
-and request/spending guards remain in place. There is no additional planning model or
-code execution tool. No automatic model retry was added.
+- `diagram`: selectable nodes and labelled dependencies, with a readable detail panel.
+- `stepper` and `worked-example`: meaningful intermediate steps, optional code, and follow-up.
+- `compare`: aligned criteria across two to four alternatives.
+- `plot`: a degree-six-or-lower polynomial with an input slider, value and local derivative.
+- `image`: an owned image asset, accessible description and caption.
+- `details`: expandable supporting Markdown.
 
-At the start of each turn, the backend reads the owner's current preferences from the
-application database. The dynamic instruction receives these preferences and a bounded
-set of notes from that conversation. This does not need an extra model request.
-The notes contain the current question, stated background, unresolved confusion, and
-one possible next connection. They contain no private reasoning or mastery assessment.
-`update_learning_context` replaces them when the conversation materially changes; it is
-not required on every follow-up. Existing chat history is not compacted by this feature.
+Every component needs a title and useful text fallback. Native controls run locally, retain
+state across reloads in browser session storage, and can send a focused question to the composer.
+Selecting an explanatory passage offers a contextual question. These actions prepare a draft;
+the person submits it. Copy/text export includes the substantive visual text, not raw JSON.
 
-## Tools available to the guide
+The canonical response is persisted on its turn; the raw provider answer remains available for
+history and model context. Component IDs and turn IDs support exact conversation destinations,
+including turns outside the normal history page. Invalid/unfinished blocks never expose their
+raw payload as the explanation.
+
+## Tools
 
 | Tool | Contract |
 | --- | --- |
-| `researcher` | Uses Google Search for one specific question. Returns evidence, assumptions, examples, and URLs. Shares the guide's request/spending limits. |
-| `search_knowledge_base` | Searches the owner's saved explanations. A result is evidence of prior exposure, not understanding. |
-| `read_saved_explanation` | Reads owned text, sources, reader URL, and revision timestamp. Indicates truncation. Read before revision; do not overwrite a truncated body. |
-| `inspect_concept_graph` | Reads recent concepts or a neighbourhood with at most 20 connections and 10 explanations. Records the inspected connection IDs for this invocation. |
-| `remember_concept` | Creates or reuses an explored concept. Blocked when concept memory is disabled. |
-| `connect_concepts` | Connects existing owned concepts with `requires` or symmetric `related_to`. Reuses duplicates. Blocked when memory is disabled. |
-| `remove_concept_connection` | Removes an owned connection after inspection in the current invocation and an explicit request declaration. Does not delete concepts or explanations. |
-| `save_explanation` | Saves a standalone Markdown answer and sources. Requires a one-time request declaration or stored saving agreement. Returns a reader link. Duplicate concept/title pairs reuse the existing answer. |
-| `revise_saved_explanation` | Revises with the timestamp returned by a read. Requires a request declaration or saving agreement. Rejects stale edits and preserves storage quota accounting. |
-| `set_learning_preferences` | Changes only requested preferences across the owner's chats. Omitted fields remain unchanged. Turning memory off clears this conversation's current notes. |
-| `update_learning_context` | Replaces this conversation's notes. Question/next connection: at most 500 characters each; background/confusion: at most 1000 each. Blocked when memory is disabled. |
+| `researcher` | Focused grounded research with source URLs, scope, and counterexamples. |
+| `search_knowledge_base` | Search owned saved explanations; exposure does not imply mastery. |
+| `inspect_concept_graph` | Bounded neighbourhood/recent concepts; records inspected edges. |
+| `read_saved_explanation` | Read content, kind, metadata, sources and timestamp before reuse/revision. |
+| `read_source_page` | Bounded public HTTPS reading, public-address validation and pinned DNS/TLS connection; retrieved content is untrusted. |
+| `calculate` | Bounded numeric arithmetic via an AST allowlist; no arbitrary code, imports or functions. |
+| `generate_image` | Bounded Nano Banana generation followed by a separately metered visual review. Only approved images become private assets. |
+| `create_artifact` | Save Markdown, component documents or self-contained HTML simulations when requested/agreed. |
+| `update_artifact` | Revise after reading, with optimistic timestamp checks and immutable prior snapshots. |
+| `set_learning_preferences` | Change only explicitly requested memory/saving preferences. |
+| `remove_concept_connection` | Explicitly requested removal of an owned edge inspected in this invocation. |
 
-`requires` points from an idea to its prerequisite. `explains` is derived from an
-explanation's concept membership, not created by the concept-connection tool.
-A connection is orientation, never a mandatory next lesson.
+Routine remember/connect/context tools have been removed from the guide's exposed toolset.
+They are replaced by post-answer structured enrichment, not additional conversational model turns.
+No arbitrary Python execution or external-script simulation dependency is exposed.
 
-## Preferences and consent
+## Images and artifacts
 
-The defaults are `memory_enabled=true` and `auto_save=false`. They are stored on the
-owned user record, so new chats and process restarts retain the choices. Every concept
-or connection write reads the current database preference under the owner's write lock.
-The context tool also checks the database before updating session notes.
+Default image model: `gemini-3.1-flash-image`; configurable via `AGENT_IMAGE_MODEL`.
+`gemini-nano-banana-2.1` is also priced by the ledger. Review and extraction default to
+`gemini-3.8-flash`. Actual project/model access requires a provider smoke check before rollout.
 
-A request such as “do not remember concepts or learning notes” disables concept,
-connection, and note writes. The injected notes are hidden in other chats while memory
-is disabled. Existing records and chat history are not erased. To remove an existing
-connection, the person can request the removal even while memory is disabled.
+The backend supplies calm colours, whitespace, legible labels and a factual teaching brief.
+A vision model checks the generated pixels against that brief before private storage. Rejected
+attempts count toward the allowance. A failed image must not prevent a useful answer. Use native
+components for exact graphs, plots and code traces. Review is a quality check, not a correctness guarantee.
 
-Saving explanations is a separate preference. “Keep this” allows one save; it does not
-enable automatic saving. “Save useful explanations automatically” enables the continuing
-agreement. Revocation blocks later automatic saves and revisions. Explicit saves and
-revisions remain available for existing concepts while concept memory is disabled.
-A new concept cannot be created while memory is disabled; the agent must respect that
-choice rather than silently override it to save an explanation.
+Artifacts save the same response components or a standalone explanation. Downloads export
+Markdown, component JSON or HTML; the reader also supports browser print/save PDF. Revision
+snapshots consume storage quota and are released with their parent artifact. Source conversation
+links and sources are retained. Existing ordinary HTML continues through the sanitizer.
 
-The code rejects a save or revision unless `user_requested=true` or the stored saving
-agreement is enabled. Removal requires `user_requested=true` and a previously inspected
-connection ID. **The model still interprets the human request and declares consent.**
-These checks are not an independent semantic consent verifier. Preference changes are
-also interpreted by the model. Do not describe this as a separate human approval system.
+Executable simulations have a distinct `sandbox-v1` runtime: opaque-origin iframe, no host bridge,
+external scripts, subresource network access, workers or forms. They start only when clicked and
+have Stop/Restart controls and a one-minute playback timer. This browser sandbox does not provide
+server-side code execution or a process-level CPU limit. Network-independent simulation code
+must be self-contained. Exported HTML is intended for standalone use outside the app's sandbox.
 
-Tool failures, including context-length and removal-policy failures, emit durable tool
-error events. Writes commit before reporting success. A failed later model request does
-not undo an already committed preference change or save.
+## Concept enrichment and provenance
 
-## Verification and rollout
+Completed explanations schedule one structured extractor with bounded existing concept candidates,
+prior conversation notes and the canonical answer. It selects substantive ideas, resolves names and
+aliases, and supplies exact block excerpts. Commit validation rejects unsupported excerpts, unknown
+edge endpoints, self-links and unsupported relationship kinds. Each edge requires textual evidence.
+This establishes grounding/structure, not an independent proof of semantic truth.
 
-Apply the new migration through the existing deployment bootstrap before starting the
-updated backend: from `backend/`, run `uv run python -m app.db.bootstrap`.
-This adds two preference columns with defaults for existing owners. No existing graph,
-explanation, or chat data is rewritten. Working notes use the existing ADK session store.
+Nodes can have developed overviews, examples and qualifications. Generated overviews are revisioned;
+human overview/description edits lock enrichment from overwriting them. Existing aliases and optimistic
+timestamps reduce duplicate concepts and lost updates. There is no fixed node quota or mastery score.
 
-The implementation check on 10 October 2026 passed 182 backend tests with no skips,
-including fresh/repeated migrations and schema-drift checks. Ruff, frontend lint,
-TypeScript, and diff whitespace checks passed. Scripted ADK runs cover note persistence,
-chat isolation, opt-out, blocked memory tools, bounded notes, and removal guards.
-PostgreSQL checks cover preference defaults, ownership, consent/revocation, and graph writes.
+Concept connections support directed `requires`, `uses`, `part_of`, `enables`, and symmetric
+`related_to`, `contrasts_with`. Artifact membership derives `explains`. Graph inspectors and concept
+pages show supporting conversations. These are private owned links to exact turns/blocks.
 
-No live Gemini evaluation was run for the initial harness increment. Scripted responses verify the harness,
-not teaching quality. Live scenarios now include memory choices, saving agreements,
-and a DNS exploration alongside the existing PyTorch regressions. Use the evaluation
-command in the README with a dedicated test account, and inspect persisted effects as
-well as the prose. Existing strict-currency-cap and release-checklist gaps remain.
+## Preferences and operations
 
-## Prompt caching
+Memory defaults on, automatic library saving off. Enrichment rechecks memory under the owner lock.
+Turning memory off prevents new concept/connection/context writes; it does not erase chats or prior
+records. Inline media is persisted chat content, separate from promoting an artifact into the library.
 
-The guide's fixed teaching/platform rules use ADK `static_instruction`. The researcher
-also uses a static instruction. Preferences and conversation notes use the guide's dynamic
-`instruction`, which ADK sends as request content. Tests verify that changing notes leaves
-the system instruction unchanged. This prepares stable content for provider implicit
-caching; it does not create an explicit cache or guarantee a cache hit.
+A one-time save request does not establish continuing agreement. Tools require `user_requested=true`
+or the stored agreement. The model interprets the request; this is not an independent semantic consent
+verifier. An explicitly requested artifact may create its necessary library grouping while concept-memory
+extraction is off. The person can inspect, revise, export and delete saved artifacts.
 
-The usage endpoint exposes `cachedInputTokens`, a subset of `inputTokens`, and
-`cacheUnreportedRequests`, the number of requests without reported cache-token metadata.
-A provider-reported zero is a known zero. Missing values, pending requests, and historical
-rows remain unknown. Do not calculate a session hit rate from incomplete coverage.
-Cost estimates still price all input at the standard rate, preserving the conservative
-spending guard. Explicit caching remains off; its creation/storage charges and lifecycle
-would need separate accounting before enabling it.
-
-[The short live smoke test](evaluations/2026-10-10-cache-smoke.json) returned a three-sentence
-Python dictionary explanation in 10 seconds. It used two guide requests and no research
-request, with an estimated cost of $0.008252. Both requests omitted cache-token metadata;
-this does not establish a hit or miss. Concept and context tools completed without errors,
-and the disposable test account was removed. The reply followed the requested short format,
-but did not research or cite its technical claim despite the research instruction. This is
-a smoke test, not proof of teaching quality, source-policy compliance, or caching savings.
-
-Caching increment verification: 185 backend tests passed with no skips, including migration
-and schema checks. Backend/frontend lint, TypeScript, and diff whitespace checks passed.
-
-## Capacity rejections and retry recovery
-
-A confirmed provider HTTP 429 before any response is recorded as a rejected request.
-It still consumes a request slot, but does not leave an unknown-cost hold or fabricated
-usage/cost. The usage endpoint exposes `rejectedRequests` separately. No automatic retry
-is added. Partial responses, cancellations, timeouts, server failures, and missing usage
-still leave uncertain cost blocked. Both guide and researcher use the error callback.
-This fixes a first-session failure where one capacity rejection made every manual retry
-return `cost_unknown`. Existing unknown records are not mass-reclassified: the affected
-local session was repaired only after its failed turn confirmed the capacity rejection.
+[agent-runtime.md](agent-runtime.md) describes durable jobs, cancellation, cost settlement and retry
+limits. Live teaching evaluations must use a dedicated test account; the fixed evaluator consumes
+SSE then fetches the authoritative turn. Unit/scripted checks and successful builds do not establish
+teaching quality or confirm hosted model/IAM availability.

@@ -6,10 +6,10 @@ from uuid import UUID
 
 from sqlalchemy import and_, case, func, select
 
-from app.agent.pricing import estimate_cost, token_rates
+from app.agent.pricing import image_output_rate, estimate_cost, token_rates
 from app.core.config import Settings
 from app.db.base import SessionScope
-from app.db.models import AgentRequest, User
+from app.db.models import AgentRequest, AgentTurn, User
 from app.core.enums import Role
 
 
@@ -58,11 +58,14 @@ class UsageStore:
             stats = session.execute(select(AgentRequest).where(AgentRequest.user_id == self.user_id).with_only_columns(
                 func.coalesce(func.sum(case((current_turn, 1), else_=0)), 0).label("turn"),
                 func.coalesce(func.sum(case((current_turn & AgentRequest.research, 1), else_=0)), 0).label("turn_research"),
+                func.coalesce(func.sum(case((current_turn & (AgentRequest.model == settings.agent_image_model), 1), else_=0)), 0).label("turn_images"),
                 func.coalesce(func.sum(case((and_(AgentRequest.estimated_cost_microusd.is_(None), ~AgentRequest.rejected), 1), else_=0)), 0).label("unknown"),
                 func.coalesce(func.sum(AgentRequest.estimated_cost_microusd), 0).label("spent"),
             )).one()
             if stats.turn >= settings.agent_max_calls_per_turn:
                 raise AgentLimitReached("The model-call limit for this reply was reached.")
+            if model == settings.agent_image_model and stats.turn_images >= settings.agent_max_images_per_turn:
+                raise AgentLimitReached("The image allowance for this reply has been used.", "image_limit")
             if research and stats.turn_research >= settings.agent_max_research_per_turn:
                 raise AgentLimitReached("The research-request limit was reached.", "research_limit")
             if role != Role.SUPERUSER and settings.agent_account_budget_microusd:
@@ -91,6 +94,25 @@ class UsageStore:
             session.flush()
             return row.id
 
+    def pending_active(self) -> bool:
+        """Wait for metering of live work; failed/unknown calls still block admission."""
+        with self.scope() as session:
+            pending = session.scalars(select(AgentRequest).where(AgentRequest.user_id == self.user_id, AgentRequest.estimated_cost_microusd.is_(None), ~AgentRequest.rejected).limit(20)).all()
+            if not pending:
+                return True
+            now = datetime.now(timezone.utc)
+            for request in pending:
+                try:
+                    turn = session.get(AgentTurn, UUID(request.invocation_id))
+                except ValueError:
+                    return False
+                lease = (turn.lease_until if turn and turn.status == "running" else turn.enrichment_lease_until if turn and turn.enrichment_status == "running" else None)
+                if lease and lease.tzinfo is None:
+                    lease = lease.replace(tzinfo=timezone.utc)
+                if not turn or turn.user_id != self.user_id or not lease or lease <= now:
+                    return False
+            return True
+
     def reject(self, request_id: UUID) -> None:
         """Release a confirmed capacity rejection without inventing token usage or cost."""
         with self.scope() as session:
@@ -116,13 +138,19 @@ class UsageStore:
                 row.estimated_cost_microusd = estimate_cost(
                     rates,
                     row.input_tokens,
-                    row.output_tokens,
+                    row.output_tokens - row.output_image_tokens,
                     row.thought_tokens,
-                    row.total_tokens,
+                    row.total_tokens - row.output_image_tokens,
                     row.search_queries if row.research else 0,
                     cached_input_tokens=row.cached_input_tokens or 0,
                     cached_input_rate=rates[0] // (20 if row.model == "gemini-4-argon" else 10),
                 )
+                if row.output_image_tokens:
+                    image_rate = image_output_rate(row.model, settings.vertex_location)
+                    if image_rate is None or row.estimated_cost_microusd is None:
+                        row.estimated_cost_microusd = None
+                    else:
+                        row.estimated_cost_microusd += (row.output_image_tokens * image_rate + 999_999) // 1_000_000
 
     def account_summary(self, settings: Settings) -> dict:
         totals = UsageStore(self.scope, self.user_id).totals()
@@ -167,3 +195,16 @@ class UsageStore:
                 )
             ).one()
             return UsageTotals(*(int(value) for value in values))
+
+
+async def reserve_when_available(store, invocation_id, model, research, settings):
+    """Background enrichment must not make an immediate follow-up fail admission."""
+    import asyncio
+    async with asyncio.timeout(settings.agent_turn_timeout_seconds):
+        while True:
+            try:
+                return await asyncio.to_thread(store.reserve, invocation_id, model, research, settings)
+            except AgentLimitReached as error:
+                if error.code != "cost_unknown" or not await asyncio.to_thread(store.pending_active):
+                    raise
+                await asyncio.sleep(0.5)

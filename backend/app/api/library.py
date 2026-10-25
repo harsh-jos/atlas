@@ -120,6 +120,7 @@ class SearchHit(Payload):
 
 
 class GraphNode(Payload):
+    discussions: list[dict] = []
     node_kind: Literal["concept", "explanation"] = "explanation"
     id: UUID
     title: str
@@ -132,7 +133,7 @@ class GraphNode(Payload):
 class GraphLink(Payload):
     source: UUID
     target: UUID
-    relation_type: RelationType | Literal["requires", "related_to", "explains"]
+    relation_type: RelationType | Literal["requires", "related_to", "explains", "contrasts_with", "uses", "part_of", "enables"]
     note: str | None
     origin: Origin
 
@@ -244,3 +245,28 @@ def concept_neighbourhood(slug: str, session: SessionDep, user_id: CurrentUserId
         return neighbourhood(session, user_id, slug)
     except ValueError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "concept not found") from None
+
+
+@router.get("/concepts/{slug}/discussions")
+def concept_discussions(slug: str, session: SessionDep, user_id: CurrentUserId):
+    from app.agent.provenance import discussions
+    return discussions(session, user_id, slug)
+
+
+@router.get("/artifacts/{slug}/revisions")
+def artifact_revisions(slug: str, session: SessionDep, user_id: CurrentUserId):
+    from sqlalchemy import select
+    from app.db.models import ArtifactRevision
+    artifact = library.get_artifact(session, user_id, slug)
+    if not artifact:
+        raise HTTPException(404, "artifact not found")
+    return [{"id": str(r.id), "createdAt": r.created_at.isoformat(), "snapshot": r.snapshot} for r in session.scalars(select(ArtifactRevision).where(ArtifactRevision.user_id == user_id, ArtifactRevision.artifact_id == artifact.id).order_by(ArtifactRevision.created_at.desc()).limit(30))]
+
+
+@router.get("/artifacts/{slug}/export")
+def export_artifact(slug: str, session: SessionDep, user_id: CurrentUserId):
+    from app.agent.artifacts import export_content
+    artifact = library.get_artifact(session, user_id, slug)
+    if not artifact:
+        raise HTTPException(404, "artifact not found")
+    return export_content(artifact)

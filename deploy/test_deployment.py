@@ -44,7 +44,7 @@ class ConfigurationTests(unittest.TestCase):
 
 
 class RolloutTests(unittest.TestCase):
-    def rollout(self, *, migration_status=0, backend_status=0, build_status=0, prebuilt=True):
+    def rollout(self, *, migration_status=0, backend_status=0, build_status=0, prebuilt=True, queue_status=0):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             log = root / 'calls'
@@ -62,6 +62,7 @@ exit {build_status}
                 'gcloud': f'''#!/bin/sh
 printf 'gcloud %s\\n' "$*" >> "$DEPLOY_TEST_LOG"
 if [ "$1 $2 $3 $4" = "run deploy atlas-api --project" ]; then exit {backend_status}; fi
+if [ "$1 $2" = "tasks queues" ]; then exit {queue_status}; fi
 if [ "$1 $2 $3 $4" = "run services describe atlas-api" ]; then echo https://api.example.run.app; fi
 if [ "$1 $2 $3 $4" = "run services describe atlas-web" ]; then echo https://web.example.run.app; fi
 ''',
@@ -87,7 +88,13 @@ if [ "$1 $2 $3 $4" = "run services describe atlas-web" ]; then echo https://web.
     def test_migration_failure_prevents_any_cloud_rollout(self):
         result, calls = self.rollout(migration_status=7)
         self.assertEqual(result.returncode, 7)
-        self.assertEqual(calls, ['migrate'])
+        self.assertEqual([call for call in calls if "tasks queues describe" not in call], ['migrate'])
+
+    def test_missing_queue_permissions_prevent_live_migration(self):
+        result, calls = self.rollout(queue_status=13)
+        self.assertEqual(result.returncode, 13)
+        self.assertNotIn('migrate', calls)
+        self.assertFalse(any('run deploy ' in call for call in calls))
 
     def test_failed_backend_prevents_frontend_rollout(self):
         result, calls = self.rollout(backend_status=11)
@@ -107,6 +114,7 @@ if [ "$1 $2 $3 $4" = "run services describe atlas-web" ]; then echo https://web.
         self.assertEqual(actions, ['migrate', 'gcloud run deploy atlas-api', 'gcloud run deploy atlas-web'])
         self.assertIn('ATLAS_API_URL=https://api.example.run.app,APP_URL=https://web.example.run.app', calls[-1])
         self.assertFalse(any('--set-secrets' in call or 'run jobs' in call for call in calls))
+        self.assertLess(next(i for i, call in enumerate(calls) if "tasks queues describe" in call), calls.index("migrate"))
 
 
 if __name__ == '__main__':

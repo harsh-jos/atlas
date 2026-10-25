@@ -324,3 +324,11 @@ button:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+@media print {
+  nav, aside, [data-sidebar], .print\:hidden { display:none !important; }
+  body { background:white !important; overflow:visible !important; }
+  main, article, #entry-body { overflow:visible !important; height:auto !important; max-width:none !important; }
+  details > * { display:block !important; }
+  svg, figure, table { break-inside:avoid; }
+}

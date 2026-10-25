@@ -1,5 +1,12 @@
 # Atlas: purpose and v0.1
 
+**25 October 2026 implementation update:** the user expanded the agent experience to inline
+learning components, reviewed image generation, richer concept extraction/provenance, reusable
+artifacts and browser-independent jobs. [agent-guide.md](agent-guide.md) and
+[agent-runtime.md](agent-runtime.md) describe the current code; older status sections below
+are historical and do not override those contracts. Deployment/model access and learning
+quality still require verification on the target environment.
+
 Atlas helps you explore a subject with expert guidance. It remembers what you explored
 and shows how ideas connect. You choose the direction, depth, and when to stop.
 Start with curious technical learners, using Python and PyTorch as the first real cases.

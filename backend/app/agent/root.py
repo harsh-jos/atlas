@@ -9,6 +9,7 @@ from google.genai import types
 
 from app.agent.limits import RequestLimits
 from app.agent.context import learning_instruction
+from app.agent.response import COMPONENT_INSTRUCTION
 from app.agent.prompts import LEARNING_INSTRUCTION, RESEARCH_INSTRUCTION
 from app.core.config import get_settings
 
@@ -42,7 +43,7 @@ def build_agent(tools: list[Callable], limits: RequestLimits, model: str | None 
         name="atlas",
         model=model or settings.agent_model,
         description="Guides one question at a time and connects prior explorations.",
-        static_instruction=LEARNING_INSTRUCTION,
+        static_instruction=LEARNING_INSTRUCTION + COMPONENT_INSTRUCTION,
         instruction=learning_instruction,
         generate_content_config=config,
         tools=[AgentTool(researcher, propagate_grounding_metadata=True), *tools],
