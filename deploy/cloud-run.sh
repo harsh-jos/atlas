@@ -32,15 +32,10 @@ gcloud run deploy atlas-api --project "$PROJECT_ID" --region "$REGION" \
   --startup-probe httpGet.path=/healthz,httpGet.port=8080,initialDelaySeconds=0,periodSeconds=10,timeoutSeconds=5,failureThreshold=12
 API_URL="$(gcloud run services describe atlas-api --project "$PROJECT_ID" --region "$REGION" --format='value(status.url)')"
 # Durable HTTP jobs use OIDC; the worker endpoint validates this exact service identity.
-gcloud services enable cloudtasks.googleapis.com --project "$PROJECT_ID" --quiet
 if ! gcloud tasks queues describe atlas-agent --project "$PROJECT_ID" --location "$REGION" >/dev/null 2>&1; then
   gcloud tasks queues create atlas-agent --project "$PROJECT_ID" --location "$REGION" \
     --max-concurrent-dispatches 4 --max-dispatches-per-second 2 --max-attempts 8 --min-backoff 5s --max-backoff 120s
 fi
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
-  --role roles/cloudtasks.enqueuer --condition=None --quiet >/dev/null
-gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SERVICE_ACCOUNT" --project "$PROJECT_ID" \
-  --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" --role roles/iam.serviceAccountUser --quiet >/dev/null
 gcloud run services update atlas-api --project "$PROJECT_ID" --region "$REGION" \
   --update-env-vars "AGENT_EXECUTION_BACKEND=cloud_tasks,AGENT_TASKS_PROJECT=${PROJECT_ID},AGENT_TASKS_LOCATION=${REGION},AGENT_TASKS_QUEUE=atlas-agent,AGENT_TASKS_API_URL=${API_URL},AGENT_TASKS_SERVICE_ACCOUNT=${RUNTIME_SERVICE_ACCOUNT}"
 

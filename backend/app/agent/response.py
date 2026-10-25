@@ -105,6 +105,21 @@ component_adapter = TypeAdapter(Component)
 FENCE = re.compile(r"^```atlas[^\n]*\n(.*?)^```\s*$", re.M | re.S)
 
 
+def component_text(value: dict) -> str:
+    """Accessible prose for copy/export, grounding, and text-only clients."""
+    parts = [value["title"], value["fallback"]]
+    for node in value.get("nodes", []):
+        parts.append(node["label"] + (": " + node["detail"] if node.get("detail") else ""))
+    for step in value.get("steps", []):
+        parts.extend([step["title"], step["body"], step.get("code", "")])
+    if value.get("columns"):
+        parts.append(" | ".join(value["columns"]))
+    for row in value.get("rows", []):
+        parts.append(row["label"] + ": " + " | ".join(row["cells"]))
+    parts.extend([value.get("body", ""), value.get("alt", ""), value.get("caption", "")])
+    return "\n\n".join(p for p in parts if p)
+
+
 def document(text: str) -> dict:
     blocks = []
     cursor = 0
@@ -131,7 +146,7 @@ def document(text: str) -> dict:
             blocks.append({"type": "markdown", "text": tail})
     for index, block in enumerate(blocks):
         block["id"] = f"b{index}"
-    return {"schemaVersion": 1, "blocks": blocks, "fallbackText": "\n\n".join(b.get("text", b.get("component", {}).get("fallback", "")) for b in blocks)}
+    return {"schemaVersion": 1, "blocks": blocks, "fallbackText": "\n\n".join(b["text"] if b["type"] == "markdown" else component_text(b["component"]) for b in blocks)}
 
 
 COMPONENT_INSTRUCTION = r'''

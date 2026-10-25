@@ -78,6 +78,7 @@ export interface ChatPanelProps {
   sessionId: string;
   /** Turns already stored for this session, replayed so a reopened URL is not blank. */
   initialSnapshot: ChatHistory;
+  initialDraft?: string;
 }
 
 function isActive(turn: ChatTurn | null) {
@@ -90,7 +91,7 @@ async function readSnapshot<T>(path: string, signal?: AbortSignal): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
+export function ChatPanel({ sessionId, initialSnapshot, initialDraft = "" }: ChatPanelProps) {
   const router = useRouter();
   const [selectedModel, setSelectedModel] = useState<ChatModel>(initialSnapshot.latestTurn?.model ?? 'gemini-4-argon');
   const [historyPage, setHistoryPage] = useState(initialSnapshot);
@@ -101,7 +102,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
   const visibleEntries = useMemo(() => turn?.reply
     ? [...entries, { role: 'atlas' as const, text: turn.reply, turnId: turn.id, document: turn.responseDocument, creditsUsed: turn.creditsUsed, creditsPending: turn.creditsPending }]
     : entries, [entries, turn]);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(initialDraft);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(
     initialSnapshot.latestTurn?.error ?? null,
@@ -222,7 +223,7 @@ export function ChatPanel({ sessionId, initialSnapshot }: ChatPanelProps) {
 
   const [selectedPassage, setSelectedPassage] = useState('');
   useEffect(() => {
-    const receive = (event: Event) => {setDraft((event as CustomEvent<string>).detail); setSelectedPassage('');};
+    const receive = (event: Event) => {event.preventDefault();setDraft((event as CustomEvent<string>).detail); setSelectedPassage('');};
     const selection = (event: Event) => setSelectedPassage((event as CustomEvent<string>).detail);
     window.addEventListener('atlas:ask-about', receive);
     window.addEventListener('atlas:selection', selection);

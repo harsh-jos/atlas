@@ -297,7 +297,7 @@ async def retry_enrichment(turn_id: UUID, user_id: CurrentUserId, scope: Session
             row = session.scalar(select(AgentTurn).where(AgentTurn.id == turn_id, AgentTurn.user_id == user_id).with_for_update())
             if not row:
                 raise HTTPException(404, "turn not found")
-            if row.status != "completed" or row.enrichment_status != "failed" or row.enrichment_attempts >= 3:
+            if row.status != "completed" or row.enrichment_status not in (None, "failed") or row.enrichment_attempts >= 3:
                 raise HTTPException(409, "This concept update cannot be retried.")
             row.enrichment_status = "pending"
             return row.enrichment_attempts

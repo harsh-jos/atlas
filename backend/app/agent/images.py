@@ -69,4 +69,9 @@ async def create_image(scope, user_id, session_id, turn_id, teaching_goal, factu
                 session.flush()
                 write(session, Path(settings.assets_dir) / str(asset.id), blob.data, blob.mime_type)
                 return {"status": "reviewed", "assetId": str(asset.id), "url": f"/assets/{asset.id}", "alt": review.alt, "caption": review.caption, "model": settings.agent_image_model}
-        return await asyncio.to_thread(save)
+        saving = asyncio.create_task(asyncio.to_thread(save))
+        try:
+            return await asyncio.shield(saving)
+        except asyncio.CancelledError:
+            await saving
+            raise

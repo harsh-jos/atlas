@@ -4,13 +4,13 @@ from google import genai
 from google.genai.errors import APIError
 
 from app.agent.session import configure_vertex
-from app.agent.usage import UsageStore
+from app.agent.usage import UsageStore, reserve_when_available
 from app.core.config import get_settings
 
 
 async def generate(store: UsageStore, invocation_id: str, model: str, contents, config):
     settings = get_settings()
-    request = await asyncio.to_thread(store.reserve, invocation_id, model, False, settings)
+    request = await reserve_when_available(store, invocation_id, model, False, settings)
     configure_vertex()
     try:
         async with genai.Client(vertexai=True, project=settings.vertex_project, location=settings.vertex_location).aio as client:

@@ -8,7 +8,7 @@ from uuid import UUID
 from google.adk.tools import ToolContext
 
 from app.agent import knowledge
-from app.agent.context import CONTEXT_KEY, PREFERENCES_KEY, bounded_context
+from app.agent.context import CONTEXT_KEY, PREFERENCES_KEY
 from app.db.base import SessionScope
 from app.search import search_artifacts
 from app.storage.quota import QuotaExceeded
@@ -85,43 +85,6 @@ def build_toolkit(
                 tool_context.state[CONTEXT_KEY] = {}
         return result
 
-    async def update_learning_context(
-        question: str, background: str, confusion: str, next_connection: str,
-        tool_context: ToolContext,
-    ) -> dict:
-        """Replace compact conversation notes when the question or stated background changes.
-
-        Record only the current question, stated background, unresolved confusion, and at most
-        one optional connection. Empty strings clear fields. No private reasoning, sensitive
-        personal data, mastery claims, or curriculum. Do not call on every narrow follow-up.
-        Limits in characters: question 500, background/confusion 1000 each, next_connection 500.
-        """
-        result = await execute(knowledge.require_memory)
-        if "error" in result:
-            return result
-        try:
-            notes = bounded_context({"question": question, "background": background,
-                                     "confusion": confusion, "next_connection": next_connection})
-        except ValueError as error:
-            return await tool_error("update_learning_context", "invalid_tool_input", str(error))
-        tool_context.state[CONTEXT_KEY] = notes
-        return {"updated": True}
-
-    async def remember_concept(name: str, description: str) -> dict:
-        """Keep one concept actually explored, with a short plain-language description.
-
-        Reuses an existing concept. Do not populate a curriculum or infer mastery.
-        """
-        return await execute(knowledge.remember_concept, name, description)
-
-    async def connect_concepts(from_slug: str, to_slug: str, kind: str, note: str) -> dict:
-        """Connect two existing concepts with a specific reason.
-
-        kind is 'requires' (from needs to as a prerequisite) or symmetric 'related_to'.
-        Use only meaningful connections supported by this exploration; duplicates are reused.
-        """
-        return await execute(knowledge.connect_concepts, from_slug, to_slug, kind, note)
-
     async def remove_concept_connection(
         connection_id: str, tool_context: ToolContext, user_requested: bool = False
     ) -> dict:
@@ -141,31 +104,6 @@ def build_toolkit(
     async def read_saved_explanation(slug: str) -> dict:
         """Read an owned explanation and its revision timestamp before using or revising it."""
         return await execute(knowledge.read_explanation, slug)
-
-    async def save_explanation(
-        concept_slug: str, title: str, summary: str, body: str, source_urls: list[str],
-        user_requested: bool = False,
-    ) -> dict:
-        """Save a standalone Markdown answer only when the user asks or has agreed to saving.
-
-        Set user_requested only for an explicit one-time request; otherwise the stored
-        auto_save preference must be enabled. Reuse source URLs actually retrieved.
-        Same concept and title reuses the existing explanation without overwriting it.
-        Return the reader URL to the user after success.
-        """
-        return await execute(
-            knowledge.save_explanation, concept_slug, title, summary, body, source_urls, user_requested
-        )
-
-    async def revise_saved_explanation(
-        slug: str, expected_updated_at: str, body: str, summary: str, user_requested: bool = False
-    ) -> dict:
-        """Revise an explanation when asked, after reading its current text and timestamp.
-
-        Set user_requested only for an explicit request; otherwise auto_save must be enabled.
-        Preserve relevant source citations and useful context. A stale timestamp rejects the edit.
-        """
-        return await execute(knowledge.revise_explanation, slug, expected_updated_at, body, summary, user_requested)
 
     async def create_artifact(concept_name: str, title: str, summary: str, content: str, kind: str = "components", source_urls: list[str] | None = None, user_requested: bool = False) -> dict:
         """Save a reusable learning artifact when requested or automatic saving is agreed.

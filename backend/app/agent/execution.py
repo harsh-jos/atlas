@@ -1,4 +1,4 @@
-"""Request-owned execution; no background worker or automatic model retries."""
+"""Execute one fenced worker claim; never automatically replay provider work."""
 
 import asyncio
 import logging
@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 
 async def execute(store: TurnStore, turn: dict, on_progress=None) -> None:
-    """Execute only the turn attached to the caller's SSE request."""
+    """Execute exactly the durable turn leased by this worker."""
     token = turn_id.set(str(turn["id"]))
     try:
         await _execute(store, turn, on_progress)
@@ -61,8 +61,8 @@ async def _execute(store: TurnStore, turn: dict, on_progress=None) -> None:
             store.finish, turn["id"], "failed", error=str(error), error_code=error.code
         )
     except Exception as error:
-        # ADK can consume cancellation while closing its root node; a disconnected
-        # request must still finish as interrupted.
+        # ADK can consume cancellation while closing its root node; a cancelled
+        # worker must still finish as interrupted.
         if asyncio.current_task().cancelling():
             await asyncio.to_thread(store.finish, turn["id"], "interrupted", error=INTERRUPTED)
             raise asyncio.CancelledError() from None

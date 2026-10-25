@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 interface ChatPageProps {
   params: Promise<{ sessionId: string }>;
-  searchParams: Promise<{turn?: string; block?: string}>;
+  searchParams: Promise<{turn?: string; block?: string; question?:string}>;
 }
 
 export default async function ChatPage({ params, searchParams }: ChatPageProps) {
@@ -19,5 +19,5 @@ export default async function ChatPage({ params, searchParams }: ChatPageProps) 
     const focused = await apiGet<ChatHistory['messages']>(`/agent/chat/${encodeURIComponent(sessionId)}/turn/${query.turn}`);
     snapshot.messages = [...focused, ...snapshot.messages];
   }
-  return <ChatPanel key={sessionId} sessionId={sessionId} initialSnapshot={snapshot} />;
+  return <ChatPanel key={sessionId} sessionId={sessionId} initialSnapshot={snapshot} initialDraft={query.question?.slice(0,7000)} />;
 }

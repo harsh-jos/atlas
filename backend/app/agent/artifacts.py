@@ -19,7 +19,10 @@ def snapshot(artifact):
 
 
 def record_revision(session, artifact):
-    session.add(ArtifactRevision(user_id=artifact.user_id, artifact_id=artifact.id, snapshot=snapshot(artifact)))
+    saved = snapshot(artifact)
+    size = text_bytes(json.dumps(saved, ensure_ascii=False))
+    QuotaService(session, lock_owner(session, artifact.user_id)).reserve(size)
+    session.add(ArtifactRevision(user_id=artifact.user_id, artifact_id=artifact.id, snapshot=saved, size=size))
 
 
 def validate_assets(session, user_id, doc):

@@ -27,18 +27,19 @@ function Diagram({v,stateKey}: {v: Visual;stateKey:string}) {
   }
   for (const n of nodes) if (!layers.has(n.id)) layers.set(n.id, nodes.length);
   const levels = [...new Set(layers.values())].sort((a,b) => a-b);
+  const width = Math.max(360,...levels.map(level=>nodes.filter(n=>layers.get(n.id)===level).length*184+40));
   const points = new Map<string, {x:number;y:number}>();
   levels.forEach((level, i) => {
     const members = nodes.filter(n => layers.get(n.id) === level);
-    members.forEach((n, j) => points.set(n.id, {x:(j+1)*600/(members.length+1), y:42+i*100}));
+    members.forEach((n, j) => points.set(n.id, {x:(j+1)*width/(members.length+1), y:42+i*100}));
   });
   const height = levels.length*100;
   return <>
-    <svg viewBox={`0 0 600 ${height}`} role="img" aria-label={v.fallback} className="mx-auto w-full max-w-2xl" style={{maxHeight:520}}>
+    <div className="max-h-[480px] overflow-auto"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={v.fallback} className="mx-auto block w-full" style={{minWidth:width,height}}>
       <defs><marker id={marker} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#65847d" /></marker></defs>
       {v.edges!.map((e,i) => { const a=points.get(e.source)!; const b=points.get(e.target)!; return <g key={i}><path d={`M${a.x},${a.y+19} L${b.x},${b.y-22}`} stroke="#65847d" strokeWidth="1.5" markerEnd={`url(#${marker})`} /><text x={(a.x+b.x)/2+8} y={(a.y+b.y)/2} fontSize="11" fill="#52615e">{e.label}</text></g>; })}
       {nodes.map(n => {const p=points.get(n.id)!; return <g key={n.id} role="button" tabIndex={0} aria-label={n.label} aria-pressed={selected===n.id} onClick={() => setSelected(n.id)} onKeyDown={e => {if(e.key==='Enter'||e.key===' '){e.preventDefault();setSelected(n.id);}}} className="cursor-pointer focus:outline-2"><rect x={p.x-82} y={p.y-20} width="164" height="40" rx="10" fill={selected===n.id?'#d8e9e3':'#f4f6f3'} stroke={selected===n.id?'#557d70':'#d4ddd7'} /><text x={p.x} y={p.y+4} textAnchor="middle" fontSize="12" fill="#263b34">{n.label.length>26?n.label.slice(0,25)+'…':n.label}</text></g>;})}
-    </svg>
+    </svg></div>
     <div className="mt-2 rounded-lg bg-surface-soft p-3 text-sm"><strong>{node.label}</strong>{node.detail && <p className="mt-1 leading-relaxed text-muted">{node.detail}</p>}</div>
     <div className="mt-3"><Ask text={`${v.title}: ${node.label}\n${node.detail ?? ''}`} /></div>
   </>;

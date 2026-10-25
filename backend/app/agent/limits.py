@@ -10,7 +10,7 @@ from google.adk.models import LlmRequest, LlmResponse
 from google.genai import types
 from google.genai.errors import APIError
 
-from app.agent.usage import AgentLimitReached, UsageStore
+from app.agent.usage import AgentLimitReached, UsageStore, reserve_when_available
 from app.core.config import Settings
 
 INCOMPLETE_NOTICE = "This reply is incomplete. Ask me to continue from the last complete point."
@@ -46,8 +46,8 @@ class RequestLimits:
                 "The conversation is too large for one request. Its history is saved.", "context_limit"
             )
         research = callback_context.agent_name == "researcher"
-        request_id = await asyncio.to_thread(
-            self.store.reserve,
+        request_id = await reserve_when_available(
+            self.store,
             self.invocation_id,
             llm_request.model or "unknown",
             research,

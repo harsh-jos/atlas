@@ -336,6 +336,7 @@ class ConceptRevision(OwnedRecord):
 
 
 class ArtifactRevision(OwnedRecord):
+    size: Mapped[int] = mapped_column(default=0, server_default=text("0"))
     __tablename__ = "artifact_revisions"
     artifact_id: Mapped[UUID] = mapped_column(ForeignKey("artifacts.id", ondelete="CASCADE"))
     snapshot: Mapped[dict] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))

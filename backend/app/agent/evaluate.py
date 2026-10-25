@@ -28,16 +28,17 @@ async def run_scenario(client: httpx.AsyncClient, scenario: Scenario) -> dict:
         )
         response.raise_for_status()
         turn = ChatTurn.model_validate(response.json())
-        # The events request owns execution on older deployments and observes it on
-        # worker deployments. Polling alone never starts request-owned generation.
-        async with asyncio.timeout(1860):
-            async with client.stream("GET", f"/agent/turns/{turn.id}/events") as stream:
-                stream.raise_for_status()
-                async for _line in stream.aiter_lines():
-                    pass
-            response = await client.get(f"/agent/turns/{turn.id}")
-            response.raise_for_status()
-            turn = ChatTurn.model_validate(response.json())
+        if turn.status in {"queued", "running"}:
+            # The events request owns execution on older deployments and observes it on
+            # worker deployments. Polling alone never starts request-owned generation.
+            async with asyncio.timeout(1860):
+                async with client.stream("GET", f"/agent/turns/{turn.id}/events") as stream:
+                    stream.raise_for_status()
+                    async for _line in stream.aiter_lines():
+                        pass
+                response = await client.get(f"/agent/turns/{turn.id}")
+                response.raise_for_status()
+                turn = ChatTurn.model_validate(response.json())
         if turn.status != "completed" or not turn.reply:
             raise RuntimeError(turn.error or "The evaluation turn did not complete.")
         turns.append({"message": message, "reply": turn.reply})

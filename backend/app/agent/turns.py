@@ -1,4 +1,4 @@
-"""Durable turn records and atomic request ownership; no queue worker."""
+"""Durable turn records, fenced worker claims, and an ordered response log."""
 
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
@@ -175,6 +175,10 @@ class TurnStore:
             row = session.scalar(
                 select(AgentTurn).where(AgentTurn.user_id == user_id, AgentTurn.id == turn_id)
             )
+            if row and row.status == "queued":
+                created = row.created_at.replace(tzinfo=timezone.utc) if row.created_at.tzinfo is None else row.created_at
+                if created < datetime.now(timezone.utc) - timedelta(seconds=get_settings().agent_queue_timeout_seconds):
+                    self._expire(session)
             if row and row.status == "running" and row.lease_until:
                 now = datetime.now(timezone.utc)
                 lease = row.lease_until.replace(tzinfo=timezone.utc) if row.lease_until.tzinfo is None else row.lease_until

@@ -55,5 +55,7 @@ export function parseLearningResponse(text: string): LearningDocument {
 }
 
 export function askAbout(passage: string) {
-  window.dispatchEvent(new CustomEvent('atlas:ask-about', {detail: `Help me understand this specific part of the explanation:\n\n${passage.slice(0, 4000)}`}));
+  const prompt=`Help me understand this specific part of the explanation:\n\n${passage.slice(0,4000)}`;
+  const event=new CustomEvent('atlas:ask-about',{detail:prompt,cancelable:true});
+  if(window.dispatchEvent(event))window.location.assign(`/chat?question=${encodeURIComponent(prompt)}`);
 }
