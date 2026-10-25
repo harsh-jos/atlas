@@ -120,6 +120,7 @@ class SearchHit(Payload):
 
 
 class GraphNode(Payload):
+    discussions: list[dict] = []
     node_kind: Literal["concept", "explanation"] = "explanation"
     id: UUID
     title: str

@@ -1,12 +1,19 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useSyncExternalStore, type ReactNode } from 'react';
 import { askAbout, type LearningVisual as Visual } from '@/lib/learning-response';
+
+const memory = new Map<string,string>();
+const subscribe = (callback:()=>void) => {window.addEventListener('atlas:visual-state',callback);return()=>window.removeEventListener('atlas:visual-state',callback);};
+function useVisualState(key:string, initial:string):[string,(value:string)=>void] {
+  const value=useSyncExternalStore(subscribe,()=>{try{return sessionStorage.getItem(key)??memory.get(key)??initial;}catch{return memory.get(key)??initial;}},()=>initial);
+  return [value,next=>{memory.set(key,next);try{sessionStorage.setItem(key,next);}catch{/* Optional local state. */}window.dispatchEvent(new Event('atlas:visual-state'));}];
+}
 
 const button = 'focus-ring rounded-lg border px-3 py-1.5 text-xs text-muted hover:bg-accent-soft disabled:opacity-40';
 function Ask({text}: {text: string}) { return <button type="button" className={button} onClick={() => askAbout(text)}>Explain this part</button>; }
-function Diagram({v}: {v: Visual}) {
-  const [selected, setSelected] = useState(v.nodes![0].id);
+function Diagram({v,stateKey}: {v: Visual;stateKey:string}) {
+  const [selected, setSelected] = useVisualState(stateKey,v.nodes![0].id);
   const nodes = v.nodes!;
   const node = nodes.find(n => n.id === selected) ?? nodes[0];
   const marker = useId().replaceAll(':', '');
@@ -36,12 +43,12 @@ function Diagram({v}: {v: Visual}) {
     <div className="mt-3"><Ask text={`${v.title}: ${node.label}\n${node.detail ?? ''}`} /></div>
   </>;
 }
-function Steps({v, render}: {v: Visual; render: (text:string)=>ReactNode}) {
-  const [index,setIndex]=useState(0);const step=v.steps![index];
+function Steps({v, render,stateKey}: {v: Visual; render: (text:string)=>ReactNode;stateKey:string}) {
+  const [saved,setSaved]=useVisualState(stateKey,"0");const index=Math.min(v.steps!.length-1,Math.max(0,Number(saved)||0));const setIndex=(value:number)=>setSaved(String(value));const step=v.steps![index];
   return <><ol className="mb-4 flex flex-wrap gap-2" aria-label="Steps">{v.steps!.map((s,i)=><li key={i}><button type="button" onClick={()=>setIndex(i)} className={`${button} ${i===index?'bg-accent-soft text-ink':''}`} aria-current={i===index?'step':undefined}>{i+1}. {s.title}</button></li>)}</ol><div aria-live="polite"><h4 className="font-medium">{step.title}</h4>{render(step.body)}{step.code&&<pre className="my-3 overflow-auto rounded-lg bg-surface-soft p-3 text-xs"><code>{step.code}</code></pre>}</div><div className="mt-4 flex flex-wrap items-center gap-2"><button className={button} disabled={!index} onClick={()=>setIndex(index-1)}>Previous</button><button className={button} disabled={index===v.steps!.length-1} onClick={()=>setIndex(index+1)}>Next</button><Ask text={`${v.title}, step ${index+1}: ${step.title}\n${step.body}`} /></div></>;
 }
-function Plot({v}: {v: Visual}) {
-  const min=v.xMin!,max=v.xMax!,c=v.coefficients!;const [x,setX]=useState(Math.min(max,Math.max(min,v.initialX??0)));
+function Plot({v,stateKey}: {v: Visual;stateKey:string}) {
+  const min=v.xMin!,max=v.xMax!,c=v.coefficients!;const [saved,setSaved]=useVisualState(stateKey,String(v.initialX??0));const x=Math.min(max,Math.max(min,Number(saved)||0));const setX=(value:number)=>setSaved(String(value));
   const f=(t:number)=>c.reduceRight((sum,a)=>sum*t+a,0);
   const samples=Array.from({length:121},(_,i)=>({x:min+(max-min)*i/120,y:f(min+(max-min)*i/120)}));
   const low=Math.min(...samples.map(p=>p.y)),high=Math.max(...samples.map(p=>p.y)); const span=high-low||1;
@@ -50,12 +57,12 @@ function Plot({v}: {v: Visual}) {
   const number=(n:number)=>Number(n.toPrecision(5)).toString();
   return <><svg viewBox="0 0 600 260" role="img" aria-label={v.fallback} className="w-full"><path d="M40,25 V225 H570" fill="none" stroke="#a5b3ab"/><polyline points={samples.map(p=>`${sx(p.x)},${sy(p.y)}`).join(' ')} fill="none" stroke="#537e73" strokeWidth="2.5"/><circle cx={sx(x)} cy={sy(f(x))} r="5" fill="#ac7d3b"/><text x="550" y="250" fontSize="12">{v.xLabel??'x'}</text><text x="10" y="20" fontSize="12">{v.yLabel??'y'}</text><text x="40" y="245" fontSize="11">{number(min)}</text><text x="550" y="240" fontSize="11">{number(max)}</text><text x="5" y="220" fontSize="10">{number(low)}</text><text x="5" y="40" fontSize="10">{number(high)}</text></svg><label className="block text-sm">Change {v.xLabel??'x'}: <strong>{number(x)}</strong><input aria-label={`Change ${v.xLabel??'x'}`} type="range" className="mt-3 w-full accent-[#537e73]" min={min} max={max} step={(max-min)/200} value={x} onChange={e=>setX(Number(e.target.value))}/></label><p aria-live="polite" className="mt-2 font-mono text-sm">{v.yLabel??'y'} = {number(f(x))} · slope = {number(slope)}</p><p className="mt-2 text-xs text-muted">Polynomial coefficients, lowest degree first: {c.join(', ')}. Values follow this illustrative model.</p></>;
 }
-export function LearningVisual({visual:v, renderMarkdown}: {visual:Visual; renderMarkdown:(text:string)=>ReactNode}) {
+export function LearningVisual({visual:v, renderMarkdown,stateKey}: {visual:Visual; renderMarkdown:(text:string)=>ReactNode;stateKey:string}) {
   let body:ReactNode;
   switch(v.type){
-    case 'diagram':body=<Diagram v={v}/>;break;
-    case 'stepper':case 'worked-example':body=<Steps v={v} render={renderMarkdown}/>;break;
-    case 'plot':body=<Plot v={v}/>;break;
+    case 'diagram':body=<Diagram v={v} stateKey={stateKey}/>;break;
+    case 'stepper':case 'worked-example':body=<Steps v={v} render={renderMarkdown} stateKey={stateKey}/>;break;
+    case 'plot':body=<Plot v={v} stateKey={stateKey}/>;break;
     case 'compare':body=<div className="overflow-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Criterion</th>{v.columns!.map((c,i)=><th className="p-2" key={i}>{c}</th>)}</tr></thead><tbody>{v.rows!.map((r,i)=><tr key={i} className="border-t"><th className="p-2 align-top font-medium">{r.label}</th>{r.cells.map((c,j)=><td key={j} className="p-2 align-top text-muted">{c}</td>)}</tr>)}</tbody></table></div>;break;
     // Asset IDs only. The authenticated application route checks ownership.
     // eslint-disable-next-line @next/next/no-img-element

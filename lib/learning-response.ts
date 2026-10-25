@@ -32,6 +32,10 @@ export function validVisual(v: unknown): v is LearningVisual {
   }
 }
 
+export function visualText(v: LearningVisual): string {
+  return [v.title,v.fallback,...(v.nodes??[]).map(n=>`${n.label}${n.detail?`: ${n.detail}`:''}`),...(v.steps??[]).flatMap(s=>[s.title,s.body,s.code??'']),...(v.columns?[v.columns.join(' | ')]:[]),...(v.rows??[]).map(r=>`${r.label}: ${r.cells.join(' | ')}`),v.body,v.alt,v.caption].filter(Boolean).join('\n\n');
+}
+
 export function parseLearningResponse(text: string): LearningDocument {
   const blocks: LearningBlock[] = [];
   const pattern = /^```atlas[^\n]*\n([\s\S]*?)^```\s*$/gm;
@@ -47,7 +51,7 @@ export function parseLearningResponse(text: string): LearningDocument {
   const tail = text.slice(cursor).split(/^```atlas[^\n]*(?:\n|$)/m)[0];
   if (tail.trim()) blocks.push({id:'', type:'markdown', text:tail});
   blocks.forEach((b, i) => { b.id = `b${i}`; });
-  return {schemaVersion:1, blocks, fallbackText:blocks.map(b => b.type === 'markdown' ? b.text : b.component.fallback).join('\n\n')};
+  return {schemaVersion:1, blocks, fallbackText:blocks.map(b => b.type === 'markdown' ? b.text : visualText(b.component)).join('\n\n')};
 }
 
 export function askAbout(passage: string) {

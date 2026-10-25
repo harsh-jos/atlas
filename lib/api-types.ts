@@ -94,6 +94,7 @@ export interface SearchHit {
 }
 
 export interface GraphNode {
+  discussions?: {question:string;turnId:string;url:string}[];
   nodeKind: 'concept' | 'explanation';
   id: string;
   title: string;

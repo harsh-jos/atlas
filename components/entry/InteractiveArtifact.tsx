@@ -13,8 +13,8 @@ export function InteractiveArtifact({html, summary}: {html:string;summary:string
   const doc=`<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="${csp}"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:16px/1.6 system-ui;color:#263b34;background:#fbfcfa;padding:20px}button,input{font:inherit}button{cursor:pointer}</style></head><body>${html}</body></html>`;
   return <section className="rounded-xl border p-4"><div className="mb-3 flex flex-wrap gap-3 print:hidden"><button className="focus-ring rounded-lg border px-3 py-2 text-sm" onClick={()=>{setInstance(v=>v+1);setRunning(true);}}>{running?'Restart simulation':'Run simulation'}</button>{running&&<button className="rounded-lg border px-3 py-2 text-sm" onClick={()=>setRunning(false)}>Stop</button>}<span className="self-center text-xs text-muted">Runs locally · pauses after one minute</span></div>{running?<iframe key={instance} title="Interactive learning simulation" sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={doc} className="h-[560px] w-full rounded-lg border print:hidden"/>:<p className="text-sm text-muted">{summary??'Start the simulation to explore the example.'}</p>}<p className="hidden print:block">{summary}</p></section>;
 }
-export function ComponentArtifact({body, document}: {body:string|null;document:LearningDocument|null}) {
-  return <ChatMarkdown text={body??''} document={document}/>;
+export function ComponentArtifact({body, document,slug}: {body:string|null;document:LearningDocument|null;slug:string}) {
+  return <ChatMarkdown text={body??''} document={document} responseId={`artifact-${slug}`}/>;
 }
 export function ArtifactActions({slug,sessionId,turnId}: {slug:string;sessionId?:string;turnId?:string}) {
   const [revisions,setRevisions]=useState<{createdAt:string;snapshot:{body?:string;summary?:string;format?:string}}[]|null>(null);

@@ -141,6 +141,6 @@ function Markdown({text}: {text: string}) {
 export function ChatMarkdown({ text, document, responseId }: ChatMarkdownProps) {
   const parsed = document?.schemaVersion === 1 ? document : parseLearningResponse(text);
   return <div>{parsed.blocks.map(block => <div key={block.id} id={responseId ? `${responseId}-${block.id}` : undefined} data-block-id={block.id}>
-    {block.type === 'markdown' ? <Markdown text={block.text}/> : validVisual(block.component) ? <LearningVisual visual={block.component} renderMarkdown={value => <Markdown text={value}/>}/> : <Markdown text={'This visual could not be displayed.'}/>}
+    {block.type === 'markdown' ? <Markdown text={block.text}/> : validVisual(block.component) ? <LearningVisual visual={block.component} stateKey={`atlas-visual:${responseId??"preview"}:${block.id}`} renderMarkdown={value => <Markdown text={value}/>}/> : <Markdown text={'This visual could not be displayed.'}/>}
   </div>)}{/^```atlas[^\n]*(?:\n|$)/m.test(text) && !/\n```\s*$/.test(text) && text.lastIndexOf('```atlas') > text.lastIndexOf('\n```') && <p role="status" className="my-3 animate-pulse text-sm text-muted">Building illustration…</p>}</div>;
 }

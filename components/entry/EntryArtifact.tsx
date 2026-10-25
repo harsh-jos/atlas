@@ -154,7 +154,7 @@ export function EntryArtifact({ artifact }: EntryArtifactProps) {
               id={BODY_ID}
               className="entry-body min-w-0 max-w-[var(--reading-measure)]"
             >
-              {artifact.metadata?.runtime === 'sandbox-v1' ? <InteractiveArtifact html={artifact.bodyHtml || artifact.body || ''} summary={artifact.summary}/> : artifact.metadata?.kind === 'components' ? <ComponentArtifact body={artifact.body} document={artifact.metadata?.document as LearningDocument | null}/> : artifact.bodyHtml?.trim() ? (
+              {artifact.metadata?.runtime === 'sandbox-v1' ? <InteractiveArtifact html={artifact.bodyHtml || artifact.body || ''} summary={artifact.summary}/> : artifact.metadata?.kind === 'components' ? <ComponentArtifact slug={artifact.slug} body={artifact.body} document={artifact.metadata?.document as LearningDocument | null}/> : artifact.bodyHtml?.trim() ? (
                 <HtmlBody html={artifact.bodyHtml} />
               ) : (
                 <MarkdownBody body={artifact.body} />
