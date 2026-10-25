@@ -143,7 +143,12 @@ def test_shrinking_an_artifact_gives_bytes_back(client, owner_user, session):
     edit = client.patch(f"/artifacts/{slug}", json={"body": "tiny"}, headers=headers)
     assert edit.status_code == 200
     session.refresh(user)
-    assert user.storage_bytes < before
+    from sqlalchemy import select, func
+    from app.db.models import ArtifactRevision
+    revision_bytes = session.scalar(select(func.coalesce(func.sum(ArtifactRevision.size), 0)).where(ArtifactRevision.user_id == user.id))
+    assert revision_bytes > 0
+    assert user.storage_bytes - revision_bytes < before
+    assert client.get(f"/artifacts/{slug}/revisions", headers=headers).json()
 
 
 def test_deleting_an_artifact_removes_it_and_releases_its_bytes(client, owner_user, session):
@@ -344,10 +349,10 @@ def test_parallel_editor_writes_charge_the_final_body(engine):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
     from uuid import uuid4
-    from sqlalchemy import delete, select
+    from sqlalchemy import delete, select, func
     from sqlalchemy.orm import sessionmaker
     from app.api.writes import ArtifactPatch, update_artifact
-    from app.db.models import Artifact, Concept, User
+    from app.db.models import Artifact, ArtifactRevision, Concept, User
 
     factory = sessionmaker(engine, expire_on_commit=False)
     with factory.begin() as db:
@@ -375,7 +380,9 @@ def test_parallel_editor_writes_charge_the_final_body(engine):
         with factory() as db:
             user = db.get(User, user_id)
             body = db.scalar(select(Artifact.body).where(Artifact.user_id == user_id))
-            assert user.storage_bytes == len(body.encode())
+            revision_bytes = db.scalar(select(func.coalesce(func.sum(ArtifactRevision.size), 0)).where(ArtifactRevision.user_id == user_id))
+            assert user.storage_bytes == len(body.encode()) + revision_bytes
+            assert len(db.scalars(select(ArtifactRevision).where(ArtifactRevision.user_id == user_id)).all()) == 2
     finally:
         with factory.begin() as db:
             db.execute(delete(User).where(User.id == user_id))
