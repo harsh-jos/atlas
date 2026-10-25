@@ -162,19 +162,27 @@ from Git and Docker build contexts.
 
 ## 4. Automatic deployment
 
-The existing workflow now has backend, frontend, and deployment jobs:
+The workflow runs backend checks, frontend checks, two parallel image builds, and a deployment job:
 
-1. Every PR/push runs backend tests against a disposable local Postgres service and runs frontend
-   lint, type-checking, and a production build. No Supabase credentials are available to these jobs.
-2. After checks pass, pushes to `main` deploy only when `GCP_DEPLOY_ENABLED=true`. Manual runs
-   from the Actions tab also require `main` and the flag. PRs never deploy.
-3. The deployment job builds both containers before authentication and before touching the live DB.
-4. Workload Identity Federation impersonates `atlas-deploy`, then pushes both images to Artifact Registry.
-5. The deployment script checks/creates its Cloud Tasks queue before touching the live database.
-   Missing API/IAM setup stops here. It then applies all pending Alembic revisions from the GitHub
-   runner against Supabase. No manual SQL or Cloud Run migration job is required.
-6. The API deploys, then the web service. The script discovers service URLs and sets `ATLAS_API_URL`
-   and `APP_URL`. Migration/API failures prevent later rollout steps. Production deployments are serialized.
+1. Every PR/push runs backend tests against disposable Postgres, frontend checks, and a two-entry
+   Docker Buildx matrix (`api` and `web`) in parallel. Each image has a separate GitHub Actions
+   cache v2 scope (`atlas-api`, `atlas-web`) with intermediate layers retained. The first build
+   is cold; later builds reuse unchanged dependencies. Cache export failure does not block rollout.
+2. Only main-branch push/manual runs with `GCP_DEPLOY_ENABLED=true` authenticate and publish
+   images. PR builds have no GCP authentication, registry writes, runtime YAML or database secrets.
+   Short-lived publishing credentials are excluded from both Docker contexts by `.dockerignore`.
+3. Release tags use commit SHA plus workflow run ID. A failed deployment can be rerun without
+   rebuilding/tagging images for a new attempt. Builds can publish before checks finish, but
+   deployment waits for backend, frontend and both image jobs to succeed.
+4. The serialized deployment job prepares the runtime YAML, authenticates, and checks/creates
+   its Cloud Tasks queue before touching the live database. Missing prerequisites stop here.
+5. Existing service URLs are read before rollout. For an initial deployment, the documented
+   deterministic `https://SERVICE-PROJECT_NUMBER.REGION.run.app` URL is used. A private temporary
+   copy of each runtime YAML includes its final URLs and task settings; original files are unchanged.
+6. All pending Alembic revisions run against Supabase from the GitHub runner before rollout.
+   Then the API and web service each deploy exactly once with the complete environment. There
+   are no post-deployment environment updates or extra configuration revisions. The temporary
+   copies are owner-readable only and removed on script exit.
 
 A failed migration stops rollout. Schema changes still need to be compatible with the previous
 service revision during rollout. Source code is trusted on `main`; use PR review/branch protection
@@ -185,7 +193,7 @@ After the first deployment, set Supabase's Site URL to the web URL and add the e
 `WEB_URL/auth/callback` redirect URL. Keep `http://localhost:3000/auth/callback` for local testing.
 Later deployments retain the same Cloud Run service URLs. Cloud Run's API health endpoints are
 public; data routes require a valid user token. Next.js forwards credentials and unbuffered SSE
-server-side. The first web deployment is briefly unconfigured until its discovered URLs are applied.
+server-side. Both services receive their URLs and full environment in their first deployed revision.
 
 ### Manual fallback
 
@@ -202,7 +210,8 @@ bash deploy/cloud-run.sh
 ```
 
 The caller needs equivalent deployment permissions. For prebuilt images, set both `API_IMAGE`
-and `WEB_IMAGE`; the script then skips local building/pushing. Local env files and hosted secrets
+and `WEB_IMAGE`; the script then skips local building/pushing. Without prebuilt images, the manual fallback builds
+and pushes the API and web images in parallel and waits for both before migrations. Local env files and hosted secrets
 are never read by the PR test fixtures.
 
 ## Defaults and trade-offs

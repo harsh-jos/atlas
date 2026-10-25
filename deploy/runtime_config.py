@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -67,11 +68,50 @@ def migrate(backend: dict[str, str]) -> int:
     ).returncode
 
 
+def https_origin(value: str) -> str:
+    parsed = urlsplit(value)
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.path not in ("", "/") or parsed.query or parsed.fragment):
+        raise ValueError("Deployment URLs must be HTTPS origins")
+    return value.rstrip("/")
+
+
+def render_deployment(directory: Path) -> None:
+    """Merge discovered URLs into private copies; never print or mutate runtime secrets."""
+    directory = directory.resolve()
+    if directory.is_relative_to(ROOT):
+        raise ValueError("Rendered runtime configuration must be outside the build context")
+    backend = configuration()
+    web = load_config("WEB_ENV_FILE", {"AUTH_PROVIDER", "SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY"})
+    api_url = https_origin(os.environ["ATLAS_RESOLVED_API_URL"])
+    web_url = https_origin(os.environ.get("PUBLIC_APP_URL") or os.environ["ATLAS_RESOLVED_WEB_URL"])
+    backend.update({
+        "AGENT_EXECUTION_BACKEND": "cloud_tasks",
+        "AGENT_TASKS_PROJECT": os.environ["PROJECT_ID"],
+        "AGENT_TASKS_LOCATION": os.environ["REGION"],
+        "AGENT_TASKS_QUEUE": "atlas-agent",
+        "AGENT_TASKS_API_URL": api_url,
+        "AGENT_TASKS_SERVICE_ACCOUNT": os.environ["RUNTIME_SERVICE_ACCOUNT"],
+    })
+    web.update({"ATLAS_API_URL": api_url, "APP_URL": web_url})
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    directory.chmod(0o700)
+    for name, config in (("backend.yaml", backend), ("web.yaml", web)):
+        # Exclusive creation and owner-only permissions also protect manual deployment use.
+        with os.fdopen(os.open(directory / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as file:
+            yaml.safe_dump(config, file, sort_keys=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--validate", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--validate", action="store_true")
+    mode.add_argument("--render-dir", type=Path)
     args = parser.parse_args()
     try:
+        if args.render_dir:
+            render_deployment(args.render_dir)
+            return 0
         backend = configuration()
     except (KeyError, ValueError, OSError, yaml.YAMLError) as error:
         # YAML parser errors may contain source snippets, so never print their contents.

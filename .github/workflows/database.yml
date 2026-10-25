@@ -62,8 +62,72 @@ jobs:
       - run: node --test tests/*.test.mjs
       - run: npm run build
 
+  images:
+    name: image (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            context: backend
+          - image: web
+            context: .
+    env:
+      PUBLISH_IMAGES: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.GCP_DEPLOY_ENABLED == 'true' }}
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select release image tag
+        id: image
+        env:
+          IMAGE_NAME: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          # run_id remains stable when only a failed deployment job is rerun.
+          if [[ "$PUBLISH_IMAGES" == "true" ]]; then
+            : "${PROJECT_ID:?Set GCP_PROJECT_ID}"
+            : "${REGION:?Set GCP_REGION}"
+            TAG="${REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/${IMAGE_NAME}:${GITHUB_SHA}-${GITHUB_RUN_ID}"
+          else
+            TAG="atlas-${IMAGE_NAME}:ci-${GITHUB_SHA}"
+          fi
+          printf 'tag=%s\n' "$TAG" >> "$GITHUB_OUTPUT"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Authenticate image publishing on main only
+        if: env.PUBLISH_IMAGES == 'true'
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - name: Log in to Artifact Registry
+        if: env.PUBLISH_IMAGES == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ vars.GCP_REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+      - name: Build and optionally publish ${{ matrix.image }}
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64
+          push: ${{ env.PUBLISH_IMAGES == 'true' }}
+          tags: ${{ steps.image.outputs.tag }}
+          cache-from: type=gha,scope=atlas-${{ matrix.image }},version=2
+          cache-to: type=gha,scope=atlas-${{ matrix.image }},version=2,mode=max,ignore-error=true,timeout=2m
+
   deploy:
-    needs: [database, frontend]
+    needs: [database, frontend, images]
     if: >-
       github.ref == 'refs/heads/main' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
@@ -81,6 +145,8 @@ jobs:
       REGION: ${{ vars.GCP_REGION }}
       RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
       PUBLIC_APP_URL: ${{ vars.ATLAS_PUBLIC_APP_URL }}
+      API_IMAGE: ${{ format('{0}-docker.pkg.dev/{1}/atlas/api:{2}-{3}', vars.GCP_REGION, vars.GCP_PROJECT_ID, github.sha, github.run_id) }}
+      WEB_IMAGE: ${{ format('{0}-docker.pkg.dev/{1}/atlas/web:{2}-{3}', vars.GCP_REGION, vars.GCP_PROJECT_ID, github.sha, github.run_id) }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -101,16 +167,6 @@ jobs:
           printf '%s' "$BACKEND_CONFIGURATION" > "$BACKEND_ENV_FILE"
           printf '%s' "$WEB_CONFIGURATION" > "$WEB_ENV_FILE"
           backend/.venv/bin/python deploy/runtime_config.py --validate
-      - name: Build containers before authentication and migrations
-        run: |
-          set -euo pipefail
-          : "${PROJECT_ID:?Set GCP_PROJECT_ID}"
-          : "${REGION:?Set GCP_REGION}"
-          API_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/api:${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}"
-          WEB_IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/atlas/web:${GITHUB_SHA}-${GITHUB_RUN_ATTEMPT}"
-          docker build -t "$API_IMAGE" backend
-          docker build -t "$WEB_IMAGE" .
-          printf 'API_IMAGE=%s\nWEB_IMAGE=%s\n' "$API_IMAGE" "$WEB_IMAGE" >> "$GITHUB_ENV"
       - name: Authenticate with short-lived Google credentials
         uses: google-github-actions/auth@v3
         with:
@@ -119,11 +175,6 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
           token_format: access_token
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Publish containers
-        run: |
-          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
-          docker push "$API_IMAGE"
-          docker push "$WEB_IMAGE"
       - name: Migrate and deploy
         run: bash deploy/cloud-run.sh
       - name: Remove runtime configuration
