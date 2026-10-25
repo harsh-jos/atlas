@@ -93,6 +93,7 @@ class Asset(OwnedRecord):
 
     file_name: Mapped[str] = mapped_column(String(255))
     mime_type: Mapped[str] = mapped_column(String(127))
+    meta: Mapped[dict | None] = mapped_column("metadata", JSON().with_variant(JSONB(), "postgresql"))
     size: Mapped[int]
 
 
@@ -236,6 +237,7 @@ class AgentRequest(OwnedRecord):
     # A subset of input_tokens. NULL means the provider did not report cache usage.
     cached_input_tokens: Mapped[int | None] = mapped_column(BigInteger)
     output_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
+    output_image_tokens: Mapped[int] = mapped_column(BigInteger, default=0, server_default=text("0"))
     thought_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     search_queries: Mapped[int] = mapped_column(default=0)

@@ -49,7 +49,7 @@ async def run_turn(
         raise AgentUnavailable("the agent is not configured: set VERTEX_PROJECT")
 
     limits = RequestLimits(UsageStore(get_session_scope(), user_id, session_id), get_settings(), turn_id)
-    agent = build_agent(build_toolkit(get_session_scope(), user_id, on_event=on_event), limits, model)
+    agent = build_agent(build_toolkit(get_session_scope(), user_id, session_id=session_id, turn_id=turn_id or "", on_event=on_event), limits, model)
     def load_preferences():
         with get_session_scope()() as db:
             current = preferences(db, user_id)

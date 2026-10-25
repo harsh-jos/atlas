@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import and_, case, func, select
 
-from app.agent.pricing import estimate_cost, token_rates
+from app.agent.pricing import image_output_rate, estimate_cost, token_rates
 from app.core.config import Settings
 from app.db.base import SessionScope
 from app.db.models import AgentRequest, User
@@ -116,13 +116,19 @@ class UsageStore:
                 row.estimated_cost_microusd = estimate_cost(
                     rates,
                     row.input_tokens,
-                    row.output_tokens,
+                    row.output_tokens - row.output_image_tokens,
                     row.thought_tokens,
-                    row.total_tokens,
+                    row.total_tokens - row.output_image_tokens,
                     row.search_queries if row.research else 0,
                     cached_input_tokens=row.cached_input_tokens or 0,
                     cached_input_rate=rates[0] // (20 if row.model == "gemini-4-argon" else 10),
                 )
+                if row.output_image_tokens:
+                    image_rate = image_output_rate(row.model, settings.vertex_location)
+                    if image_rate is None or row.estimated_cost_microusd is None:
+                        row.estimated_cost_microusd = None
+                    else:
+                        row.estimated_cost_microusd += (row.output_image_tokens * image_rate + 999_999) // 1_000_000
 
     def account_summary(self, settings: Settings) -> dict:
         totals = UsageStore(self.scope, self.user_id).totals()

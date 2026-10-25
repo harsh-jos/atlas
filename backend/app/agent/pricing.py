@@ -18,6 +18,10 @@ def token_rates(model: str, location: str, day: date) -> tuple[int, int] | None:
         input_rate, output_rate = (750_000, 3_750_000)
         if day >= date(2027, 1, 1):
             input_rate, output_rate = (1_500_000, 7_500_000)
+    elif model == "gemini-3.1-flash-image":
+        input_rate, output_rate = (500_000, 3_000_000)
+    elif model == "gemini-nano-banana-2.1":
+        input_rate, output_rate = (1_500_000, 7_500_000)
     else:
         return None
     if location != "global":
@@ -49,3 +53,9 @@ def estimate_cost(
         + remainder * max(rates)
     )
     return (numerator + 999_999) // 1_000_000 + search_queries * 14_000
+
+
+def image_output_rate(model: str, location: str) -> int | None:
+    """Published Vertex image token rates checked 2026-10-25; see module source URL."""
+    rate = {"gemini-3.1-flash-image": 60_000_000, "gemini-nano-banana-2.1": 30_000_000}.get(model)
+    return rate * 11 // 10 if rate and location != "global" else rate

@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     agent_app_name: str = "atlas"
     agent_extraction_model: str = "gemini-3.8-flash"
     agent_enrichment_enabled: bool = True
+    agent_image_model: str = "gemini-3.1-flash-image"
+    agent_image_review_model: str = "gemini-3.8-flash"
+    agent_max_images_per_turn: int = Field(default=2, ge=0, le=2)
+    agent_image_timeout_seconds: int = Field(default=150, ge=10, le=300)
 
     # Loop guards, not lesson-length targets. Both guide and research calls count.
     agent_max_calls_per_turn: int = Field(default=12, ge=1, le=100)

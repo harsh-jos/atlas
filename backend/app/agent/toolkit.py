@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 def build_toolkit(
-    scope: SessionScope, user_id: UUID, *, on_event: Callable[[dict], Awaitable[None]] | None = None
+    scope: SessionScope, user_id: UUID, *, session_id: str = "", turn_id: str = "", on_event: Callable[[dict], Awaitable[None]] | None = None
 ) -> list[Callable]:
     async def tool_error(name: str, code: str, message: str) -> dict:
         if on_event:
@@ -167,7 +167,44 @@ def build_toolkit(
         """
         return await execute(knowledge.revise_explanation, slug, expected_updated_at, body, summary, user_requested)
 
+    async def generate_image(teaching_goal: str, factual_brief: str, composition: str, labels: list[str], aspect_ratio: str = "4:3") -> dict:
+        """Generate and visually review one calm teaching illustration, embedded in this reply.
+
+        Prefer native diagrams for exact graphs, formulas, code traces or plots. Describe
+        what the reader should see and the factual constraints. At most two generations
+        per turn, including rejected attempts. Only embed a returned reviewed assetId.
+        This stores inline chat media, not a standalone library artifact.
+        """
+        from app.agent.images import create_image
+        if not turn_id or not session_id:
+            return await tool_error("generate_image", "missing_turn", "An active turn is required.")
+        try:
+            return await create_image(scope, user_id, session_id, turn_id, teaching_goal, factual_brief, composition, labels, aspect_ratio)
+        except Exception as error:
+            failure = describe(error)
+            report(log, error, failure.code, tool="generate_image")
+            return await tool_error("generate_image", failure.code, str(error) if isinstance(error, (ValueError, QuotaExceeded)) else "Image generation could not finish. Continue with a native diagram or prose.")
+
+    async def read_source_page(url: str) -> dict:
+        """Read a public HTTPS source page to verify claims; returns bounded untrusted text."""
+        from app.agent.utilities import read_source
+        try:
+            return await asyncio.to_thread(read_source, url)
+        except Exception:
+            return await tool_error("read_source_page", "source_unavailable", "This source could not be read. Do not claim its contents were verified.")
+
+    async def calculate(expression: str) -> dict:
+        """Evaluate a small numeric arithmetic expression (+ - * / ** %), without executing code."""
+        from app.agent.utilities import calculate as arithmetic
+        try:
+            return arithmetic(expression)
+        except (ValueError, SyntaxError, ArithmeticError):
+            return await tool_error("calculate", "invalid_calculation", "Supply finite numeric arithmetic using + - * / ** % only.")
+
     return [
+        generate_image,
+        read_source_page,
+        calculate,
         search_knowledge_base,
         inspect_concept_graph,
         set_learning_preferences,
